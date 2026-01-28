@@ -1,10 +1,6 @@
-# Arch + Hyprland Personal Bootstrap Plan
+# Hashiru — Arch + Hyprland Bootstrap Plan
 
-This is a blueprint for a **minimal, opinionated, ready-to-go Arch Linux + Hyprland workstation** for personal machines (ThinkPad T14s, P43s, or other desktops).
-
-> Goal: From fresh Arch ISO → fully functional Hyprland desktop, terminal, shell, and dev environment, **ready in ~10 minutes**. Optional apps installed after system verification.
-
-> Project name: Hashiru (走る)
+> **Goal:** Fresh Arch ISO → fully functional Hyprland desktop in ~10 minutes.
 
 ---
 
@@ -13,55 +9,80 @@ This is a blueprint for a **minimal, opinionated, ready-to-go Arch Linux + Hyprl
 - ThinkPad T14s (Intel/AMD)
 - ThinkPad P43s
 - Personal desktop(s)
-- Known hardware only → hardcode configs, no portability concerns.
+
+Known hardware only — hardcode configs, no portability concerns.
 
 ---
 
 ## 2. Installation Strategy
 
-- Use `archinstall` minimally:
-  - Filesystem: **btrfs**
-    - Subvolumes: `@`, `@home`, `@pkg`, `@snapshots`
-  - Bootloader: `systemd-boot`
-  - NetworkManager
-  - Minimal packages only
-- Do not install Hyprland yet — focus on a correct, bare system.
+### Pre-bootstrap (archinstall)
+
+Use `archinstall` with minimal options:
+
+- **Filesystem:** btrfs
+  - Subvolumes: `@`, `@home`, `@pkg`, `@snapshots`
+- **Bootloader:** systemd-boot
+- **Network:** NetworkManager
+- **Packages:** base, base-devel, git, networkmanager
+
+Do **not** install Hyprland via archinstall — Hashiru handles that.
+
+### Getting Hashiru
+
+After first reboot into the base system:
+
+```bash
+git clone https://github.com/whleucka/hashiru.git
+cd hashiru
+./install.sh
+```
 
 ---
 
-## 3. Bootstrap Repository Structure
+## 3. Repository Structure
 
 ```
-arch-hypr-doom/
-├── install.sh           # Single entry point
+hashiru/
+├── install.sh              # Entry point, orchestrates everything
+├── lib/
+│   └── common.sh           # Shared functions, logging, error handling
 ├── pacman/
 │   ├── base.txt
+│   ├── aur.txt             # AUR helper + AUR-only packages
 │   ├── wayland.txt
 │   ├── terminal.txt
 │   ├── fonts.txt
-│   └── dev.txt          # Optional, explicit install
+│   └── dev.txt             # Optional, explicit install
 ├── config/
 │   ├── environment.d/
+│   ├── snapper/
 │   ├── sysctl/
 │   └── udev/
 ├── hypr/
 │   └── hyprland.conf
 └── scripts/
     ├── 10-base.sh
-    ├── 20-desktop.sh
-    ├── 30-hyprland.sh
-    ├── 40-dotfiles.sh
+    ├── 20-aur.sh
+    ├── 30-desktop.sh
+    ├── 40-hyprland.sh
+    ├── 50-snapper.sh
+    ├── 60-dotfiles.sh
     └── 99-reboot.sh
 ```
 
-- All scripts are **idempotent** and log their actions.
-- `install.sh` orchestrates the layers.
+### Script Requirements
+
+- All scripts are **idempotent** — safe to re-run
+- All scripts log to `~/.local/share/hashiru/install.log`
+- Scripts exit non-zero on failure; `install.sh` halts on first error
+- No automatic rollback — fix and re-run
 
 ---
 
 ## 4. Package Layers
 
-### 🔹 Base System (`pacman/base.txt`)
+### Base System (`pacman/base.txt`)
 
 ```
 base
@@ -69,9 +90,12 @@ base-devel
 linux
 linux-firmware
 amd-ucode
+intel-ucode
 btrfs-progs
 efibootmgr
+git
 snapper
+snap-pac
 zram-generator
 networkmanager
 wireless-regdb
@@ -81,10 +105,18 @@ sof-firmware
 power-profiles-daemon
 fwupd
 ufw
-ufw-docker
 ```
 
-### 🔹 Wayland + Hyprland (`pacman/wayland.txt`)
+### AUR Bootstrap (`pacman/aur.txt`)
+
+```
+# AUR helper (installed via makepkg first)
+paru-bin
+
+# AUR-only packages
+```
+
+### Wayland + Hyprland (`pacman/wayland.txt`)
 
 ```
 hyprland
@@ -100,6 +132,7 @@ grim
 slurp
 mako
 waybar
+tofi
 hypridle
 hyprlock
 hyprpicker
@@ -107,9 +140,13 @@ brightnessctl
 pamixer
 playerctl
 qt5-wayland
+qt6-wayland
+thunar
+thunar-volman
+gvfs
 ```
 
-### 🔹 Terminal + Shell (`pacman/terminal.txt`)
+### Terminal + Shell (`pacman/terminal.txt`)
 
 ```
 kitty
@@ -124,9 +161,10 @@ ripgrep
 fd
 less
 man-db
+stow
 ```
 
-### 🔹 Fonts + Visuals (`pacman/fonts.txt`)
+### Fonts + Visuals (`pacman/fonts.txt`)
 
 ```
 noto-fonts
@@ -134,13 +172,12 @@ noto-fonts-cjk
 noto-fonts-emoji
 ttf-jetbrains-mono-nerd
 ttf-cascadia-mono-nerd
-yaru-icon-theme
+papirus-icon-theme
 ```
 
-### 🔹 Development (optional, explicit) (`pacman/dev.txt`)
+### Development — optional (`pacman/dev.txt`)
 
 ```
-git
 github-cli
 neovim
 lua-language-server
@@ -159,81 +196,103 @@ mise
 python-pynvim
 ```
 
-> Optional apps (Steam, Gimp, LibreOffice, OBS, RetroArch, etc.) installed **after system verification**.
+> Optional apps (Firefox, Steam, Gimp, LibreOffice, OBS, etc.) installed **after system verification**.
 
 ---
 
 ## 5. Environment Variables
 
-- Managed globally in `~/.config/environment.d/10-core.conf`
+Managed globally via systemd user environment:
+
+**`~/.config/environment.d/10-hashiru.conf`**
 
 ```ini
 EDITOR=nvim
 TERMINAL=kitty
 BROWSER=firefox
 XDG_SESSION_TYPE=wayland
+QT_QPA_PLATFORM=wayland
+MOZ_ENABLE_WAYLAND=1
 ```
 
-- Shell configs are for aliases and user preference only.
+Shell configs (`.zshrc`) are for aliases and interactive preferences only.
 
 ---
 
-## 6. Hyprland Configuration
+## 6. Snapper Configuration
 
-- Hardcode for known hardware:
-  - Monitor layout
-  - Keyboard layout
-  - Touchpad behavior
-  - Power management
-  - Keybinds
-- No dynamic detection — maintain opinionated defaults.
+Enable automatic btrfs snapshots:
+
+1. Create snapper config for root: `snapper -c root create-config /`
+2. Enable timeline snapshots in `/etc/snapper/configs/root`
+3. `snap-pac` hooks create snapshots on every pacman transaction
+4. Boot into snapshots via `grub-btrfs` (optional, requires GRUB)
+
+Snapper config lives in `config/snapper/root` and is deployed by `50-snapper.sh`.
 
 ---
 
-## 7. Dotfiles Management
+## 7. Hyprland Configuration
 
-- Clone personal dotfiles to `~/.dotfiles`
-- Use GNU Stow aggressively:
+Hardcoded for known hardware:
+
+- Monitor layout (per-machine)
+- Keyboard layout (us)
+- Touchpad (tap-to-click, natural scroll)
+- Idle/lock behavior (hypridle + hyprlock)
+- Keybinds (Super as mod key)
+
+No dynamic detection — opinionated defaults only.
+
+---
+
+## 8. Dotfiles Management
 
 ```bash
+git clone https://github.com/whleucka/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
 stow */
 ```
 
-- Fail loudly if conflicts occur.
-- Ensure core packages exist before stowing.
+- GNU Stow symlinks configs into place
+- Conflicts fail loudly — resolve manually
+- Core packages must be installed before stowing (handled by script order)
 
 ---
 
-## 8. Verification Steps
+## 9. Verification
 
-Before reboot:
+Run before reboot:
 
-- `Hyprland --version`
-- `echo $PATH`
-- `nvim +checkhealth`
-- `systemctl --user status pipewire`
-- `loginctl show-session $XDG_SESSION_ID`
+```bash
+Hyprland --version
+systemctl --user status pipewire wireplumber
+snapper list
+echo $EDITOR $TERMINAL
+```
 
-Reboot once all checks pass.
-
----
-
-## 9. Post-install Optional Apps
-
-- Dev tools beyond bootstrap (`VS Code`, `IntelliJ`, `Poetry`, etc.)
-- Media / gaming software
-- Retro emulators / content
-
-Install **after system verification** — ensures base system is solid.
+Reboot only after all checks pass.
 
 ---
 
-## 10. Goals & Notes
+## 10. Post-Install (Manual)
 
-- Fully functional, minimal, good-looking Hyprland system.
-- Ready to go in ~10 minutes from fresh Arch ISO.
-- Single-user, known-hardware focus.
-- Everything reproducible, idempotent, and auditable.
-- Opinionated defaults — the system bends to your taste, not generality.
+After system verification, install as needed:
 
+- **Browser:** Firefox, Chromium
+- **Media:** mpv, Gimp, OBS
+- **Gaming:** Steam, Lutris, RetroArch
+- **Office:** LibreOffice
+- **Dev extras:** VS Code, JetBrains IDEs
+
+These are intentionally not automated — preferences change.
+
+---
+
+## 11. Principles
+
+- **Fast:** ~10 minutes from ISO to desktop
+- **Reproducible:** Same result every time
+- **Idempotent:** Safe to re-run any script
+- **Minimal:** No bloat, no magic
+- **Opinionated:** Built for me, not everyone
