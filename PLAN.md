@@ -22,7 +22,7 @@ Use `archinstall` with minimal options:
 
 - **Filesystem:** btrfs
   - Subvolumes: `@`, `@home`, `@pkg`, `@snapshots`
-- **Bootloader:** systemd-boot
+- **Bootloader:** GRUB
 - **Network:** NetworkManager
 - **Packages:** base, base-devel, git, networkmanager
 
@@ -53,7 +53,8 @@ hashiru/
 │   ├── wayland.txt
 │   ├── terminal.txt
 │   ├── fonts.txt
-│   └── dev.txt             # Optional, explicit install
+│   ├── dev.txt
+│   └── apps.txt            # Default applications
 ├── config/
 │   ├── environment.d/
 │   ├── snapper/
@@ -96,6 +97,8 @@ efibootmgr
 git
 snapper
 snap-pac
+grub-btrfs
+inotify-tools
 zram-generator
 networkmanager
 wireless-regdb
@@ -114,6 +117,12 @@ ufw
 paru-bin
 
 # AUR-only packages
+oh-my-zsh-git
+hyprlauncher
+neovim-nightly-bin
+intelephense
+pyright
+resvg
 ```
 
 ### Wayland + Hyprland (`pacman/wayland.txt`)
@@ -132,7 +141,6 @@ grim
 slurp
 mako
 waybar
-tofi
 hypridle
 hyprlock
 hyprpicker
@@ -141,8 +149,6 @@ pamixer
 playerctl
 qt5-wayland
 qt6-wayland
-thunar
-thunar-volman
 gvfs
 ```
 
@@ -152,7 +158,6 @@ gvfs
 kitty
 zsh
 starship
-bash-completion
 fzf
 zoxide
 bat
@@ -162,6 +167,12 @@ fd
 less
 man-db
 stow
+yazi
+ffmpeg
+p7zip
+jq
+poppler
+imagemagick
 ```
 
 ### Fonts + Visuals (`pacman/fonts.txt`)
@@ -175,18 +186,16 @@ ttf-cascadia-mono-nerd
 papirus-icon-theme
 ```
 
-### Development — optional (`pacman/dev.txt`)
+### Development (`pacman/dev.txt`)
 
 ```
 github-cli
-neovim
 lua-language-server
 bash-language-server
-tree-sitter-cli
 clang
 llvm
 rust
-ruby
+rust-analyzer
 composer
 pnpm
 docker
@@ -196,7 +205,15 @@ mise
 python-pynvim
 ```
 
-> Optional apps (Firefox, Steam, Gimp, LibreOffice, OBS, etc.) installed **after system verification**.
+### Apps (`pacman/apps.txt`)
+
+```
+chromium
+libreoffice-fresh
+gimp
+```
+
+> Additional apps (Steam, OBS, etc.) installed manually as needed.
 
 ---
 
@@ -209,10 +226,9 @@ Managed globally via systemd user environment:
 ```ini
 EDITOR=nvim
 TERMINAL=kitty
-BROWSER=firefox
+BROWSER=chromium
 XDG_SESSION_TYPE=wayland
 QT_QPA_PLATFORM=wayland
-MOZ_ENABLE_WAYLAND=1
 ```
 
 Shell configs (`.zshrc`) are for aliases and interactive preferences only.
@@ -226,7 +242,8 @@ Enable automatic btrfs snapshots:
 1. Create snapper config for root: `snapper -c root create-config /`
 2. Enable timeline snapshots in `/etc/snapper/configs/root`
 3. `snap-pac` hooks create snapshots on every pacman transaction
-4. Boot into snapshots via `grub-btrfs` (optional, requires GRUB)
+4. Enable `grub-btrfsd.service` for automatic GRUB menu updates
+5. Snapshots appear in GRUB submenu — boot directly into any snapshot
 
 Snapper config lives in `config/snapper/root` and is deployed by `50-snapper.sh`.
 
@@ -279,10 +296,8 @@ Reboot only after all checks pass.
 
 After system verification, install as needed:
 
-- **Browser:** Firefox, Chromium
-- **Media:** mpv, Gimp, OBS
+- **Media:** mpv, OBS
 - **Gaming:** Steam, Lutris, RetroArch
-- **Office:** LibreOffice
 - **Dev extras:** VS Code, JetBrains IDEs
 
 These are intentionally not automated — preferences change.

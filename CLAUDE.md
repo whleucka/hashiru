@@ -31,7 +31,7 @@ hashiru/
 - **Terminal:** Kitty
 - **Dotfiles:** GNU Stow for symlink management
 - **Filesystem:** btrfs with snapper for snapshots
-- **Bootloader:** systemd-boot
+- **Bootloader:** GRUB (for grub-btrfs snapshot boot)
 
 ## Script Guidelines
 
