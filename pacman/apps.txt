@@ -1,0 +1,21 @@
+# Desktop applications
+
+# Browser
+chromium
+
+# Office
+libreoffice-fresh
+
+# Graphics
+gimp
+inkscape
+
+# Media
+mpv
+imv
+
+# Screenshot/recording
+obs-studio
+
+# Communication
+discord

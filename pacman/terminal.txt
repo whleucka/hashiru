@@ -1,0 +1,28 @@
+# Terminal and shell tools
+
+# Terminal emulator
+kitty
+
+# Shell
+zsh
+starship
+
+# Modern CLI tools
+fzf
+zoxide
+bat
+eza
+ripgrep
+fd
+yazi
+jq
+tree
+tldr
+
+# Dotfile management
+stow
+
+# Git
+git
+git-delta
+lazygit

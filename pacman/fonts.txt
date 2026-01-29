@@ -1,0 +1,15 @@
+# Fonts and icons
+
+# Noto family (comprehensive unicode coverage)
+noto-fonts
+noto-fonts-cjk
+noto-fonts-emoji
+noto-fonts-extra
+
+# Nerd fonts (terminal/editor icons)
+ttf-jetbrains-mono-nerd
+ttf-cascadia-mono-nerd
+ttf-firacode-nerd
+
+# Icons
+papirus-icon-theme

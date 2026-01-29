@@ -1,0 +1,50 @@
+# Wayland desktop stack
+
+# Hyprland
+hyprland
+hyprpaper
+hyprlock
+hypridle
+hyprpicker
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+
+# Audio (PipeWire)
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-jack
+wireplumber
+pavucontrol
+
+# Screen tools
+grim
+slurp
+wl-clipboard
+cliphist
+
+# Bar and launcher
+waybar
+wofi
+
+# Notifications
+mako
+
+# Qt Wayland
+qt5-wayland
+qt6-wayland
+
+# File manager
+thunar
+thunar-archive-plugin
+thunar-volman
+gvfs
+tumbler
+ffmpegthumbnailer
+
+# Polkit
+polkit-gnome
+
+# Hardware control (brightness, media keys)
+brightnessctl
+playerctl

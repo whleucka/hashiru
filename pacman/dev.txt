@@ -1,0 +1,52 @@
+# Development tools
+
+# Version control
+github-cli
+
+# Build essentials
+base-devel
+cmake
+ninja
+meson
+
+# C/C++
+clang
+llvm
+lldb
+gdb
+
+# Rust
+rustup
+
+# Python
+python
+python-pip
+python-pipx
+
+# Node (via mise, but npm fallback)
+nodejs
+npm
+
+# PHP
+php
+composer
+
+# Containers
+docker
+docker-compose
+docker-buildx
+
+# Editors
+neovim
+
+# LSPs (from official repos)
+lua-language-server
+bash-language-server
+typescript-language-server
+yaml-language-server
+taplo
+
+# Formatters
+stylua
+shfmt
+prettier

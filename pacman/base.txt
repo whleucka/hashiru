@@ -1,0 +1,43 @@
+# Base system packages
+# Kernel, firmware, microcode, btrfs, networking, power management
+
+# Kernel and firmware
+linux
+linux-headers
+linux-firmware
+fwupd
+
+# Microcode (install both, only matching CPU loads)
+intel-ucode
+amd-ucode
+
+# Filesystem
+btrfs-progs
+snapper
+snap-pac
+grub-btrfs
+
+# Networking
+networkmanager
+network-manager-applet
+bluez
+bluez-utils
+
+# Power management
+power-profiles-daemon
+tlp
+tlp-rdw
+
+# System utilities
+man-db
+man-pages
+texinfo
+wget
+curl
+unzip
+p7zip
+htop
+btop
+fastfetch
+reflector
+pacman-contrib
