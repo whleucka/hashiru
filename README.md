@@ -1,7 +1,5 @@
 # Hashiru
 
-> **Run fast. Configure nothing twice.**
-
 Hashiru is an opinionated, personal Arch Linux bootstrap designed to get *my* machines from a bare Arch ISO to a fully working Hyprland desktop in minutes — not hours, not days.
 
 This is not a distro.
@@ -26,6 +24,15 @@ The goal is simple:
 
 ---
 
+## Status
+
+🚧 **Work in progress**
+
+This project evolves as my workflow evolves.
+Breaking changes are expected.
+
+---
+
 ## Philosophy
 
 * **Opinionated by design** — this is built for *me*
@@ -33,8 +40,6 @@ The goal is simple:
 * **Reproducible** — same result every time
 * **Minimal ceremony** — no bloated abstractions
 * **Arch-native** — trust the Arch Wiki, not magic
-
-If something is annoying to configure twice, it belongs in Hashiru.
 
 ---
 
@@ -70,15 +75,6 @@ Hashiru assumes you know what you’re doing — or you’re okay fixing it if y
 * Personal desktops
 
 Hardware support is intentional and explicit.
-
----
-
-## Status
-
-🚧 **Work in progress**
-
-This project evolves as my workflow evolves.
-Breaking changes are expected.
 
 ---
 
