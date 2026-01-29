@@ -44,7 +44,7 @@ hashiru/
 | Script | Purpose |
 |--------|---------|
 | `10-base.sh` | Core packages, microcode, firmware |
-| `20-aur.sh` | Bootstrap paru, install AUR packages |
+| `20-aur.sh` | Bootstrap yay, install AUR packages |
 | `30-desktop.sh` | Wayland stack, PipeWire audio |
 | `40-hyprland.sh` | Hyprland + supporting tools |
 | `50-snapper.sh` | Snapshot config, grub-btrfs integration |
@@ -64,7 +64,7 @@ hashiru/
 | Manifest | Contents |
 |----------|----------|
 | `base.txt` | Kernel, firmware, microcode, btrfs tools, snapper, networking, power management |
-| `aur.txt` | paru-bin, oh-my-zsh-git, neovim-nightly-bin, LSPs (intelephense, pyright) |
+| `aur.txt` | yay-bin, oh-my-zsh-git, neovim-nightly-bin, LSPs (intelephense, pyright) |
 | `wayland.txt` | Hyprland, xdg-portals, PipeWire, screen tools (grim, slurp), waybar, hyprlock |
 | `terminal.txt` | kitty, zsh, starship, fzf, zoxide, bat, eza, ripgrep, fd, yazi, stow |
 | `fonts.txt` | Noto family, JetBrains Mono Nerd, Cascadia Mono Nerd, Papirus icons |

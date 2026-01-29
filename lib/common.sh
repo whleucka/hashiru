@@ -145,8 +145,8 @@ install_aur_packages() {
         return 1
     fi
 
-    if ! command -v paru &>/dev/null; then
-        log_error "paru not installed — run 20-aur.sh first"
+    if ! command -v yay &>/dev/null; then
+        log_error "yay not installed — run 20-aur.sh first"
         return 1
     fi
 
@@ -164,7 +164,7 @@ install_aur_packages() {
     fi
 
     log_info "Installing ${#packages[@]} AUR packages from ${manifest}"
-    paru -S --needed --noconfirm "${packages[@]}"
+    yay -S --needed --noconfirm "${packages[@]}"
     log_success "Installed AUR packages from ${manifest}"
 }
 

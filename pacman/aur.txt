@@ -1,5 +1,5 @@
 # AUR packages
-# Requires paru (bootstrapped separately in 20-aur.sh)
+# Requires yay (bootstrapped separately in 20-aur.sh)
 
 # Shell
 oh-my-zsh-git
