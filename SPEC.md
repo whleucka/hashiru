@@ -1,6 +1,6 @@
-# Hashiru — Arch + Hyprland Bootstrap
+# Hashiru - Arch + Hyprland Bootstrap
 
-> Fresh Arch ISO → fully functional Hyprland desktop in ~10 minutes.
+> Fresh Arch ISO to fully functional Hyprland desktop in ~10 minutes.
 
 ## Principles
 
@@ -33,11 +33,12 @@ Do **not** install Hyprland — Hashiru handles that.
 hashiru/
 ├── install.sh              # Entry point orchestrator
 ├── lib/common.sh           # Logging, error handling, shared functions
-├── scripts/                # Numbered phases (10-base.sh → 99-reboot.sh)
+├── scripts/                # Numbered phases (10-base.sh to 99-reboot.sh)
 ├── pacman/                 # Package manifests (*.txt per category)
-├── config/                 # System configs (environment.d/, snapper/, sysctl/, udev/)
-└── hypr/                   # Hyprland configuration
+└── config/                 # System configs (environment.d/, snapper/, sysctl/, udev/)
 ```
+
+Hyprland and desktop configs live in the user's dotfiles repo, not here.
 
 ### Scripts
 
@@ -46,9 +47,10 @@ hashiru/
 | `10-base.sh` | Core packages, microcode, firmware |
 | `20-aur.sh` | Bootstrap yay, install AUR packages |
 | `30-desktop.sh` | Wayland stack, PipeWire audio |
-| `40-hyprland.sh` | Hyprland + supporting tools |
+| `35-zsh.sh` | Oh My Zsh, Powerlevel10k, zsh plugins |
+| `40-hyprland.sh` | Hyprland environment setup |
 | `50-snapper.sh` | Snapshot config, grub-btrfs integration |
-| `60-dotfiles.sh` | Clone and stow dotfiles |
+| `60-dotfiles.sh` | Clone and stow dotfiles from GitHub |
 | `99-reboot.sh` | Final verification, prompt reboot |
 
 **Requirements:**
@@ -64,9 +66,9 @@ hashiru/
 | Manifest | Contents |
 |----------|----------|
 | `base.txt` | Kernel, firmware, microcode, btrfs tools, snapper, networking, power management |
-| `aur.txt` | yay-bin, oh-my-zsh-git, neovim-nightly-bin, LSPs (intelephense, pyright) |
+| `aur.txt` | neovim-nightly-bin, LSPs (intelephense, pyright) |
 | `wayland.txt` | Hyprland, xdg-portals, PipeWire, screen tools (grim, slurp), waybar, hyprlock |
-| `terminal.txt` | kitty, zsh, starship, fzf, zoxide, bat, eza, ripgrep, fd, yazi, stow |
+| `terminal.txt` | kitty, zsh, fzf, zoxide, bat, eza, ripgrep, fd, yazi, stow |
 | `fonts.txt` | Noto family, JetBrains Mono Nerd, Cascadia Mono Nerd, Papirus icons |
 | `dev.txt` | github-cli, LSPs, clang/llvm, rust, docker, mise, pnpm, composer |
 | `apps.txt` | chromium, libreoffice-fresh, gimp |
@@ -90,7 +92,7 @@ QT_QPA_PLATFORM=wayland
 
 **Hyprland:** Hardcoded monitor layouts, US keyboard, touchpad gestures, Super as mod.
 
-**Dotfiles:** `git clone` → `stow */` — conflicts fail loudly.
+**Dotfiles:** Cloned from `https://github.com/whleucka/dotfiles.git` to `~/.dotfiles`, then stowed to home. Conflicts fail loudly.
 
 ---
 

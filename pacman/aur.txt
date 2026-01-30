@@ -1,9 +1,6 @@
 # AUR packages
 # Requires yay (bootstrapped separately in 20-aur.sh)
 
-# Shell
-oh-my-zsh-git
-
 # Editor
 neovim-nightly-bin
 

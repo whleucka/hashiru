@@ -1,115 +1,23 @@
 #!/usr/bin/env bash
-# 40-hyprland.sh — Hyprland configuration
+# 40-hyprland.sh — Hyprland environment setup
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
 script_start "40-hyprland.sh"
 
-# Hyprland packages already installed via wayland.txt
-# This script sets up the configuration
-
-HYPR_CONFIG_DIR="${HOME}/.config/hypr"
-ensure_dir "${HYPR_CONFIG_DIR}"
+# Hyprland packages installed via wayland.txt
+# Configuration comes from dotfiles (60-dotfiles.sh)
 
 # Create Screenshots directory for grim
 ensure_dir "${HOME}/Pictures/Screenshots"
 
-# Copy Hyprland config if we have one and user doesn't
-if [[ -d "${SCRIPT_DIR}/hypr" ]] && [[ ! -f "${HYPR_CONFIG_DIR}/hyprland.conf" ]]; then
-    log_info "Installing Hyprland configuration"
-    cp -r "${SCRIPT_DIR}/hypr/"* "${HYPR_CONFIG_DIR}/"
-    log_success "Hyprland configuration installed"
-elif [[ -f "${HYPR_CONFIG_DIR}/hyprland.conf" ]]; then
-    log_info "Hyprland configuration already exists, skipping"
+# Verify config exists (should be stowed from dotfiles)
+HYPR_CONFIG_DIR="${HOME}/.config/hypr"
+if [[ -f "${HYPR_CONFIG_DIR}/hyprland.conf" ]]; then
+    log_success "Hyprland configuration found"
 else
-    log_warn "No Hyprland config in repo and none exists — you'll need to configure manually"
-fi
-
-# Install waybar configuration
-WAYBAR_CONFIG_DIR="${HOME}/.config/waybar"
-if [[ -d "${SCRIPT_DIR}/waybar" ]] && [[ ! -f "${WAYBAR_CONFIG_DIR}/config.jsonc" ]]; then
-    log_info "Installing waybar configuration"
-    ensure_dir "${WAYBAR_CONFIG_DIR}"
-    cp -r "${SCRIPT_DIR}/waybar/"* "${WAYBAR_CONFIG_DIR}/"
-    log_success "Waybar configuration installed"
-elif [[ -f "${WAYBAR_CONFIG_DIR}/config.jsonc" ]]; then
-    log_info "Waybar configuration already exists, skipping"
-fi
-
-# Install fuzzel configuration
-FUZZEL_CONFIG_DIR="${HOME}/.config/fuzzel"
-if [[ -d "${SCRIPT_DIR}/fuzzel" ]] && [[ ! -f "${FUZZEL_CONFIG_DIR}/fuzzel.ini" ]]; then
-    log_info "Installing fuzzel configuration"
-    ensure_dir "${FUZZEL_CONFIG_DIR}"
-    cp -r "${SCRIPT_DIR}/fuzzel/"* "${FUZZEL_CONFIG_DIR}/"
-    log_success "Fuzzel configuration installed"
-elif [[ -f "${FUZZEL_CONFIG_DIR}/fuzzel.ini" ]]; then
-    log_info "Fuzzel configuration already exists, skipping"
-fi
-
-# Ensure hypridle and hyprlock configs exist
-if [[ ! -f "${HYPR_CONFIG_DIR}/hypridle.conf" ]]; then
-    log_info "Creating default hypridle configuration"
-    cat > "${HYPR_CONFIG_DIR}/hypridle.conf" << 'EOF'
-general {
-    lock_cmd = pidof hyprlock || hyprlock
-    before_sleep_cmd = loginctl lock-session
-    after_sleep_cmd = hyprctl dispatch dpms on
-}
-
-listener {
-    timeout = 300
-    on-timeout = brightnessctl -s set 10
-    on-resume = brightnessctl -r
-}
-
-listener {
-    timeout = 600
-    on-timeout = loginctl lock-session
-}
-
-listener {
-    timeout = 660
-    on-timeout = hyprctl dispatch dpms off
-    on-resume = hyprctl dispatch dpms on
-}
-
-listener {
-    timeout = 1800
-    on-timeout = systemctl suspend
-}
-EOF
-fi
-
-if [[ ! -f "${HYPR_CONFIG_DIR}/hyprlock.conf" ]]; then
-    log_info "Creating default hyprlock configuration"
-    cat > "${HYPR_CONFIG_DIR}/hyprlock.conf" << 'EOF'
-background {
-    monitor =
-    path = screenshot
-    blur_passes = 3
-    blur_size = 8
-}
-
-input-field {
-    monitor =
-    size = 200, 50
-    outline_thickness = 3
-    dots_size = 0.33
-    dots_spacing = 0.15
-    dots_center = false
-    outer_color = rgb(151515)
-    inner_color = rgb(200, 200, 200)
-    font_color = rgb(10, 10, 10)
-    fade_on_empty = true
-    placeholder_text = <i>Password...</i>
-    hide_input = false
-    position = 0, -20
-    halign = center
-    valign = center
-}
-EOF
+    log_warn "No Hyprland config found — ensure dotfiles are stowed (60-dotfiles.sh)"
 fi
 
 script_end "40-hyprland.sh"

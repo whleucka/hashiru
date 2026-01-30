@@ -27,7 +27,7 @@ hashiru/
 - **Display:** Wayland only (no X11)
 - **Window Manager:** Hyprland
 - **Audio:** PipeWire + WirePlumber (not PulseAudio)
-- **Shell:** Zsh with Starship prompt
+- **Shell:** Zsh
 - **Terminal:** Kitty
 - **Dotfiles:** GNU Stow for symlink management
 - **Filesystem:** btrfs with snapper for snapshots
@@ -40,6 +40,8 @@ hashiru/
 - No interactive prompts — customization happens in code
 - Hardcode configs for known hardware (ThinkPad T14s, P43s, personal desktops)
 - Log all operations to the central log file
+- Always update the SPEC.md when the requirements or shape of the project
+  changes.
 
 ## Verification Commands
 
