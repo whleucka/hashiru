@@ -18,16 +18,10 @@ enable_and_start_service "NetworkManager"
 enable_and_start_service "bluetooth"
 enable_service "fstrim.timer"
 
-# Power management: use power-profiles-daemon OR tlp, not both
-# TLP is better for ThinkPads
-if is_pkg_installed "tlp"; then
-    # Disable power-profiles-daemon if present (conflicts with TLP)
-    if is_service_enabled "power-profiles-daemon"; then
-        sudo systemctl disable --now power-profiles-daemon || true
-    fi
-    enable_and_start_service "tlp"
-    log_info "Using TLP for power management"
-fi
+# Power management: TLP for ThinkPads
+# Mask power-profiles-daemon to prevent conflicts if installed as dependency
+sudo systemctl mask power-profiles-daemon &>/dev/null || true
+enable_and_start_service "tlp"
 
 # Enable reflector timer for weekly mirrorlist updates
 enable_service "reflector.timer"

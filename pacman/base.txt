@@ -23,8 +23,7 @@ network-manager-applet
 bluez
 bluez-utils
 
-# Power management
-power-profiles-daemon
+# Power management (TLP for ThinkPads, conflicts with power-profiles-daemon)
 tlp
 tlp-rdw
 
