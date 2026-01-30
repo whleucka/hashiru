@@ -18,16 +18,29 @@ fi
 if [[ ! -f /etc/snapper/configs/root ]]; then
     log_info "Creating snapper configuration for root"
 
-    # Snapper expects /.snapshots to not exist when creating config
-    # but we need it to be a btrfs subvolume mounted
-    if [[ -d /.snapshots ]]; then
-        # Check if it's already properly set up
-        if findmnt /.snapshots &>/dev/null; then
-            log_info "/.snapshots already mounted"
-        fi
+    # Handle existing @snapshots subvolume from archinstall
+    # Snapper wants to create its own .snapshots subvolume, so we need to:
+    # 1. Unmount and remove /.snapshots
+    # 2. Let snapper create-config run
+    # 3. Delete snapper's subvolume, recreate mount point, remount ours
+    if findmnt /.snapshots &>/dev/null; then
+        log_info "Unmounting existing /.snapshots for snapper setup"
+        sudo umount /.snapshots
+        sudo rmdir /.snapshots
+    elif [[ -d /.snapshots ]]; then
+        sudo rmdir /.snapshots 2>/dev/null || sudo rm -rf /.snapshots
     fi
 
     sudo snapper -c root create-config /
+
+    # If @snapshots subvolume exists in fstab, use it instead of snapper's
+    if grep -q '@snapshots' /etc/fstab; then
+        log_info "Replacing snapper subvolume with @snapshots from fstab"
+        sudo btrfs subvolume delete /.snapshots
+        sudo mkdir /.snapshots
+        sudo mount /.snapshots
+    fi
+
     log_success "Snapper root config created"
 
     # Configure snapper for reasonable defaults
