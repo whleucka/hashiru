@@ -27,6 +27,9 @@ bluez-utils
 tlp
 tlp-rdw
 
+# XDG directories
+xdg-user-dirs
+
 # System utilities
 man-db
 man-pages
