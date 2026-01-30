@@ -97,8 +97,13 @@ is_service_active() {
 
 ensure_dir() {
     local dir="$1"
+    local sudo_flag="${2:-}"
     if [[ ! -d "${dir}" ]]; then
-        mkdir -p "${dir}"
+        if [[ "${sudo_flag}" == "--sudo" ]]; then
+            sudo mkdir -p "${dir}"
+        else
+            mkdir -p "${dir}"
+        fi
         log_info "Created directory: ${dir}"
     fi
 }
@@ -231,7 +236,7 @@ copy_config() {
     local dest="$2"
     local sudo_flag="${3:-}"
 
-    ensure_dir "$(dirname "${dest}")"
+    ensure_dir "$(dirname "${dest}")" "${sudo_flag}"
 
     if [[ "${sudo_flag}" == "--sudo" ]]; then
         sudo cp "${src}" "${dest}"

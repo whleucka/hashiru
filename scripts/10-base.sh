@@ -27,7 +27,7 @@ enable_and_start_service "tlp"
 enable_service "reflector.timer"
 
 # Set up pacman hooks directory
-ensure_dir "/etc/pacman.d/hooks"
+ensure_dir "/etc/pacman.d/hooks" --sudo
 
 # Install system configs
 if [[ -f "${SCRIPT_DIR}/config/sysctl.d/99-hashiru.conf" ]]; then
