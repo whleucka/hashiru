@@ -5,7 +5,6 @@ kitty
 
 # Shell
 zsh
-starship
 
 # Modern CLI tools
 fzf

@@ -41,8 +41,10 @@ window#waybar {
 
 #clock,
 #cpu,
+#memory,
 #network,
 #battery,
+#custom-weather,
 #tray {
     padding: 0 10px;
     margin: 2px 0;
@@ -54,6 +56,14 @@ window#waybar {
 
 #cpu {
     color: #7dcfff;
+}
+
+#memory {
+    color: #bb9af7;
+}
+
+#custom-weather {
+    color: #c0caf5;
 }
 
 #network {
