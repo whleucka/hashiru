@@ -2,7 +2,7 @@
 
 # Hyprland
 hyprland
-hyprpaper
+swww
 hyprlock
 hypridle
 hyprpicker
