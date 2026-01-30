@@ -26,6 +26,17 @@ else
     log_warn "No Hyprland config in repo and none exists — you'll need to configure manually"
 fi
 
+# Install waybar configuration
+WAYBAR_CONFIG_DIR="${HOME}/.config/waybar"
+if [[ -d "${SCRIPT_DIR}/waybar" ]] && [[ ! -f "${WAYBAR_CONFIG_DIR}/config.jsonc" ]]; then
+    log_info "Installing waybar configuration"
+    ensure_dir "${WAYBAR_CONFIG_DIR}"
+    cp -r "${SCRIPT_DIR}/waybar/"* "${WAYBAR_CONFIG_DIR}/"
+    log_success "Waybar configuration installed"
+elif [[ -f "${WAYBAR_CONFIG_DIR}/config.jsonc" ]]; then
+    log_info "Waybar configuration already exists, skipping"
+fi
+
 # Ensure hypridle and hyprlock configs exist
 if [[ ! -f "${HYPR_CONFIG_DIR}/hypridle.conf" ]]; then
     log_info "Creating default hypridle configuration"
