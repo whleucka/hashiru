@@ -34,6 +34,8 @@ for dir in */; do
     # Skip hidden directories and common non-stow items
     [[ "${dir}" == .* ]] && continue
     [[ "${dir}" == "README"* ]] && continue
+    [[ "${dir}" == "LICENSE"* ]] && continue
+    [[ "${dir}" == "omarchy" ]] && continue
 
     log_info "Stowing: ${dir}"
     stow --restow --target="${HOME}" "${dir}" || log_warn "Failed to stow ${dir}"
