@@ -37,6 +37,17 @@ elif [[ -f "${WAYBAR_CONFIG_DIR}/config.jsonc" ]]; then
     log_info "Waybar configuration already exists, skipping"
 fi
 
+# Install fuzzel configuration
+FUZZEL_CONFIG_DIR="${HOME}/.config/fuzzel"
+if [[ -d "${SCRIPT_DIR}/fuzzel" ]] && [[ ! -f "${FUZZEL_CONFIG_DIR}/fuzzel.ini" ]]; then
+    log_info "Installing fuzzel configuration"
+    ensure_dir "${FUZZEL_CONFIG_DIR}"
+    cp -r "${SCRIPT_DIR}/fuzzel/"* "${FUZZEL_CONFIG_DIR}/"
+    log_success "Fuzzel configuration installed"
+elif [[ -f "${FUZZEL_CONFIG_DIR}/fuzzel.ini" ]]; then
+    log_info "Fuzzel configuration already exists, skipping"
+fi
+
 # Ensure hypridle and hyprlock configs exist
 if [[ ! -f "${HYPR_CONFIG_DIR}/hypridle.conf" ]]; then
     log_info "Creating default hypridle configuration"

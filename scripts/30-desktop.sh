@@ -13,6 +13,9 @@ xdg-user-dirs-update
 # Install Wayland/desktop packages
 install_packages "wayland.txt"
 
+# Install terminal utilities
+install_packages "terminal.txt"
+
 # Install fonts
 install_packages "fonts.txt"
 

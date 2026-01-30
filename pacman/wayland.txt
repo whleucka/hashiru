@@ -25,7 +25,7 @@ cliphist
 
 # Bar and launcher
 waybar
-wofi
+fuzzel
 
 # Notifications
 mako

@@ -8,8 +8,7 @@ script_start "99-reboot.sh"
 
 log_info "Running final verification checks..."
 
-# Install terminal and dev packages (if not done earlier)
-install_packages "terminal.txt"
+# Install dev and app packages
 install_packages "dev.txt"
 install_packages "apps.txt"
 
