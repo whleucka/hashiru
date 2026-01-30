@@ -42,7 +42,6 @@ window#waybar {
 #clock,
 #cpu,
 #memory,
-#network,
 #battery,
 #custom-weather,
 #tray {
@@ -64,14 +63,6 @@ window#waybar {
 
 #custom-weather {
     color: #c0caf5;
-}
-
-#network {
-    color: #9ece6a;
-}
-
-#network.disconnected {
-    color: #565f89;
 }
 
 #battery {
