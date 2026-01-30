@@ -22,6 +22,7 @@ networkmanager
 network-manager-applet
 bluez
 bluez-utils
+blueman
 
 # Power management (TLP for ThinkPads, conflicts with power-profiles-daemon)
 tlp
