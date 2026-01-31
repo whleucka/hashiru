@@ -43,4 +43,11 @@ done
 
 log_success "Dotfiles stowed successfully"
 
+# Rebuild bat cache for custom themes
+if command -v bat &>/dev/null; then
+    log_info "Rebuilding bat cache for custom themes"
+    bat cache --build
+    log_success "bat cache rebuilt"
+fi
+
 script_end "60-dotfiles.sh"
