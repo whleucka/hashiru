@@ -48,3 +48,7 @@ polkit-gnome
 # Hardware control (brightness, media keys)
 brightnessctl
 playerctl
+
+# Other
+foot
+calcurse
