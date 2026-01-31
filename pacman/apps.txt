@@ -19,3 +19,6 @@ obs-studio
 
 # Communication
 discord
+
+# Tools
+gnome-calculator
