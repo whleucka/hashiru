@@ -19,6 +19,12 @@ else
     log_info "Oh My Zsh already installed"
 fi
 
+# Remove auto-generated .zshrc (dotfiles will provide the real one via stow)
+if [[ -f "${HOME}/.zshrc" && ! -L "${HOME}/.zshrc" ]]; then
+    log_info "Removing auto-generated .zshrc (dotfiles will stow the real one)"
+    rm "${HOME}/.zshrc"
+fi
+
 # Install Powerlevel10k theme
 P10K_DIR="${CUSTOM_THEMES_DIR}/powerlevel10k"
 if [[ ! -d "${P10K_DIR}" ]]; then
