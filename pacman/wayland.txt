@@ -50,5 +50,4 @@ brightnessctl
 playerctl
 
 # Other
-foot
 calcurse
