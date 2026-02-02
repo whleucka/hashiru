@@ -47,6 +47,9 @@ yaml-language-server
 nodejs-intelephense
 taplo
 
+# Treesitter
+tree-sitter-cli
+
 # Formatters
 stylua
 shfmt
