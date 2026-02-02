@@ -42,6 +42,7 @@ unzip
 p7zip
 htop
 btop
+powertop
 fastfetch
 reflector
 pacman-contrib
