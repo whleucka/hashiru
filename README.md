@@ -1,5 +1,7 @@
 # Hashiru
 
+<img width="1920" height="1200" alt="image" src="https://github.com/user-attachments/assets/08fd9348-1d05-4592-a6f5-f6703eac4f22" />
+
 Hashiru is an opinionated, personal Arch Linux bootstrap designed to get my machines from a bare Arch ISO to a fully working Hyprland desktop in minutes.
 
 This is not a distro. This is not a framework. This is a fast, reproducible way to build my Linux environment exactly the way I like it.
