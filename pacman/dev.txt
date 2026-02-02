@@ -44,6 +44,7 @@ lua-language-server
 bash-language-server
 typescript-language-server
 yaml-language-server
+nodejs-intelephense
 taplo
 
 # Formatters

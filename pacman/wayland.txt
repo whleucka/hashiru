@@ -46,6 +46,7 @@ ffmpegthumbnailer
 polkit-gnome
 
 # Hardware control (brightness, media keys)
+swayosd
 brightnessctl
 playerctl
 
