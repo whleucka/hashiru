@@ -46,3 +46,6 @@ powertop
 fastfetch
 reflector
 pacman-contrib
+
+# Remote
+sshfs
