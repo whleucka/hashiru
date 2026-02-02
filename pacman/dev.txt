@@ -26,6 +26,7 @@ python-pipx
 # Node (via mise, but npm fallback)
 nodejs
 npm
+pnpm
 
 # PHP
 php
@@ -46,9 +47,6 @@ typescript-language-server
 yaml-language-server
 nodejs-intelephense
 taplo
-
-# Treesitter
-tree-sitter-cli
 
 # Formatters
 stylua
