@@ -13,6 +13,7 @@ inkscape
 # Media
 mpv
 imv
+spotfiy
 
 # Screenshot/recording
 obs-studio

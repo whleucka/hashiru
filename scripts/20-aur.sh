@@ -29,9 +29,4 @@ fi
 # Install AUR packages
 install_aur_packages "aur.txt"
 
-# Install pnpm global packages (tree-sitter-cli v0.26+ required for neovim-nightly)
-log_info "Installing pnpm global packages"
-pnpm add -g tree-sitter-cli
-log_success "pnpm global packages installed"
-
 script_end "20-aur.sh"
