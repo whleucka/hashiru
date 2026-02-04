@@ -23,3 +23,4 @@ discord
 
 # Tools
 gnome-calculator
+bitwarden
