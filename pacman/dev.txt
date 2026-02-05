@@ -40,6 +40,11 @@ docker-buildx
 # Editors
 neovim
 
+# LLMs
+claude-code
+gemini-cli
+opencode
+
 # LSPs (from official repos)
 lua-language-server
 bash-language-server
