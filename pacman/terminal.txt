@@ -25,3 +25,4 @@ stow
 git
 git-delta
 lazygit
+lazydocker
