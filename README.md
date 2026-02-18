@@ -1,13 +1,10 @@
 # Hashiru
 
-
 <img width="1920" height="1200" alt="image" src="https://github.com/user-attachments/assets/94fcf733-6785-42cf-9537-7d416c03a3e2" />
 
 ---
 
 Hashiru is an opinionated, personal Arch Linux bootstrap designed to get my machines from a bare Arch ISO to a fully working Hyprland desktop in minutes.
-
-This is not a distro. This is not a framework. This is a fast, reproducible way to build my Linux environment exactly the way I like it.
 
 ## What is Hashiru?
 
@@ -56,14 +53,6 @@ Hashiru assumes you know what you're doing, or you're okay fixing it if you brea
 
 ## Target Machines
 
-* ThinkPad T14s
-* ThinkPad P43s
-* Personal desktops
+* ThinkPad T14s / P43s
 
 Hardware support is intentional and explicit.
-
-## Why "Hashiru"?
-
-Because speed matters. Because momentum matters. Because life's too short to reconfigure the same system twice.
-
-Run fast.
