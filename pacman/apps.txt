@@ -5,6 +5,7 @@ chromium
 
 # Office
 libreoffice-fresh
+hunspell-en_us
 
 # Graphics
 gimp
