@@ -49,3 +49,6 @@ pacman-contrib
 
 # Remote
 sshfs
+
+# Wireguard
+wireguard-tools
