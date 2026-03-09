@@ -13,7 +13,6 @@ bat
 eza
 ripgrep
 fd
-yazi
 jq
 tree
 tldr
