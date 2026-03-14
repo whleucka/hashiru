@@ -33,6 +33,7 @@ tlp-rdw
 xdg-user-dirs
 
 # System utilities
+screen
 man-db
 man-pages
 texinfo
