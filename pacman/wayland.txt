@@ -22,6 +22,7 @@ grim
 slurp
 wl-clipboard
 cliphist
+wl-screenrec
 
 # Bar and launcher
 waybar

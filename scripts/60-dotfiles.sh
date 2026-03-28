@@ -67,4 +67,16 @@ if [[ -x "${TPM_DIR}/bin/install_plugins" ]]; then
 	log_success "tmux plugins installed"
 fi
 
+# Install tmux systemd user service (stow can't merge into existing systemd dir)
+readonly TMUX_SERVICE_SRC="${DOTFILES_DIR}/tmux/.config/systemd/user/tmux.service"
+readonly TMUX_SERVICE_DST="${HOME}/.config/systemd/user/tmux.service"
+if [[ -f "${TMUX_SERVICE_SRC}" ]] && [[ ! -f "${TMUX_SERVICE_DST}" ]]; then
+	log_info "Installing tmux systemd user service"
+	ensure_dir "${HOME}/.config/systemd/user"
+	ln -sf "${TMUX_SERVICE_SRC}" "${TMUX_SERVICE_DST}"
+	systemctl --user daemon-reload
+	systemctl --user enable tmux.service
+	log_success "tmux service enabled (starts on login)"
+fi
+
 script_end "60-dotfiles.sh"
