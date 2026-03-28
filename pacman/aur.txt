@@ -1,8 +1,15 @@
 # AUR packages
 # Requires yay (bootstrapped separately in 20-aur.sh)
 
+# AUR helper
+yay-bin
+yay-bin-debug
+
 # Editor
 neovim-nightly-bin
+
+# Browser
+omarchy-chromium-bin
 
 # LSPs and dev tools
 intelephense

@@ -23,5 +23,7 @@ stow
 # Git
 git
 git-delta
+
+# TUI tools
 lazygit
 lazydocker

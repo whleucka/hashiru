@@ -18,6 +18,10 @@ gdb
 # Rust
 rustup
 
+# C libraries (graphics)
+glfw
+glm
+
 # Python
 python
 python-pip
@@ -37,9 +41,6 @@ docker
 docker-compose
 docker-buildx
 
-# Editors
-neovim
-
 # LLMs
 claude-code
 gemini-cli
@@ -52,6 +53,16 @@ typescript-language-server
 yaml-language-server
 nodejs-intelephense
 taplo
+taplo-cli
+vscode-css-languageserver
+vscode-html-languageserver
+
+# Benchmarking
+wrk
+
+# Linters
+ruff
+sqls
 
 # Formatters
 stylua

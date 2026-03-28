@@ -2,7 +2,6 @@
 
 # Hyprland
 hyprland
-swww
 hyprlock
 hypridle
 hyprpicker
@@ -28,6 +27,9 @@ wl-screenrec
 waybar
 fuzzel
 
+# Wallpaper
+awww
+
 # Notifications
 mako
 
@@ -50,6 +52,12 @@ polkit-gnome
 swayosd
 brightnessctl
 playerctl
+
+# Hyprland extras
+hyprsnow
+
+# Screen recording
+wf-recorder
 
 # Other
 calcurse

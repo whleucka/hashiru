@@ -42,13 +42,40 @@ texinfo
 wget
 curl
 unzip
-p7zip
+7zip
 htop
 btop
 powertop
 fastfetch
 reflector
 pacman-contrib
+
+# DNS
+bind
+
+# Cron
+cronie
+
+# EFI
+efibootmgr
+
+# Fingerprint
+fprintd
+
+# DNS resolver
+openresolv
+
+# Pipe viewer
+pv
+
+# TLP GUI
+tlpui
+
+# WiFi auth
+wpa_supplicant
+
+# ZRAM swap
+zram-generator
 
 # Remote
 sshfs

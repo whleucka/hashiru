@@ -1,8 +1,5 @@
 # Desktop applications
 
-# Browser
-chromium
-
 # Office
 libreoffice-fresh
 hunspell-en_us
@@ -14,14 +11,16 @@ inkscape
 # Media
 mpv
 imv
-spotfiy
+spotify
 
 # Screenshot/recording
 obs-studio
 
 # Communication
 discord
+mattermost-desktop
 
 # Tools
 gnome-calculator
 bitwarden
+yt-dlp
