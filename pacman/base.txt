@@ -1,6 +1,11 @@
 # Base system packages
 # Kernel, firmware, microcode, btrfs, networking, power management
 
+# Core
+base
+sudo
+grub
+
 # Kernel and firmware
 linux
 linux-headers

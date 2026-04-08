@@ -28,7 +28,11 @@ if [[ ! -f /etc/snapper/configs/root ]]; then
         sudo umount /.snapshots
         sudo rmdir /.snapshots
     elif [[ -d /.snapshots ]]; then
-        sudo rmdir /.snapshots 2>/dev/null || sudo rm -rf /.snapshots
+        if ! sudo rmdir /.snapshots 2>/dev/null; then
+            log_error "/.snapshots is not empty — refusing to delete existing snapshots"
+            log_error "Please manually inspect and remove /.snapshots before re-running"
+            exit 1
+        fi
     fi
 
     sudo snapper -c root create-config /
@@ -69,10 +73,15 @@ fi
 # Allow user to use snapper without sudo for their own snapshots
 SNAPPER_USER_CONFIG="/etc/snapper/configs/root"
 if [[ -f "${SNAPPER_USER_CONFIG}" ]]; then
-    CURRENT_USER="${USER}"
-    if ! grep -q "ALLOW_USERS=\".*${CURRENT_USER}.*\"" "${SNAPPER_USER_CONFIG}"; then
-        log_info "Adding ${CURRENT_USER} to snapper ALLOW_USERS"
-        sudo sed -i "s/ALLOW_USERS=\"\"/ALLOW_USERS=\"${CURRENT_USER}\"/" "${SNAPPER_USER_CONFIG}"
+    CURRENT_ALLOWED=$(sudo grep '^ALLOW_USERS=' "${SNAPPER_USER_CONFIG}" | sed 's/ALLOW_USERS="//;s/"//')
+    if [[ -z "${CURRENT_ALLOWED}" ]]; then
+        log_info "Adding ${USER} to snapper ALLOW_USERS"
+        sudo sed -i "s/^ALLOW_USERS=\"\"/ALLOW_USERS=\"${USER}\"/" "${SNAPPER_USER_CONFIG}"
+    elif ! echo " ${CURRENT_ALLOWED} " | grep -q " ${USER} "; then
+        log_info "Appending ${USER} to snapper ALLOW_USERS"
+        sudo sed -i "s/^ALLOW_USERS=\"\(.*\)\"/ALLOW_USERS=\"\1 ${USER}\"/" "${SNAPPER_USER_CONFIG}"
+    else
+        log_info "${USER} already in snapper ALLOW_USERS"
     fi
 fi
 

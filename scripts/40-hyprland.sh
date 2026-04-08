@@ -12,12 +12,8 @@ script_start "40-hyprland.sh"
 # Create Screenshots directory for grim
 ensure_dir "${HOME}/Pictures/Screenshots"
 
-# Verify config exists (should be stowed from dotfiles)
-HYPR_CONFIG_DIR="${HOME}/.config/hypr"
-if [[ -f "${HYPR_CONFIG_DIR}/hyprland.conf" ]]; then
-    log_success "Hyprland configuration found"
-else
-    log_warn "No Hyprland config found — ensure dotfiles are stowed (60-dotfiles.sh)"
-fi
+# Note: Hyprland configuration comes from dotfiles (60-dotfiles.sh)
+# Config will be stowed in a later stage
+log_info "Hyprland config will be provided by dotfiles (60-dotfiles.sh)"
 
 script_end "40-hyprland.sh"

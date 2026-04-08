@@ -12,5 +12,4 @@ neovim-nightly-bin
 omarchy-chromium-bin
 
 # LSPs and dev tools
-intelephense
 pyright

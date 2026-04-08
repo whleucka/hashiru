@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 99-reboot.sh — Final verification and reboot prompt
+# 99-reboot.sh — Dev/app packages, user groups, verification, and reboot prompt
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
@@ -25,7 +25,7 @@ fi
 GROUPS_TO_ADD=(docker video input)
 for grp in "${GROUPS_TO_ADD[@]}"; do
     if getent group "${grp}" &>/dev/null; then
-        if ! groups "${USER}" | grep -q "\b${grp}\b"; then
+        if ! id -nG "${USER}" | tr ' ' '\n' | grep -qx "${grp}"; then
             sudo usermod -aG "${grp}" "${USER}"
             log_info "Added ${USER} to group: ${grp}"
         fi
@@ -80,10 +80,15 @@ log_info "After reboot, select Hyprland from your display manager or run 'Hyprla
 echo ""
 
 # Don't auto-reboot, let user decide
-read -rp "Reboot now? [y/N] " response
-if [[ "${response}" =~ ^[Yy]$ ]]; then
-    log_info "Rebooting..."
-    sudo reboot
+if [[ -t 0 ]]; then
+    read -rp "Reboot now? [y/N] " response
+    if [[ "${response}" =~ ^[Yy]$ ]]; then
+        log_info "Rebooting..."
+        sudo reboot
+    fi
+else
+    log_info "Non-interactive session — skipping reboot prompt"
+    log_info "Run 'sudo reboot' when ready"
 fi
 
 script_end "99-reboot.sh"

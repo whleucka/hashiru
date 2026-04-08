@@ -52,7 +52,6 @@ bash-language-server
 typescript-language-server
 yaml-language-server
 nodejs-intelephense
-taplo
 taplo-cli
 vscode-css-languageserver
 vscode-html-languageserver

@@ -22,9 +22,9 @@ install_packages "fonts.txt"
 # Enable PipeWire (user services)
 # Note: These start automatically on login, but we enable them explicitly
 log_info "Enabling PipeWire audio services"
-systemctl --user enable --now pipewire.socket || true
-systemctl --user enable --now pipewire-pulse.socket || true
-systemctl --user enable --now wireplumber.service || true
+enable_and_start_service "pipewire.socket" --user
+enable_and_start_service "pipewire-pulse.socket" --user
+enable_and_start_service "wireplumber.service" --user
 
 # Set up environment variables
 ensure_dir "${HOME}/.config/environment.d"
@@ -90,7 +90,11 @@ if ! grep -q "start-hyprland" "${ZPROFILE}" 2>/dev/null; then
 
 # Auto-start Hyprland on TTY1
 if [[ -z "${DISPLAY}" && "${XDG_VTNR}" == 1 ]]; then
-    exec start-hyprland
+    if command -v start-hyprland &>/dev/null; then
+        exec start-hyprland
+    else
+        exec Hyprland
+    fi
 fi
 EOF
     log_success "Hyprland auto-start configured"
