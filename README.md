@@ -34,7 +34,13 @@ Work in progress. This project evolves as my workflow evolves. Breaking changes 
 
 1. Install Arch using `archinstall`
 2. Reboot into base system
-3. Run `./install.sh` (or a single stage, e.g. `./install.sh 30`)
+3. Run the one-liner:
+
+```bash
+git clone https://github.com/whleucka/hashiru.git && cd hashiru && ./install.sh
+```
+
+You can also run a single stage, e.g. `./install.sh 30`.
 
 Hashiru then runs these stages in order:
 
