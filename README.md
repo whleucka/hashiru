@@ -34,13 +34,20 @@ Work in progress. This project evolves as my workflow evolves. Breaking changes 
 
 1. Install Arch using `archinstall`
 2. Reboot into base system
-3. Run the Hashiru bootstrap script
-4. Install system packages and drivers
-5. Install and configure Hyprland
-6. Clone dotfiles to `~/.dotfiles`
-7. Apply configs via GNU Stow
-8. Reboot
-9. Done
+3. Run `./install.sh` (or a single stage, e.g. `./install.sh 30`)
+
+Hashiru then runs these stages in order:
+
+| Stage | Script | What it does |
+|-------|--------|--------------|
+| 10 | `10-base.sh` | System update, base packages, microcode, firmware, NetworkManager, Bluetooth, TLP, sysctl/udev configs |
+| 20 | `20-aur.sh` | Bootstrap yay, install AUR packages (neovim-nightly, chromium, etc.) |
+| 30 | `30-desktop.sh` | Wayland/Hyprland stack, PipeWire audio, fonts, terminal tools, zsh default shell, TTY1 auto-login |
+| 35 | `35-zsh.sh` | Oh My Zsh, Powerlevel10k theme, zsh plugins |
+| 40 | `40-hyprland.sh` | Prepare Hyprland environment directories |
+| 50 | `50-snapper.sh` | Snapper btrfs snapshots, grub-btrfs integration (skipped if not btrfs) |
+| 60 | `60-dotfiles.sh` | Clone dotfiles, stow configs, TPM + tmux plugins, bat cache |
+| 99 | `99-reboot.sh` | Dev tools, desktop apps, Rust toolchain, user groups, verification, reboot prompt |
 
 ## Non-Goals
 
