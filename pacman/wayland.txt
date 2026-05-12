@@ -8,6 +8,9 @@ hyprpicker
 xdg-desktop-portal-hyprland
 xdg-desktop-portal-gtk
 
+# GTK theming (Adwaita-dark variant for GTK3 apps)
+gnome-themes-extra
+
 # Audio (PipeWire)
 pipewire
 pipewire-alsa
