@@ -24,3 +24,6 @@ mattermost-desktop
 gnome-calculator
 bitwarden
 yt-dlp
+
+# File sharing
+transmission-gtk
