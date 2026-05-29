@@ -13,3 +13,6 @@ omarchy-chromium-bin
 
 # LSPs and dev tools
 pyright
+
+# Clipboard persistence — fixes cliphist races with kitty selection
+wl-clip-persist
