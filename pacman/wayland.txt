@@ -23,6 +23,7 @@ pavucontrol
 grim
 slurp
 wl-clipboard
+# Clipboard persistence — fixes cliphist races with kitty selection
 wl-clip-persist
 cliphist
 
