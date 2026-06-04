@@ -14,11 +14,15 @@ install_packages "apps.txt"
 
 # Install cargo packages (tree-sitter-cli v0.26+ required for neovim-nightly)
 if command -v rustup &>/dev/null; then
-    log_info "Setting up Rust toolchain"
-    rustup default stable
-    log_info "Installing cargo packages"
-    cargo install tree-sitter-cli
-    log_success "Cargo packages installed"
+    if ! rustup show active-toolchain &>/dev/null; then
+        log_info "Setting up Rust toolchain"
+        rustup default stable
+    fi
+    if ! command -v tree-sitter &>/dev/null; then
+        log_info "Installing cargo packages"
+        cargo install tree-sitter-cli
+        log_success "Cargo packages installed"
+    fi
 fi
 
 # Add user to necessary groups

@@ -26,6 +26,7 @@ glm
 python
 python-pip
 python-pipx
+uv
 
 # Node (via mise, but npm fallback)
 nodejs
@@ -41,27 +42,21 @@ docker
 docker-compose
 docker-buildx
 
-# LLMs
-claude-code
-gemini-cli
+# LLMs (claude-code is AUR — see aur.txt)
 opencode
 
-# LSPs (from official repos)
+# LSPs (from official repos; intelephense/sqls are AUR — see aur.txt)
 lua-language-server
 bash-language-server
 typescript-language-server
 yaml-language-server
-nodejs-intelephense
+pyright
 taplo-cli
 vscode-css-languageserver
 vscode-html-languageserver
 
-# Benchmarking
-wrk
-
 # Linters
 ruff
-sqls
 
 # Formatters
 stylua

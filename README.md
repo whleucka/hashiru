@@ -46,13 +46,13 @@ Hashiru then runs these stages in order:
 
 | Stage | Script | What it does |
 |-------|--------|--------------|
-| 10 | `10-base.sh` | System update, base packages, microcode, firmware, NetworkManager, Bluetooth, TLP, sysctl/udev configs |
+| 10 | `10-base.sh` | System update, base packages, microcode, firmware, NetworkManager, Bluetooth, TLP, cronie, zram swap, sysctl/udev configs |
 | 20 | `20-aur.sh` | Bootstrap yay, install AUR packages (neovim-nightly, chromium, etc.) |
 | 30 | `30-desktop.sh` | Wayland/Hyprland stack, PipeWire audio, fonts, terminal tools, zsh default shell, TTY1 auto-login |
 | 35 | `35-zsh.sh` | Oh My Zsh, Powerlevel10k theme, zsh plugins |
 | 40 | `40-hyprland.sh` | Prepare Hyprland environment directories |
 | 50 | `50-snapper.sh` | Snapper btrfs snapshots, grub-btrfs integration (skipped if not btrfs) |
-| 60 | `60-dotfiles.sh` | Clone dotfiles, stow configs, TPM + tmux plugins, bat cache |
+| 60 | `60-dotfiles.sh` | Clone dotfiles, stow configs, TPM + tmux plugins, tmux user service, bat cache |
 | 99 | `99-reboot.sh` | Dev tools, desktop apps, Rust toolchain, user groups, verification, reboot prompt |
 
 ## Non-Goals

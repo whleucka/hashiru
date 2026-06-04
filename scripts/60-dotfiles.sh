@@ -51,7 +51,8 @@ if command -v bat &>/dev/null; then
 fi
 
 # Install TPM (tmux plugin manager) and plugins
-readonly TPM_DIR="${HOME}/.tmux/plugins/tpm"
+# XDG location: tmux.conf lives in ~/.config/tmux, so TPM and plugins do too
+readonly TPM_DIR="${HOME}/.config/tmux/plugins/tpm"
 if [[ ! -d "${TPM_DIR}" ]]; then
     log_info "Installing tmux plugin manager (TPM)"
     git clone https://github.com/tmux-plugins/tpm "${TPM_DIR}"

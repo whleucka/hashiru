@@ -8,17 +8,15 @@ hunspell-en_us
 gimp
 inkscape
 
-# Media
+# Media (spotify is AUR — see aur.txt)
 mpv
 imv
-spotify
 
 # Screenshot/recording
 obs-studio
 
 # Communication
 discord
-mattermost-desktop
 
 # Tools
 gnome-calculator

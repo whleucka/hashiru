@@ -23,8 +23,8 @@ pavucontrol
 grim
 slurp
 wl-clipboard
+wl-clip-persist
 cliphist
-wl-screenrec
 
 # Bar and launcher
 waybar
@@ -56,10 +56,7 @@ swayosd
 brightnessctl
 playerctl
 
-# Hyprland extras
-hyprsnow
-
-# Screen recording
+# Screen recording (wl-screenrec is AUR — see aur.txt)
 wf-recorder
 
 # Other

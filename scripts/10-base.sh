@@ -26,6 +26,9 @@ enable_and_start_service "tlp"
 # Enable reflector timer for weekly mirrorlist updates
 enable_service "reflector.timer"
 
+# Enable cron daemon
+enable_and_start_service "cronie"
+
 # Set up pacman hooks directory
 ensure_dir "/etc/pacman.d/hooks" --sudo
 
@@ -41,6 +44,16 @@ if [[ -f "${SCRIPT_DIR}/config/udev/99-hashiru.rules" ]]; then
     sudo cp "${SCRIPT_DIR}/config/udev/99-hashiru.rules" /etc/udev/rules.d/
     sudo udevadm control --reload-rules
     sudo udevadm trigger
+fi
+
+if [[ -f "${SCRIPT_DIR}/config/systemd/zram-generator.conf" ]]; then
+    log_info "Installing zram-generator configuration"
+    sudo cp "${SCRIPT_DIR}/config/systemd/zram-generator.conf" /etc/systemd/zram-generator.conf
+    sudo systemctl daemon-reload
+    # Activate now if not already swapping on zram (no-op failure is fine pre-reboot)
+    if ! swapon --show=NAME --noheadings | grep -q zram; then
+        sudo systemctl start systemd-zram-setup@zram0.service || log_warn "zram will activate on next boot"
+    fi
 fi
 
 script_end "10-base.sh"

@@ -3,7 +3,6 @@
 
 # AUR helper
 yay-bin
-yay-bin-debug
 
 # Editor
 neovim-nightly-bin
@@ -13,6 +12,21 @@ omarchy-chromium-bin
 
 # LSPs and dev tools
 pyright
-
 # Clipboard persistence — fixes cliphist races with kitty selection
 wl-clip-persist
+claude-code
+nodejs-intelephense
+sqls
+
+# Benchmarking
+wrk
+
+# Hyprland extras
+hyprsnow
+
+# Screen recording
+wl-screenrec
+
+# Media
+spotify
+>>>>>>> 42c19f2 (fix: update tmux configuration; add/remove packages)
