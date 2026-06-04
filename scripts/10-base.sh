@@ -6,6 +6,29 @@ source "${SCRIPT_DIR}/lib/common.sh"
 
 script_start "10-base.sh"
 
+# Configure pacman: set an [options] line, uncommenting or appending as needed
+pacman_opt() {
+    local opt="$1"   # option name, e.g. Color
+    local line="$2"  # full line to set, e.g. "ParallelDownloads = 10"
+    if grep -q "^#\?${opt}" /etc/pacman.conf; then
+        sudo sed -i "s/^#\?${opt}.*/${line}/" /etc/pacman.conf
+    else
+        sudo sed -i "/^\[options\]/a ${line}" /etc/pacman.conf
+    fi
+}
+
+log_info "Configuring pacman"
+pacman_opt "Color" "Color"
+pacman_opt "ILoveCandy" "ILoveCandy"
+pacman_opt "VerbosePkgLists" "VerbosePkgLists"
+pacman_opt "ParallelDownloads" "ParallelDownloads = 10"
+
+# Enable multilib repo (needed for steam)
+if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
+    log_info "Enabling multilib repository"
+    sudo sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
+fi
+
 # Update system first
 log_info "Updating system packages"
 sudo pacman -Syu --noconfirm

@@ -25,3 +25,6 @@ yt-dlp
 
 # File sharing
 transmission-gtk
+
+# Gaming (requires multilib repo)
+steam
