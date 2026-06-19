@@ -55,6 +55,9 @@ fastfetch
 reflector
 pacman-contrib
 
+# Transfers
+rsync
+
 # DNS
 bind
 
