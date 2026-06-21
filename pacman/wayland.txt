@@ -42,6 +42,7 @@ qt5-wayland
 qt6-wayland
 
 # File manager
+yazi
 thunar
 thunar-archive-plugin
 thunar-volman
