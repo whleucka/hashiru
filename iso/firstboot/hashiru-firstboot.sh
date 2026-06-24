@@ -11,6 +11,7 @@ set -euo pipefail
 : "${HASHIRU_USER:?HASHIRU_USER not set}"
 SUDOERS="/etc/sudoers.d/hashiru-firstboot"
 REPO="/home/${HASHIRU_USER}/hashiru"
+USER_UID="$(id -u "${HASHIRU_USER}")"
 
 cleanup() { rm -f "${SUDOERS}"; }
 trap cleanup EXIT
@@ -18,11 +19,32 @@ trap cleanup EXIT
 printf '%s ALL=(ALL) NOPASSWD: ALL\n' "${HASHIRU_USER}" > "${SUDOERS}"
 chmod 440 "${SUDOERS}"
 
+# Several stages call `systemctl --user` (PipeWire sockets, wireplumber, tmux).
+# Those need a running per-user systemd instance and D-Bus session bus, which
+# normally exist only inside a login session — and this unit runs the bootstrap
+# via `sudo -u` from a *system* service, where there is none. Enable lingering
+# so systemd starts the user manager now, then wait for its runtime bus socket
+# before handing off.
+echo "==> Enabling lingering user systemd instance for ${HASHIRU_USER}"
+loginctl enable-linger "${HASHIRU_USER}"
+for _ in $(seq 1 30); do
+  [[ -S "/run/user/${USER_UID}/bus" ]] && break
+  sleep 1
+done
+if [[ ! -S "/run/user/${USER_UID}/bus" ]]; then
+  echo "!! user D-Bus session bus never appeared at /run/user/${USER_UID}/bus" >&2
+  exit 1
+fi
+
 echo "==> Running Hashiru bootstrap as ${HASHIRU_USER}"
-# HASHIRU_UNATTENDED=1 makes install.sh skip interactive prompts and auto-reboot
-# into the finished system at the end. (sudo strips the environment, so the var
-# is set inside the user's shell rather than inherited.)
-if ! sudo -u "${HASHIRU_USER}" -H bash -lc "cd '${REPO}' && HASHIRU_UNATTENDED=1 ./install.sh"; then
+# Pass the user-session env so `systemctl --user` can connect, plus
+# HASHIRU_UNATTENDED=1 (skip prompts, auto-reboot at the end). These are set
+# inside the user's shell because sudo strips the environment.
+if ! sudo -u "${HASHIRU_USER}" -H bash -lc "
+    export XDG_RUNTIME_DIR='/run/user/${USER_UID}'
+    export DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/${USER_UID}/bus'
+    cd '${REPO}' && HASHIRU_UNATTENDED=1 ./install.sh
+  "; then
   echo "!! Hashiru bootstrap failed — unit left enabled; will retry next boot." >&2
   exit 1
 fi
