@@ -16,7 +16,14 @@ require_user
 require_network
 
 log_info "=========================================="
-log_info "Hashiru — Arch + Hyprland Bootstrap"
+log_info " "
+log_info "     ▓░ ░ ▓▒▀▓ ▓█▀▀ ▓░ ░ ▓░ ▓█▀▓ ▓█ ░"
+log_info "     ▒▓▀▒ ▒░▄▒ ▀▀▒▓ ▒▓▀▒ ▒▒ ▒▓▄▀ ▒▓ ▒"
+log_info "     ░  ▓ ░  ░ ▄▄░▒ ░  ▓ ░▓ ░▒ ▒ ░▒▄▓"
+log_info " "
+log_info "        Arch + Hyprland Bootstrap"
+log_info "        Created by: Will Hleucka "
+log_info " "
 log_info "=========================================="
 
 # Get all scripts in numeric order
