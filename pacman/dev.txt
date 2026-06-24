@@ -3,6 +3,10 @@
 # Version control
 github-cli
 
+# Editor (stable neovim from extra; tree-sitter-cli builds nvim-treesitter parsers)
+neovim
+tree-sitter-cli
+
 # Build essentials
 base-devel
 cmake

@@ -58,8 +58,5 @@ swayosd
 brightnessctl
 playerctl
 
-# Screen recording (wl-screenrec is AUR — see aur.txt)
-wf-recorder
-
 # Other
 calcurse

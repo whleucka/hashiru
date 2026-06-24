@@ -12,16 +12,15 @@ log_info "Running final verification checks..."
 install_packages "dev.txt"
 install_packages "apps.txt"
 
-# Install cargo packages (tree-sitter-cli v0.26+ required for neovim-nightly)
+# Ensure a default Rust toolchain is set up. The rustup package alone installs
+# no toolchain, so cargo is unusable until a default is chosen. Needed because
+# blink.cmp (neovim) builds its Rust fuzzy-matching library from source on first
+# launch. tree-sitter-cli now comes from the repos (see pacman/dev.txt), so no
+# cargo build is needed here.
 if command -v rustup &>/dev/null; then
     if ! rustup show active-toolchain &>/dev/null; then
         log_info "Setting up Rust toolchain"
         rustup default stable
-    fi
-    if ! command -v tree-sitter &>/dev/null; then
-        log_info "Installing cargo packages"
-        cargo install tree-sitter-cli
-        log_success "Cargo packages installed"
     fi
 fi
 

@@ -4,9 +4,6 @@
 # AUR helper
 yay-bin
 
-# Editor
-neovim-nightly-bin
-
 # Browser
 omarchy-chromium-bin
 
@@ -17,12 +14,6 @@ sqls
 
 # Benchmarking
 wrk
-
-# Hyprland extras
-hyprsnow
-
-# Screen recording
-wl-screenrec
 
 # Media
 spotify

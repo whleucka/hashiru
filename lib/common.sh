@@ -173,9 +173,27 @@ install_aur_packages() {
         return 0
     fi
 
+    # Install one at a time so a single flaky AUR build (upstream churn, failed
+    # source verification, etc.) doesn't abort the whole bootstrap. Failures are
+    # collected and reported; the function still returns success so later stages
+    # run. Already-installed packages are skipped on a retry by the loop above.
     log_info "Installing ${#packages[@]} AUR packages from ${manifest}"
-    yay -S --needed --noconfirm "${packages[@]}"
-    log_success "Installed AUR packages from ${manifest}"
+    local failed=()
+    for pkg in "${packages[@]}"; do
+        log_info "Installing AUR package: ${pkg}"
+        if yay -S --needed --noconfirm "${pkg}"; then
+            log_success "Installed: ${pkg}"
+        else
+            log_warn "Failed to build/install AUR package: ${pkg} — skipping"
+            failed+=("${pkg}")
+        fi
+    done
+
+    if [[ ${#failed[@]} -gt 0 ]]; then
+        log_warn "AUR packages from ${manifest} that did NOT install: ${failed[*]}"
+        log_warn "Retry later with: yay -S ${failed[*]}"
+    fi
+    log_success "Finished AUR packages from ${manifest}"
 }
 
 # -----------------------------------------------------------------------------
