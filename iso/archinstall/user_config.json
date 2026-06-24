@@ -2,7 +2,7 @@
   "archinstall-language": "English",
   "bootloader": "Grub",
   "kernels": ["linux"],
-  "hostname": "hashiru",
+  "hostname": "__HOSTNAME__",
   "ntp": true,
   "timezone": "__TIMEZONE__",
   "locale_config": { "kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US" },

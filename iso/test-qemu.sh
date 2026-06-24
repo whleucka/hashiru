@@ -24,4 +24,4 @@ exec qemu-system-x86_64 \
   -drive if=pflash,format=raw,readonly=on,file="${OVMF}" \
   -cdrom "${ISO}" \
   -drive file="${DISK}",if=virtio,format=qcow2 \
-  -boot d -vga virtio
+  -boot d -vga std -display gtk

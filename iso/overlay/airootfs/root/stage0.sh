@@ -12,6 +12,7 @@ CONFIG_SRC="/root/archinstall/user_config.json"
 CONFIG_RUN="/root/user_config.json"
 CREDS_RUN="/root/user_creds.json"
 DEFAULT_TZ="America/Toronto"
+DEFAULT_HOSTNAME="hashiru"
 
 c_red=$'\e[0;31m'; c_blu=$'\e[0;34m'; c_rst=$'\e[0m'
 say() { printf '%s %s\n' "${c_blu}==>${c_rst}" "$*"; }
@@ -66,6 +67,14 @@ else
   HLUKS="${HPASS}"
 fi
 
+read -rp "Hostname [${DEFAULT_HOSTNAME}]: " HHOST
+HHOST="${HHOST:-${DEFAULT_HOSTNAME}}"
+while [[ ! "${HHOST}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; do
+  err "Invalid hostname (lowercase letters/digits/hyphens, no leading/trailing hyphen)."
+  read -rp "Hostname [${DEFAULT_HOSTNAME}]: " HHOST
+  HHOST="${HHOST:-${DEFAULT_HOSTNAME}}"
+done
+
 read -rp "Timezone [${DEFAULT_TZ}]: " HTZ
 HTZ="${HTZ:-${DEFAULT_TZ}}"
 while [[ ! -f "/usr/share/zoneinfo/${HTZ}" ]]; do
@@ -92,6 +101,7 @@ read -rp "Type 'yes' to proceed: " CONFIRM
 # --- splice answers into config + creds --------------------------------------
 say "Preparing archinstall configuration…"
 sed -e "s|__TIMEZONE__|${HTZ}|g" \
+    -e "s|__HOSTNAME__|${HHOST}|g" \
     -e "s|__HASHIRU_USER__|${HUSER}|g" \
     -e "s|__TARGET_DISK__|${HDISK}|g" \
     "${CONFIG_SRC}" > "${CONFIG_RUN}"
