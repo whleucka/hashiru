@@ -1,0 +1,4 @@
+# Extra packages baked into the live ISO (appended to releng's packages.x86_64).
+# git and archinstall already ship in releng; jq is used by stage0.sh to build
+# the archinstall credentials file with proper escaping.
+jq

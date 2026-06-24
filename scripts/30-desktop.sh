@@ -61,7 +61,9 @@ fi
 # Set default shell to zsh
 if [[ "${SHELL}" != */zsh ]]; then
     log_info "Changing default shell to zsh"
-    chsh -s /usr/bin/zsh
+    # Use sudo so this never prompts for the user's password via PAM — works
+    # both interactively and under the unattended first-boot bootstrap.
+    sudo chsh -s /usr/bin/zsh "${USER}"
     log_success "Default shell changed to zsh (effective on next login)"
 else
     log_info "Shell already set to zsh"

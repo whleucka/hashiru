@@ -1,0 +1,25 @@
+{
+  "archinstall-language": "English",
+  "bootloader": "Grub",
+  "kernels": ["linux"],
+  "hostname": "hashiru",
+  "ntp": true,
+  "timezone": "__TIMEZONE__",
+  "locale_config": { "kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US" },
+  "network_config": { "type": "nm" },
+  "swap": false,
+  "packages": ["git", "sudo", "networkmanager", "grub", "efibootmgr"],
+  "services": ["NetworkManager"],
+
+  "disk_config": {
+    "config_type": "default_layout",
+    "device": "__TARGET_DISK__",
+    "filesystem": "btrfs",
+    "encryption": { "encryption_type": "luks", "partitions": ["root"] }
+  },
+
+  "custom_commands": [
+    "git clone https://github.com/whleucka/hashiru.git /opt/hashiru",
+    "bash /opt/hashiru/iso/firstboot/install-firstboot.sh __HASHIRU_USER__"
+  ]
+}

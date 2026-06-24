@@ -1,0 +1,17 @@
+[Unit]
+Description=Hashiru first-boot bootstrap
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/hashiru-firstboot.env
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/hashiru-firstboot.env
+ExecStart=/usr/local/bin/hashiru-firstboot.sh
+# Bootstrap downloads/builds a lot; don't let systemd time it out.
+TimeoutStartSec=infinity
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target

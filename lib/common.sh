@@ -15,6 +15,11 @@ readonly HASHIRU_DATA_DIR="${HOME}/.local/share/hashiru"
 readonly HASHIRU_LOG="${HASHIRU_DATA_DIR}/install.log"
 readonly HASHIRU_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Unattended mode: set HASHIRU_UNATTENDED=1 to skip interactive prompts and
+# auto-reboot at the end. Used by the live-ISO first-boot bootstrap; defaults
+# to interactive. Exported so every stage script inherits it.
+export HASHIRU_UNATTENDED="${HASHIRU_UNATTENDED:-0}"
+
 # Ensure log directory exists
 mkdir -p "${HASHIRU_DATA_DIR}"
 

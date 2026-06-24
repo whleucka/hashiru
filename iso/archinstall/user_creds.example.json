@@ -1,0 +1,8 @@
+{
+  "_comment": "Reference only. stage0.sh GENERATES the real creds file at runtime via jq from the interactive prompts — do not ship real secrets here. Key names track the archinstall schema; verify against the version on your ISO.",
+  "!users": [
+    { "username": "will", "!password": "<user-password>", "sudo": true }
+  ],
+  "!encryption_password": "<luks-passphrase>",
+  "!root-password": ""
+}

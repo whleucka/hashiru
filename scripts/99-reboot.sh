@@ -83,8 +83,12 @@ log_info "Please reboot to start Hyprland"
 log_info "After reboot, select Hyprland from your display manager or run 'Hyprland' from TTY"
 echo ""
 
-# Don't auto-reboot, let user decide
-if [[ -t 0 ]]; then
+# Reboot handling
+if [[ "${HASHIRU_UNATTENDED}" == "1" ]]; then
+    # First-boot bootstrap: reboot automatically into the finished system.
+    log_info "Unattended mode — rebooting into the new system"
+    sudo reboot
+elif [[ -t 0 ]]; then
     read -rp "Reboot now? [y/N] " response
     if [[ "${response}" =~ ^[Yy]$ ]]; then
         log_info "Rebooting..."
