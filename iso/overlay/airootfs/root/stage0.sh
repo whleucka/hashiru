@@ -21,7 +21,11 @@ err() { printf '%s %s\n' "${c_red}!!${c_rst}" "$*" >&2; }
 clear 2>/dev/null || true
 cat <<'BANNER'
 ==================================================
-   Hashiru — Arch + Hyprland live installer
+        ▓░ ░ ▓▒▀▓ ▓█▀▀ ▓░ ░ ▓░ ▓█▀▓ ▓█ ░
+        ▒▓▀▒ ▒░▄▒ ▀▀▒▓ ▒▓▀▒ ▒▒ ▒▓▄▀ ▒▓ ▒
+        ░  ▓ ░  ░ ▄▄░▒ ░  ▓ ░▓ ░▒ ▒ ░▒▄▓
+         Arch + Hyprland live installer
+            Created by: Will Hleucka
 ==================================================
 This ERASES the target disk, sets up LUKS disk
 encryption, installs base Arch, and bootstraps

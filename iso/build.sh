@@ -21,8 +21,12 @@ PROFILE="${WORK}/profile"
 [[ ${EUID} -eq 0 ]] || { echo "Run as root — mkarchiso needs it."; exit 1; }
 [[ -d "${RELENG}" ]] || { echo "archiso not installed. Run: pacman -S archiso"; exit 1; }
 
-echo "==> Resetting profile from releng (${RELENG})"
-rm -rf "${PROFILE}"
+echo "==> Cleaning previous build artifacts (profile, mkarchiso work, old ISOs)"
+# mkarchiso can choke on a leftover work dir or a pre-existing output ISO and
+# bail early — wipe the build scratch and any old ISO so every build is fresh.
+# (The QEMU test disk lives at ${WORK}/test-disk.qcow2 and is left untouched.)
+rm -rf "${PROFILE}" "${WORK}/mkarchiso"
+rm -f "${OUT}"/*.iso
 mkdir -p "${PROFILE}" "${OUT}"
 cp -a "${RELENG}/." "${PROFILE}/"
 
@@ -48,5 +52,6 @@ sed -i '/^file_permissions=(/a\  ["/root/stage0.sh"]="0:0:755"' "${PROFILE}/prof
 echo "==> Building ISO (mkarchiso)"
 mkarchiso -v -w "${WORK}/mkarchiso" -o "${OUT}" "${PROFILE}"
 
-echo "==> Done. ISO written to ${OUT}/"
-ls -1 "${OUT}"/*.iso 2>/dev/null || true
+# Fail loudly if no ISO was produced (ls errors on no match → set -e aborts).
+echo "==> Done. ISO written to:"
+ls -la "${OUT}"/*.iso
