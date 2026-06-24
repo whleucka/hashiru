@@ -30,6 +30,8 @@ cliphist
 # Bar and launcher
 waybar
 fuzzel
+# socat: waybar ws-listener subscribes to Hyprland's event socket via socat
+socat
 
 # Wallpaper
 awww
