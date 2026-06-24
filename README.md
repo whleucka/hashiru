@@ -4,68 +4,54 @@
 
 ---
 
-Hashiru is an opinionated, personal Arch Linux bootstrap designed to get my machines from a bare Arch ISO to a fully working Hyprland desktop in minutes.
+Hashiru (走る, "to run") is my personal Arch + Hyprland bootstrap. It takes a
+machine from bare metal to a working Wayland desktop in about 10 minutes.
 
-## What is Hashiru?
+It's opinionated and built for me. Same result every time, customization lives
+in the code, not in prompts.
 
-**Hashiru** (走る, "to run") is a scripted setup that:
+## Install (ISO)
 
-* Starts with a clean Arch Linux install
-* Applies sane defaults and best practices
-* Installs a Hyprland-based Wayland desktop
-* Pulls in my dotfiles and system preferences
-* Boots straight into a usable, polished system
+This is how I install. Build a live ISO that does the whole thing: prompts for
+a few machine-specific answers, installs an encrypted base Arch system with
+`archinstall`, then runs the Hashiru stages automatically on first boot.
 
-The goal is simple: **Arch ISO to fully configured desktop in ~10 minutes.**
+```bash
+sudo pacman -S archiso          # one-time
+sudo ./iso/build.sh             # -> iso/out/hashiru-*.iso
+```
 
-## Status
+Flash `iso/out/hashiru-*.iso`, boot it, and answer the prompts (username,
+password, timezone, hostname, target disk). Everything else is fixed in
+`iso/archinstall/user_config.json`.
 
-Work in progress. This project evolves as my workflow evolves. Breaking changes are expected.
+See `iso/README.md` for the build internals, QEMU testing, and the fragile
+bits to watch (mainly archinstall schema drift).
 
-## Philosophy
+## Install (manual)
 
-* **Opinionated by design** - built for me
-* **Fast over flexible** - customization happens in code, not prompts
-* **Reproducible** - same result every time
-* **Minimal ceremony** - no bloated abstractions
-* **Arch-native** - trust the Arch Wiki, not magic
-
-## High-Level Flow
-
-1. Install Arch using `archinstall`
-2. Reboot into base system
-3. Run the one-liner:
+On an existing base Arch system:
 
 ```bash
 git clone https://github.com/whleucka/hashiru.git && cd hashiru && ./install.sh
 ```
 
-You can also run a single stage, e.g. `./install.sh 30`.
+Run a single stage with `./install.sh 30`.
 
-Hashiru then runs these stages in order:
+## Stages
 
 | Stage | Script | What it does |
 |-------|--------|--------------|
-| 10 | `10-base.sh` | System update, base packages, microcode, firmware, NetworkManager, Bluetooth, TLP, cronie, zram swap, sysctl/udev configs |
-| 20 | `20-aur.sh` | Bootstrap yay, install AUR packages (neovim-nightly, chromium, etc.) |
-| 30 | `30-desktop.sh` | Wayland/Hyprland stack, PipeWire audio, fonts, terminal tools, zsh default shell, TTY1 auto-login |
-| 35 | `35-zsh.sh` | Oh My Zsh, Powerlevel10k theme, zsh plugins |
-| 40 | `40-hyprland.sh` | Prepare Hyprland environment directories |
-| 50 | `50-snapper.sh` | Snapper btrfs snapshots, grub-btrfs integration (skipped if not btrfs) |
-| 60 | `60-dotfiles.sh` | Clone dotfiles, stow configs, TPM + tmux plugins, tmux user service, bat cache |
-| 99 | `99-reboot.sh` | Dev tools, desktop apps, Rust toolchain, user groups, verification, reboot prompt |
+| 10 | `10-base.sh` | Update, base packages, microcode, firmware, NetworkManager, Bluetooth, TLP, cronie, zram, sysctl/udev |
+| 20 | `20-aur.sh` | yay + AUR packages |
+| 30 | `30-desktop.sh` | Hyprland/Wayland stack, PipeWire, fonts, terminal tools, zsh, TTY1 auto-login |
+| 35 | `35-zsh.sh` | Oh My Zsh, Powerlevel10k, plugins |
+| 40 | `40-hyprland.sh` | Hyprland environment dirs |
+| 50 | `50-snapper.sh` | Snapper + grub-btrfs (btrfs only) |
+| 60 | `60-dotfiles.sh` | Clone + stow dotfiles, tmux/TPM, bat cache |
+| 99 | `99-reboot.sh` | Dev tools, desktop apps, Rust, user groups, verify, reboot |
 
-## Non-Goals
+## Notes
 
-* Supporting other distros
-* Supporting other window managers
-* Endless customization toggles
-* Being beginner-friendly
-
-Hashiru assumes you know what you're doing, or you're okay fixing it if you break it.
-
-## Target Machines
-
-* ThinkPad T14s / P43s
-
-Hardware support is intentional and explicit.
+* Arch only, Hyprland only. No other distros or WMs.
+* Work in progress. Breaking changes are expected.
