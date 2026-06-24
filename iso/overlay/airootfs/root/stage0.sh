@@ -35,7 +35,24 @@ BANNER
 echo
 
 # --- network is required (archinstall pacstraps from the mirrors) -------------
-if ! ping -c1 -W2 archlinux.org &>/dev/null; then
+# Ping a literal IP, never a hostname: ping's -W only bounds the reply wait, not
+# the DNS lookup, so pinging a name stalls on getaddrinfo until the resolver
+# times out (~20-30s) if DNS isn't up yet. Retry briefly so a slow NIC/DHCP
+# lease on real hardware gets a chance to come up before we give up.
+have_net() {
+  local host
+  for host in 1.1.1.1 8.8.8.8 9.9.9.9; do
+    timeout 3 ping -c1 -W2 "${host}" &>/dev/null && return 0
+  done
+  return 1
+}
+say "Waiting for network…"
+net_ok=
+for _ in $(seq 1 10); do
+  if have_net; then net_ok=1; break; fi
+  sleep 2
+done
+if [[ -z "${net_ok}" ]]; then
   err "No network connection."
   err "Connect first (wired auto-connects; wifi: use 'iwctl'), then re-run:"
   err "    /root/stage0.sh"

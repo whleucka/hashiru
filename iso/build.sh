@@ -52,6 +52,14 @@ sed -i '/^file_permissions=(/a\  ["/root/stage0.sh"]="0:0:755"' "${PROFILE}/prof
 echo "==> Building ISO (mkarchiso)"
 mkarchiso -v -w "${WORK}/mkarchiso" -o "${OUT}" "${PROFILE}"
 
+# mkarchiso ran as root, so everything under out/ and work/ is root-owned.
+# Hand it back to the user who invoked sudo so ./test-qemu.sh works without
+# sudo (it reads out/*.iso and writes the qcow2 + OVMF vars under work/).
+if [[ -n "${SUDO_USER:-}" ]]; then
+  echo "==> Restoring ownership of build artifacts to ${SUDO_USER}"
+  chown -R "${SUDO_USER}:$(id -gn "${SUDO_USER}")" "${OUT}" "${WORK}"
+fi
+
 # Fail loudly if no ISO was produced (ls errors on no match → set -e aborts).
 echo "==> Done. ISO written to:"
 ls -la "${OUT}"/*.iso
