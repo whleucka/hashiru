@@ -106,17 +106,32 @@ sed -e "s|__TIMEZONE__|${HTZ}|g" \
     -e "s|__TARGET_DISK__|${HDISK}|g" \
     "${CONFIG_SRC}" > "${CONFIG_RUN}"
 
+# The saved layout froze an absolute btrfs partition size (captured on a small
+# test disk). Resize it to fill the actual target disk: total bytes, minus the
+# btrfs start offset, minus 1 MiB for the GPT backup header.
+DISK_BYTES="$(blockdev --getsize64 "${HDISK}")"
+BTRFS_START="$(jq -r '.disk_config.device_modifications[0].partitions[]
+                      | select(.fs_type=="btrfs") | .start.value' "${CONFIG_RUN}")"
+BTRFS_SIZE=$(( DISK_BYTES - BTRFS_START - 1048576 ))
+say "Sizing btrfs partition to fill ${HDISK} (${BTRFS_SIZE} bytes)"
+tmp="$(mktemp)"
+jq --argjson sz "${BTRFS_SIZE}" '
+  .disk_config.device_modifications[0].partitions |=
+    map(if .fs_type=="btrfs" then .size.value = $sz else . end)
+' "${CONFIG_RUN}" > "${tmp}" && mv "${tmp}" "${CONFIG_RUN}"
+
 # Build creds with jq so special characters in passwords are escaped correctly.
-# NOTE: these key names (!users / !encryption_password / !root-password) track
-# the archinstall schema and may need updating — see iso/README.md.
+# Schema confirmed against archinstall v4.3: top-level "encryption_password"
+# (plaintext) and "users" (each user takes a plaintext password under the
+# "!password" key). root_enc_password is omitted, leaving root locked — the
+# user has sudo. See iso/README.md if the archinstall version changes.
 jq -n \
   --arg user "${HUSER}" \
   --arg pass "${HPASS}" \
   --arg luks "${HLUKS}" \
   '{
-     "!users": [ { "username": $user, "!password": $pass, "sudo": true } ],
-     "!encryption_password": $luks,
-     "!root-password": ""
+     "encryption_password": $luks,
+     "users": [ { "username": $user, "!password": $pass, "sudo": true, "groups": [] } ]
    }' > "${CREDS_RUN}"
 chmod 600 "${CREDS_RUN}"
 

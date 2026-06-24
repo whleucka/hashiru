@@ -1,25 +1,113 @@
 {
-  "archinstall-language": "English",
-  "bootloader": "Grub",
-  "kernels": ["linux"],
-  "hostname": "__HOSTNAME__",
-  "ntp": true,
-  "timezone": "__TIMEZONE__",
-  "locale_config": { "kb_layout": "us", "sys_enc": "UTF-8", "sys_lang": "en_US" },
-  "network_config": { "type": "nm" },
-  "swap": false,
-  "packages": ["git", "sudo", "networkmanager", "grub", "efibootmgr"],
-  "services": ["NetworkManager"],
-
-  "disk_config": {
-    "config_type": "default_layout",
-    "device": "__TARGET_DISK__",
-    "filesystem": "btrfs",
-    "encryption": { "encryption_type": "luks", "partitions": ["root"] }
-  },
-
-  "custom_commands": [
-    "git clone https://github.com/whleucka/hashiru.git /opt/hashiru",
-    "bash /opt/hashiru/iso/firstboot/install-firstboot.sh __HASHIRU_USER__"
-  ]
+    "archinstall-language": "English",
+    "app_config": null,
+    "auth_config": {},
+    "bootloader_config": {
+        "bootloader": "Grub",
+        "removable": true,
+        "uki": false
+    },
+    "custom_commands": [
+        "git clone https://github.com/whleucka/hashiru.git /opt/hashiru",
+        "bash /opt/hashiru/iso/firstboot/install-firstboot.sh __HASHIRU_USER__"
+    ],
+    "disk_config": {
+        "btrfs_options": {
+            "snapshot_config": {
+                "type": "Snapper"
+            }
+        },
+        "config_type": "default_layout",
+        "device_modifications": [
+            {
+                "device": "__TARGET_DISK__",
+                "wipe": true,
+                "partitions": [
+                    {
+                        "btrfs": [],
+                        "dev_path": null,
+                        "flags": ["boot", "esp"],
+                        "fs_type": "fat32",
+                        "mount_options": [],
+                        "mountpoint": "/boot",
+                        "obj_id": "182f8607-4ed4-41c3-9836-b1d3bc246d5f",
+                        "size": {
+                            "sector_size": { "unit": "B", "value": 512 },
+                            "unit": "GiB",
+                            "value": 1
+                        },
+                        "start": {
+                            "sector_size": { "unit": "B", "value": 512 },
+                            "unit": "MiB",
+                            "value": 1
+                        },
+                        "status": "create",
+                        "type": "primary"
+                    },
+                    {
+                        "btrfs": [
+                            { "mountpoint": "/",                      "name": "@" },
+                            { "mountpoint": "/home",                  "name": "@home" },
+                            { "mountpoint": "/var/log",               "name": "@log" },
+                            { "mountpoint": "/var/cache/pacman/pkg",  "name": "@pkg" }
+                        ],
+                        "dev_path": null,
+                        "flags": [],
+                        "fs_type": "btrfs",
+                        "mount_options": ["compress=zstd"],
+                        "mountpoint": null,
+                        "obj_id": "c70014c9-e567-4780-bd90-600817eb9f60",
+                        "size": {
+                            "sector_size": { "unit": "B", "value": 512 },
+                            "unit": "B",
+                            "value": 31136415744
+                        },
+                        "start": {
+                            "sector_size": { "unit": "B", "value": 512 },
+                            "unit": "B",
+                            "value": 1074790400
+                        },
+                        "status": "create",
+                        "type": "primary"
+                    }
+                ]
+            }
+        ],
+        "disk_encryption": {
+            "encryption_type": "luks",
+            "lvm_volumes": [],
+            "partitions": ["c70014c9-e567-4780-bd90-600817eb9f60"]
+        }
+    },
+    "hostname": "__HOSTNAME__",
+    "kernels": ["linux"],
+    "locale_config": {
+        "kb_layout": "us",
+        "sys_enc": "UTF-8",
+        "sys_lang": "en_US.UTF-8"
+    },
+    "network_config": { "type": "nm" },
+    "ntp": true,
+    "packages": ["git", "sudo"],
+    "pacman_config": {
+        "color": true,
+        "parallel_downloads": 5
+    },
+    "profile_config": {
+        "gfx_driver": null,
+        "greeter": null,
+        "profile": {
+            "custom_settings": {},
+            "details": [],
+            "main": "Minimal"
+        }
+    },
+    "script": null,
+    "services": [],
+    "swap": {
+        "algorithm": "zstd",
+        "enabled": false
+    },
+    "timezone": "__TIMEZONE__",
+    "version": "4.3"
 }

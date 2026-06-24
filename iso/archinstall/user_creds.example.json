@@ -1,8 +1,7 @@
 {
-  "_comment": "Reference only. stage0.sh GENERATES the real creds file at runtime via jq from the interactive prompts — do not ship real secrets here. Key names track the archinstall schema; verify against the version on your ISO.",
-  "!users": [
-    { "username": "will", "!password": "<user-password>", "sudo": true }
-  ],
-  "!encryption_password": "<luks-passphrase>",
-  "!root-password": ""
+  "_comment": "Reference only — stage0.sh GENERATES the real creds file at runtime via jq from the interactive prompts; do not ship real secrets here. Schema confirmed against archinstall v4.3. encryption_password is plaintext at the top level. Each user takes a plaintext password under '!password' (archinstall also accepts a pre-hashed 'enc_password'). root_enc_password is omitted to leave root locked (the user has sudo).",
+  "encryption_password": "<luks-passphrase>",
+  "users": [
+    { "username": "will", "!password": "<user-password>", "sudo": true, "groups": [] }
+  ]
 }

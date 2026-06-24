@@ -61,20 +61,22 @@ to start from a clean disk.
 ## Known fragile points (validate in QEMU before trusting)
 
 1. **archinstall schema drift is the #1 risk.** The `disk_config` block in
-   `user_config.json` and the credential key names in `stage0.sh`
-   (`!users`, `!encryption_password`, `!root-password`) track archinstall's
-   JSON schema, which changes between releases. The reliable way to refresh
-   them: boot the ISO, run `archinstall` interactively once, configure the
-   layout you want, use its "Save configuration" option, and copy the exported
-   `user_configuration.json` / `user_credentials.json` back into this dir
-   (re-inserting the `__TIMEZONE__` / `__HASHIRU_USER__` / `__TARGET_DISK__`
-   placeholders). Pin your ISO to a known archiso snapshot to avoid surprise
-   breakage.
+   `user_config.json` and the credential keys in `stage0.sh`
+   (`encryption_password`, `users[].!password`) were captured from and verified
+   against **archinstall v4.3**. They change between releases. The reliable way
+   to refresh them: boot the ISO, run `archinstall --dry-run`, configure the
+   layout/user/encryption you want, use "Save configuration" (decline credential
+   encryption so the creds file is readable), and copy the exported
+   `user_configuration.json` / `user_credentials.json` back into this dir —
+   re-inserting the `__TIMEZONE__` / `__HOSTNAME__` / `__HASHIRU_USER__` /
+   `__TARGET_DISK__` placeholders and the `custom_commands`. Pin your ISO to a
+   known archiso snapshot to avoid surprise breakage.
 
-2. **`disk_config` here is illustrative.** `"config_type": "default_layout"`
-   with a single `device` is a readable placeholder, not guaranteed-valid for
-   your archinstall version — real configs use explicit `device_modifications`.
-   Regenerate per point 1.
+2. **The btrfs partition size is recomputed at runtime.** The saved layout
+   freezes an absolute partition size (whatever disk it was captured on), so
+   `stage0.sh` rewrites the btrfs partition's `size.value` via `jq` to fill the
+   actual target disk. If you regenerate `disk_config`, keep the two-partition
+   shape (fat32 `/boot` + btrfs) or update that `jq` selector accordingly.
 
 3. **btrfs is required for snapper.** `scripts/50-snapper.sh` only runs on
    btrfs, and the config requests GRUB so `grub-btrfs` works. Keep the
