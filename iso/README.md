@@ -36,6 +36,12 @@ upstream archiso for free.
 
 ## Test in QEMU (no hardware needed)
 
+Install qemu on arch linux
+
+```bash
+sudo pacman -S qemu-desktop qemu-ui-gtk
+```
+
 ```bash
 ./iso/test-qemu.sh             # install mode — boots latest out/*.iso (the installer)
 ./iso/test-qemu.sh run         # run mode    — boots the INSTALLED disk, no ISO attached
