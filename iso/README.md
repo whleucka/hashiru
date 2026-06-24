@@ -37,11 +37,18 @@ upstream archiso for free.
 ## Test in QEMU (no hardware needed)
 
 ```bash
-./iso/test-qemu.sh              # boots latest out/*.iso against a throwaway disk
+./iso/test-qemu.sh             # install mode — boots latest out/*.iso (the installer)
+./iso/test-qemu.sh run         # run mode    — boots the INSTALLED disk, no ISO attached
 ```
 
+The installer reboots when it finishes. Because the ISO is still "in the drive"
+in install mode, that reboot would loop back into the installer — so after the
+base install completes, switch to `run` mode to boot the system you just
+installed (the equivalent of pulling the USB stick out). That first disk boot is
+where `hashiru-firstboot.service` runs stages 10–99.
+
 Iterate: edit → `build.sh` → `test-qemu.sh`. Delete `iso/work/test-disk.qcow2`
-to start from a clean disk.
+(and `iso/work/OVMF_VARS.fd`) to start from a completely clean machine.
 
 ## Files
 

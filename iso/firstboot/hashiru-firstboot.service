@@ -1,7 +1,11 @@
 [Unit]
 Description=Hashiru first-boot bootstrap
-After=network-online.target
+# Order AFTER multi-user.target so the bootstrap runs once boot has settled.
+# If it ran as part of reaching the target, its own `systemctl start` calls
+# (every enable_and_start_service) would queue behind the still-in-progress
+# boot transaction — which is itself waiting on this oneshot — and deadlock.
 Wants=network-online.target
+After=network-online.target multi-user.target
 ConditionPathExists=/etc/hashiru-firstboot.env
 
 [Service]
