@@ -201,6 +201,13 @@ DISK_BYTES="$(blockdev --getsize64 "${HDISK}")"
 BTRFS_START="$(jq -r '.disk_config.device_modifications[0].partitions[]
                       | select(.fs_type=="btrfs") | .start.value' "${CONFIG_RUN}")"
 BTRFS_SIZE=$(( DISK_BYTES - BTRFS_START - 1048576 ))
+# Round the size DOWN to a 1 MiB boundary. The start is already 1 MiB-aligned,
+# so a 1 MiB-multiple size keeps the partition END aligned too. Without this the
+# end lands at (disk_bytes - 1 MiB), and a real disk is sectors*512 — almost
+# never a whole MiB — so parted/archinstall rejects it as misaligned. (A round
+# qcow2 test disk IS a whole MiB, which is why QEMU never tripped this.) 1 MiB is
+# a multiple of both 512- and 4096-byte sectors, so this is safe on 4Kn drives.
+BTRFS_SIZE=$(( (BTRFS_SIZE / 1048576) * 1048576 ))
 say "Sizing btrfs partition to fill ${HDISK} (${BTRFS_SIZE} bytes)"
 tmp="$(mktemp)"
 jq --argjson sz "${BTRFS_SIZE}" '
