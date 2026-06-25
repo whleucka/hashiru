@@ -46,15 +46,82 @@ have_net() {
   done
   return 1
 }
-say "Waiting for network…"
+
+# Name of the first wireless interface (e.g. wlan0), or non-zero if none.
+# /sys/class/net/<iface>/wireless exists only for 802.11 devices, so this is a
+# reliable, parse-free probe — unlike scraping `iwctl device list` output, which
+# is box-drawing-decorated and colourised.
+first_wifi_dev() {
+  local d
+  for d in /sys/class/net/*/wireless; do
+    [[ -e "${d}" ]] || continue
+    basename "$(dirname "${d}")"
+    return 0
+  done
+  return 1
+}
+has_wifi_dev() { first_wifi_dev >/dev/null 2>&1; }
+
+# Captured when WiFi is set up, so the same credentials can be seeded into the
+# installed system's NetworkManager after archinstall (see end of script).
+WIFI_SSID=""
+WIFI_PSK=""
+
+# Bring up WiFi in the live environment via iwd (iwctl). On success, exports
+# WIFI_SSID/WIFI_PSK and returns 0. The live env runs systemd-networkd +
+# systemd-resolved + iwd, so once iwd associates, DHCP and DNS follow.
+connect_wifi() {
+  local dev ssid psk
+  dev="$(first_wifi_dev)" || { err "No WiFi device found."; return 1; }
+
+  rfkill unblock wifi 2>/dev/null || true
+  iwctl device "${dev}" set-property Powered on 2>/dev/null || true
+
+  say "Scanning for networks on ${dev}…"
+  iwctl station "${dev}" scan 2>/dev/null || true
+  sleep 3
+  iwctl station "${dev}" get-networks || true
+  echo
+
+  read -rp "WiFi SSID: " ssid
+  [[ -n "${ssid}" ]] || { err "Empty SSID."; return 1; }
+  read -rsp "WiFi passphrase: " psk; echo
+
+  say "Connecting to ${ssid}…"
+  if ! iwctl --passphrase "${psk}" station "${dev}" connect "${ssid}"; then
+    err "WiFi connection failed (wrong passphrase or out of range?)."
+    return 1
+  fi
+
+  # Association is near-instant but the DHCP lease can lag a couple of seconds.
+  local _
+  for _ in $(seq 1 10); do
+    if have_net; then WIFI_SSID="${ssid}"; WIFI_PSK="${psk}"; return 0; fi
+    sleep 2
+  done
+  err "Associated with ${ssid} but no internet (DHCP/DNS not up?)."
+  return 1
+}
+
+say "Waiting for network (wired auto-connects)…"
 net_ok=
-for _ in $(seq 1 10); do
+for _ in $(seq 1 5); do
   if have_net; then net_ok=1; break; fi
   sleep 2
 done
+
+# No wired link. If there's a WiFi radio, offer to set it up interactively.
+if [[ -z "${net_ok}" ]] && has_wifi_dev; then
+  say "No wired network detected."
+  read -rp "Set up WiFi now? [Y/n] " DOWIFI
+  if [[ "${DOWIFI,,}" != "n" ]] && connect_wifi; then
+    net_ok=1
+  fi
+fi
+
 if [[ -z "${net_ok}" ]]; then
   err "No network connection."
-  err "Connect first (wired auto-connects; wifi: use 'iwctl'), then re-run:"
+  err "Connect wired, or set up wifi manually with 'iwctl', then re-run:"
   err "    /root/stage0.sh"
   exit 1
 fi
@@ -161,6 +228,50 @@ say "Launching archinstall — this installs the base system (several minutes)�
 archinstall --config "${CONFIG_RUN}" --creds "${CREDS_RUN}" --silent
 
 echo
+
+# --- seed WiFi into the installed system --------------------------------------
+# archinstall installs NetworkManager (network_config.type = "nm") but does NOT
+# carry over the live env's iwd connection. Without this, a WiFi-only machine
+# boots with NM running but zero saved connections, so network-online.target
+# never comes up and the first-boot bootstrap (pacman/AUR/git) hangs or fails.
+# Wired machines never hit this — DHCP satisfies network-online.target on its
+# own, which is exactly why it's invisible under QEMU.
+#
+# Write a NetworkManager keyfile into the target so NM auto-connects on first
+# boot. No uuid: NM generates and persists one when it first reads the file.
+# /mnt is still mounted here (archinstall unmounts only on reboot, below).
+if [[ -n "${WIFI_SSID}" ]]; then
+  say "Seeding WiFi connection '${WIFI_SSID}' into the installed system…"
+  NMDIR="/mnt/etc/NetworkManager/system-connections"
+  # Sanitise only the filename; id/ssid keep the exact SSID.
+  NMFILE="${NMDIR}/$(printf '%s' "${WIFI_SSID}" | tr -c 'A-Za-z0-9._-' '_').nmconnection"
+  mkdir -p "${NMDIR}"
+  cat > "${NMFILE}" <<EOF
+[connection]
+id=${WIFI_SSID}
+type=wifi
+autoconnect=true
+
+[wifi]
+mode=infrastructure
+ssid=${WIFI_SSID}
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=${WIFI_PSK}
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto
+EOF
+  # NM refuses to load system-connection keyfiles unless they are root-owned and
+  # not group/world readable (they hold the plaintext PSK).
+  chown 0:0 "${NMFILE}"
+  chmod 600 "${NMFILE}"
+fi
+
 say "Base install complete. Hashiru will bootstrap automatically on first boot."
 read -rp "Reboot now? [Y/n] " RB
 if [[ "${RB,,}" != "n" ]]; then
