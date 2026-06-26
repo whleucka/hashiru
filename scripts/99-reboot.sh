@@ -84,9 +84,11 @@ echo ""
 
 # Reboot handling
 if [[ "${HASHIRU_UNATTENDED}" == "1" ]]; then
-    # First-boot bootstrap: reboot automatically into the finished system.
-    log_info "Unattended mode — rebooting into the new system"
-    sudo reboot
+    # First-boot bootstrap: do NOT reboot here. The hashiru-firstboot wrapper
+    # reboots us *after* it disables its own unit. Rebooting from inside the
+    # bootstrap races that disable — the machine goes down before the unit is
+    # torn down, so it re-runs on every boot (reboot loop). Just return.
+    log_info "Unattended mode — bootstrap complete; firstboot will reboot"
 elif [[ -t 0 ]]; then
     read -rp "Reboot now? [y/N] " response
     if [[ "${response}" =~ ^[Yy]$ ]]; then
