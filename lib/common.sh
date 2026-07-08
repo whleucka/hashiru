@@ -13,7 +13,8 @@ readonly NC='\033[0m' # No Color
 # Paths
 readonly HASHIRU_DATA_DIR="${HOME}/.local/share/hashiru"
 readonly HASHIRU_LOG="${HASHIRU_DATA_DIR}/install.log"
-readonly HASHIRU_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HASHIRU_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly HASHIRU_ROOT
 
 # Unattended mode: set HASHIRU_UNATTENDED=1 to skip interactive prompts and
 # auto-reboot at the end. Used by the live-ISO first-boot bootstrap; defaults
@@ -242,34 +243,6 @@ enable_and_start_service() {
 }
 
 # -----------------------------------------------------------------------------
-# File operations
-# -----------------------------------------------------------------------------
-
-backup_file() {
-    local file="$1"
-    if [[ -f "${file}" ]]; then
-        local backup="${file}.bak.$(date +%Y%m%d%H%M%S)"
-        cp "${file}" "${backup}"
-        log_info "Backed up ${file} to ${backup}"
-    fi
-}
-
-copy_config() {
-    local src="$1"
-    local dest="$2"
-    local sudo_flag="${3:-}"
-
-    ensure_dir "$(dirname "${dest}")" "${sudo_flag}"
-
-    if [[ "${sudo_flag}" == "--sudo" ]]; then
-        sudo cp "${src}" "${dest}"
-    else
-        cp "${src}" "${dest}"
-    fi
-    log_info "Copied config: ${src} -> ${dest}"
-}
-
-# -----------------------------------------------------------------------------
 # Validation
 # -----------------------------------------------------------------------------
 
@@ -287,11 +260,22 @@ require_user() {
     fi
 }
 
+# HTTPS check (ICMP is blocked on some networks), retried for up to a minute:
+# on first boot this can run while NetworkManager is still negotiating DHCP,
+# and a one-shot failure would postpone the whole bootstrap to the next boot.
 require_network() {
-    if ! ping -c 1 archlinux.org &>/dev/null; then
-        log_error "No network connection"
-        exit 1
-    fi
+    local attempts=12
+    for (( i = 1; i <= attempts; i++ )); do
+        if curl -fsI --max-time 5 https://archlinux.org &>/dev/null; then
+            return 0
+        fi
+        if (( i == 1 )); then
+            log_info "No network yet — waiting up to $(( attempts * 5 ))s..."
+        fi
+        sleep 5
+    done
+    log_error "No network connection"
+    exit 1
 }
 
 # -----------------------------------------------------------------------------

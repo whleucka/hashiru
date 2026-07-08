@@ -35,6 +35,20 @@ cp -a "${HERE}/overlay/airootfs/." "${PROFILE}/airootfs/"
 mkdir -p "${PROFILE}/airootfs/root/archinstall"
 cp -a "${HERE}/archinstall/." "${PROFILE}/airootfs/root/archinstall/"
 
+echo "==> Pinning installer to the ISO's commit"
+# The target system clones the repo from GitHub at install time; pin that
+# clone to the commit this ISO was built from so the ISO and the code that
+# bootstraps the machine can't drift apart. Falls back to 'main' when
+# building from a non-git checkout (e.g. a release tarball).
+HASHIRU_REF="$(git -C "${HERE}/.." rev-parse HEAD 2>/dev/null || echo main)"
+if [[ -n "$(git -C "${HERE}/.." status --porcelain 2>/dev/null)" ]]; then
+  echo "    WARNING: working tree is dirty — uncommitted changes will NOT be"
+  echo "    in the installed system (it checks out ${HASHIRU_REF})."
+fi
+echo "    ref: ${HASHIRU_REF}"
+sed -i "s|__HASHIRU_REF__|${HASHIRU_REF}|g" \
+  "${PROFILE}/airootfs/root/archinstall/user_config.json"
+
 echo "==> Adding extra packages to the live image"
 # git + archinstall already ship in releng; jq is what stage0 needs for creds.
 cat "${HERE}/overlay/packages.x86_64.extra" >> "${PROFILE}/packages.x86_64"

@@ -73,8 +73,14 @@ fi
 # Allow user to use snapper without sudo for their own snapshots
 SNAPPER_USER_CONFIG="/etc/snapper/configs/root"
 if [[ -f "${SNAPPER_USER_CONFIG}" ]]; then
-    CURRENT_ALLOWED=$(sudo grep '^ALLOW_USERS=' "${SNAPPER_USER_CONFIG}" | sed 's/ALLOW_USERS="//;s/"//')
-    if [[ -z "${CURRENT_ALLOWED}" ]]; then
+    # The line may be missing entirely (e.g. config created by archinstall
+    # rather than snapper's template) — grep exiting 1 must not kill us.
+    ALLOW_USERS_LINE=$(sudo grep '^ALLOW_USERS=' "${SNAPPER_USER_CONFIG}" || true)
+    CURRENT_ALLOWED=$(echo "${ALLOW_USERS_LINE}" | sed 's/ALLOW_USERS="//;s/"//')
+    if [[ -z "${ALLOW_USERS_LINE}" ]]; then
+        log_info "Adding ALLOW_USERS to snapper config"
+        echo "ALLOW_USERS=\"${USER}\"" | sudo tee -a "${SNAPPER_USER_CONFIG}" > /dev/null
+    elif [[ -z "${CURRENT_ALLOWED}" ]]; then
         log_info "Adding ${USER} to snapper ALLOW_USERS"
         sudo sed -i "s/^ALLOW_USERS=\"\"/ALLOW_USERS=\"${USER}\"/" "${SNAPPER_USER_CONFIG}"
     elif ! echo " ${CURRENT_ALLOWED} " | grep -q " ${USER} "; then

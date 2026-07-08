@@ -13,13 +13,13 @@ if ! command -v yay &>/dev/null; then
     # Ensure base-devel is installed
     sudo pacman -S --needed --noconfirm base-devel git
 
-    # Clone and build yay
+    # Clone and build yay (EXIT trap cleans up even if the build fails)
     YAY_DIR=$(mktemp -d)
+    trap 'rm -rf "${YAY_DIR}"' EXIT
     git clone https://aur.archlinux.org/yay-bin.git "${YAY_DIR}"
     pushd "${YAY_DIR}" > /dev/null
     makepkg -si --noconfirm
     popd > /dev/null
-    rm -rf "${YAY_DIR}"
 
     log_success "yay installed"
 else

@@ -10,8 +10,8 @@ script_start "10-base.sh"
 pacman_opt() {
     local opt="$1"   # option name, e.g. Color
     local line="$2"  # full line to set, e.g. "ParallelDownloads = 10"
-    if grep -q "^#\?${opt}" /etc/pacman.conf; then
-        sudo sed -i "s/^#\?${opt}.*/${line}/" /etc/pacman.conf
+    if grep -q "^#\?${opt}\b" /etc/pacman.conf; then
+        sudo sed -i "s/^#\?${opt}\b.*/${line}/" /etc/pacman.conf
     else
         sudo sed -i "/^\[options\]/a ${line}" /etc/pacman.conf
     fi

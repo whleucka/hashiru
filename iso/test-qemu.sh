@@ -28,6 +28,7 @@ OVMF_VARS_SRC="/usr/share/edk2/x64/OVMF_VARS.4m.fd"
 OVMF_VARS="${HERE}/work/OVMF_VARS.fd"
 [[ -f "${OVMF_VARS}" ]] || cp "${OVMF_VARS_SRC}" "${OVMF_VARS}"
 
+# shellcheck disable=SC2054  # commas are qemu option syntax, not element separators
 QEMU_ARGS=(
   -enable-kvm -m 4096 -smp 2 -machine q35
   -drive if=pflash,format=raw,readonly=on,file="${OVMF_CODE}"
@@ -40,6 +41,7 @@ if [[ "${MODE}" == "run" ]]; then
   echo "==> Booting the INSTALLED system from disk (no ISO attached)."
   QEMU_ARGS+=(-boot c)
 else
+  # shellcheck disable=SC2012  # ls -t for newest-first is fine; our ISO names have no spaces
   ISO="$(ls -t "${HERE}"/out/*.iso 2>/dev/null | head -1 || true)"
   [[ -n "${ISO}" ]] || { echo "No ISO in ${HERE}/out/. Run ./build.sh first."; exit 1; }
   echo "==> Booting installer ISO ${ISO##*/}"

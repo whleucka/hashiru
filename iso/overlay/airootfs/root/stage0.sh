@@ -34,6 +34,13 @@ Hashiru (Hyprland desktop) on first boot.
 BANNER
 echo
 
+# --- UEFI is required (the archinstall config sets up GRUB on an ESP) ---------
+if [[ ! -d /sys/firmware/efi ]]; then
+  err "Booted in BIOS/CSM mode, but Hashiru installs a UEFI system."
+  err "Reboot and select the UEFI entry for this USB/CD in your firmware menu."
+  exit 1
+fi
+
 # --- network is required (archinstall pacstraps from the mirrors) -------------
 # Ping a literal IP, never a hostname: ping's -W only bounds the reply wait, not
 # the DNS lookup, so pinging a name stalls on getaddrinfo until the resolver
@@ -143,7 +150,7 @@ done
 
 # LUKS passphrase — reuse the user password by default (4th prompt only if not).
 read -rp "Reuse this password for disk encryption? [Y/n] " REUSE
-if [[ "${REUSE,,}" == "n" ]]; then
+if [[ "${REUSE,,}" == n* ]]; then
   read -rsp "LUKS passphrase: " HLUKS; echo
   read -rsp "Confirm LUKS passphrase: " HLUKS2; echo
   while [[ -z "${HLUKS}" || "${HLUKS}" != "${HLUKS2}" ]]; do
@@ -208,6 +215,14 @@ BTRFS_SIZE=$(( DISK_BYTES - BTRFS_START - 1048576 ))
 # qcow2 test disk IS a whole MiB, which is why QEMU never tripped this.) 1 MiB is
 # a multiple of both 512- and 4096-byte sectors, so this is safe on 4Kn drives.
 BTRFS_SIZE=$(( (BTRFS_SIZE / 1048576) * 1048576 ))
+# Sanity-check before archinstall produces a cryptic mid-partitioning error:
+# base system + Hyprland desktop needs real space, and a tiny disk would make
+# the size calculation go zero or negative.
+MIN_BTRFS_SIZE=$(( 15 * 1024 * 1024 * 1024 ))
+if (( BTRFS_SIZE < MIN_BTRFS_SIZE )); then
+  err "${HDISK} is too small: need at least ~16 GiB, got $(( DISK_BYTES / 1024 / 1024 / 1024 )) GiB."
+  exit 1
+fi
 say "Sizing btrfs partition to fill ${HDISK} (${BTRFS_SIZE} bytes)"
 tmp="$(mktemp)"
 jq --argjson sz "${BTRFS_SIZE}" '
@@ -216,23 +231,27 @@ jq --argjson sz "${BTRFS_SIZE}" '
 ' "${CONFIG_RUN}" > "${tmp}" && mv "${tmp}" "${CONFIG_RUN}"
 
 # Build creds with jq so special characters in passwords are escaped correctly.
+# Secrets are passed via the environment ($ENV), not --arg, so they never
+# appear on a command line (/proc/*/cmdline).
 # Schema confirmed against archinstall v4.3: top-level "encryption_password"
 # (plaintext) and "users" (each user takes a plaintext password under the
 # "!password" key). root_enc_password is omitted, leaving root locked — the
 # user has sudo. See iso/README.md if the archinstall version changes.
-jq -n \
-  --arg user "${HUSER}" \
-  --arg pass "${HPASS}" \
-  --arg luks "${HLUKS}" \
+HUSER="${HUSER}" HPASS="${HPASS}" HLUKS="${HLUKS}" jq -n \
   '{
-     "encryption_password": $luks,
-     "users": [ { "username": $user, "!password": $pass, "sudo": true, "groups": [] } ]
+     "encryption_password": $ENV.HLUKS,
+     "users": [ { "username": $ENV.HUSER, "!password": $ENV.HPASS, "sudo": true, "groups": [] } ]
    }' > "${CREDS_RUN}"
 chmod 600 "${CREDS_RUN}"
 
 # --- hand off to archinstall --------------------------------------------------
 say "Launching archinstall — this installs the base system (several minutes)…"
 archinstall --config "${CONFIG_RUN}" --creds "${CREDS_RUN}" --silent
+
+# The live /root is tmpfs (RAM), but don't leave plaintext secrets around in
+# case the user pokes at the live session instead of rebooting. Kept on
+# archinstall failure (set -e exits above) to allow debugging a failed run.
+rm -f "${CREDS_RUN}"
 
 echo
 

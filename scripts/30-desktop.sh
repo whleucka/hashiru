@@ -39,9 +39,9 @@ VISUAL=nvim
 TERMINAL=kitty
 BROWSER=chromium
 
-# Wayland
-XDG_SESSION_TYPE=wayland
-XDG_CURRENT_DESKTOP=Hyprland
+# NOTE: XDG_SESSION_TYPE / XDG_CURRENT_DESKTOP are deliberately NOT set here.
+# environment.d applies to every session and user service; Hyprland sets them
+# itself, and stale static values confuse xdg-desktop-portal.
 
 # Qt
 QT_QPA_PLATFORM=wayland
@@ -84,9 +84,20 @@ else
     log_info "TTY1 auto-login already configured"
 fi
 
-# Add Hyprland auto-start to zprofile
+# Add Hyprland auto-start to zprofile.
+# If .zprofile is a symlink it belongs to the stowed dotfiles — appending
+# would write into the dotfiles repo, and dotfiles should carry the
+# auto-start themselves. (Conversely, if dotfiles ever ship a .zprofile,
+# stow will refuse to replace the plain file this creates — keep auto-start
+# in the dotfiles, not here, if you add one.)
 ZPROFILE="${HOME}/.zprofile"
-if ! grep -q "start-hyprland" "${ZPROFILE}" 2>/dev/null; then
+if [[ -L "${ZPROFILE}" ]]; then
+    if ! grep -q "start-hyprland" "${ZPROFILE}" 2>/dev/null; then
+        log_warn ".zprofile is a stowed symlink without Hyprland auto-start — add it to your dotfiles"
+    else
+        log_info "Hyprland auto-start already in stowed .zprofile"
+    fi
+elif ! grep -q "start-hyprland" "${ZPROFILE}" 2>/dev/null; then
     log_info "Adding Hyprland auto-start to .zprofile"
     cat >> "${ZPROFILE}" << 'EOF'
 

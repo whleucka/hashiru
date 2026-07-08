@@ -54,5 +54,8 @@ fi
 # disable, so the disable can't be pre-empted by an in-bootstrap reboot. The EXIT
 # trap (sudoers cleanup) still fires before the machine goes down.
 systemctl disable hashiru-firstboot.service
+# Also drop the env file: ConditionPathExists then blocks the unit for good,
+# even if something re-enables it later.
+rm -f /etc/hashiru-firstboot.env
 echo "==> Hashiru bootstrap complete — rebooting into the finished system."
 systemctl reboot

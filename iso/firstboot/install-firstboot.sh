@@ -27,3 +27,13 @@ cp -a "${REPO_SRC}" "${USER_HOME}/hashiru"
 chown -R "${HUSER}:${HUSER}" "${USER_HOME}/hashiru"
 
 systemctl enable hashiru-firstboot.service
+
+# The first-boot unit orders After=network-online.target, but that target is a
+# no-op unless a wait-online service is enabled — without this, the bootstrap
+# can start before DHCP finishes and fail its network check.
+systemctl enable NetworkManager-wait-online.service
+
+# The user's copy is the one that runs; remove the staging clone so two
+# divergent copies don't linger. (bash keeps this script's fd open, so
+# deleting the directory we were invoked from is safe.)
+rm -rf "${REPO_SRC}"
