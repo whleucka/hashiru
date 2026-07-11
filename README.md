@@ -43,6 +43,7 @@ Run a single stage with `./install.sh 30`.
 | Stage | Script | What it does |
 |-------|--------|--------------|
 | 10 | `10-base.sh` | Update, base packages, microcode, firmware, NetworkManager, Bluetooth, TLP, cronie, zram, sysctl/udev |
+| 15 | `15-grub.sh` | GRUB boot tune, regenerate `grub.cfg` (skipped on systemd-boot) |
 | 20 | `20-aur.sh` | yay + AUR packages |
 | 30 | `30-desktop.sh` | Hyprland/Wayland stack, PipeWire, fonts, terminal tools, zsh, TTY1 auto-login |
 | 35 | `35-zsh.sh` | Oh My Zsh, Powerlevel10k, plugins |
