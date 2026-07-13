@@ -29,6 +29,25 @@ if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
     sudo sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
 fi
 
+# Rank mirrors before the heaviest download of the machine's life: the -Syu
+# below plus every stage's packages all pull from whatever mirrorlist
+# archinstall left behind (the reflector.timer enabled later only helps future
+# updates). Reflector ships in base.txt but that installs after -Syu, so pull
+# it in first — it's small. Never fatal: a reflector failure just means
+# installing on the stock mirrors.
+if ! command -v reflector &>/dev/null; then
+    sudo pacman -S --needed --noconfirm reflector || true
+fi
+if command -v reflector &>/dev/null; then
+    log_info "Ranking pacman mirrors (reflector, ~1 min)"
+    if sudo reflector --protocol https --latest 10 --sort rate \
+        --save /etc/pacman.d/mirrorlist; then
+        log_success "Mirrorlist updated with fastest mirrors"
+    else
+        log_warn "reflector failed — keeping existing mirrorlist"
+    fi
+fi
+
 # Update system first
 log_info "Updating system packages"
 sudo pacman -Syu --noconfirm

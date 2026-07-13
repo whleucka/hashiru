@@ -179,17 +179,51 @@ while [[ ! -f "/usr/share/zoneinfo/${HTZ}" ]]; do
 done
 
 # --- target disk --------------------------------------------------------------
+# The medium the live ISO booted from must not be a target — erasing it yanks
+# the installer out from under archinstall mid-run. archiso mounts it at
+# bootmnt; resolve up to the whole disk (PKNAME), falling back to the source
+# itself when it has no parent (e.g. /dev/sr0).
+BOOT_SRC="$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null || true)"
+BOOT_DISK=""
+if [[ -n "${BOOT_SRC}" && -b "${BOOT_SRC}" ]]; then
+  BOOT_PK="$(lsblk -no PKNAME "${BOOT_SRC}" 2>/dev/null | head -1)"
+  BOOT_DISK="${BOOT_PK:+/dev/${BOOT_PK}}"
+  BOOT_DISK="${BOOT_DISK:-${BOOT_SRC}}"
+fi
+
 echo
 say "Available disks:"
-lsblk -dno NAME,SIZE,MODEL | sed 's/^/    \/dev\//'
+# TYPE filter drops the airootfs loop device and partitions; TYPE sits before
+# MODEL so the greedy last read field keeps models with spaces intact.
+while read -r name size _type model; do
+  dev="/dev/${name}"
+  if [[ "${dev}" == "${BOOT_DISK}" ]]; then
+    printf '    %-16s %8s  %s  << live installer medium\n' "${dev}" "${size}" "${model}"
+  else
+    printf '    %-16s %8s  %s\n' "${dev}" "${size}" "${model}"
+  fi
+done < <(lsblk -dno NAME,SIZE,TYPE,MODEL | awk '$3=="disk" && $1 !~ /^(zram|loop|ram)/')
+
+valid_target() {
+  if [[ ! -b "$1" ]]; then
+    err "Not a block device."
+  elif [[ "$(lsblk -dno TYPE "$1" 2>/dev/null)" != "disk" || "$1" =~ ^/dev/(zram|loop|ram) ]]; then
+    err "$1 is not an installable whole disk — pick e.g. /dev/nvme0n1, not a partition."
+  elif [[ -n "${BOOT_DISK}" && "$1" == "${BOOT_DISK}" ]]; then
+    err "$1 is the live installer medium — pick a different disk."
+  else
+    return 0
+  fi
+  return 1
+}
+
 read -rp "Target disk to ERASE (e.g. /dev/nvme0n1): " HDISK
-while [[ ! -b "${HDISK}" ]]; do
-  err "Not a block device."
+while ! valid_target "${HDISK}"; do
   read -rp "Target disk: " HDISK
 done
 
 echo
-err "ALL DATA on ${HDISK} will be destroyed."
+err "ALL DATA on ${HDISK} ($(lsblk -dno SIZE,MODEL "${HDISK}" | tr -s ' ')) will be destroyed."
 read -rp "Type 'yes' to proceed: " CONFIRM
 [[ "${CONFIRM}" == "yes" ]] || { err "Aborted."; exit 1; }
 
