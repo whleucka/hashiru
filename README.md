@@ -52,6 +52,17 @@ Run a single stage with `./install.sh 30`.
 | 60 | `60-dotfiles.sh` | Clone + stow dotfiles, tmux/TPM, bat cache |
 | 99 | `99-reboot.sh` | Dev tools, desktop apps, Rust, user groups, verify, reboot |
 
+## Health check
+
+```bash
+./doctor.sh
+```
+
+Read-only audit of an installed machine: packages vs. the manifests, services,
+desktop stack, shell, storage, dotfiles. Exits non-zero on failures. Every full
+`./install.sh` run also stamps `/etc/hashiru-release` with the commit and date
+it was bootstrapped from.
+
 ## Notes
 
 * Arch only, Hyprland only. No other distros or WMs.

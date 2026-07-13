@@ -35,7 +35,9 @@ if [[ ${#SCRIPTS[@]} -eq 0 ]]; then
 fi
 
 # If argument provided, filter to just that script
+FULL_RUN=1
 if [[ $# -gt 0 ]]; then
+    FULL_RUN=0
     TARGET="$1"
     FILTERED=()
     for script in "${SCRIPTS[@]}"; do
@@ -112,4 +114,14 @@ if [[ -s "${HASHIRU_REPORT}" ]]; then
         /etc/profile.d/hashiru-report.sh
 else
     rm -f "${HASHIRU_REPORT}"
+fi
+
+# Stamp the system with the commit that bootstrapped it (full runs only — a
+# single re-run stage doesn't represent the whole bootstrap). Answers "which
+# Hashiru is this machine actually running?" months later: cat /etc/hashiru-release
+if [[ "${FULL_RUN}" -eq 1 ]]; then
+    HASHIRU_COMMIT="$(git -C "${SCRIPT_DIR}" rev-parse HEAD 2>/dev/null || echo unknown)"
+    printf 'HASHIRU_COMMIT=%s\nHASHIRU_INSTALL_DATE=%s\n' \
+        "${HASHIRU_COMMIT}" "$(date -Is)" | sudo tee /etc/hashiru-release > /dev/null
+    log_info "Stamped /etc/hashiru-release (${HASHIRU_COMMIT:0:12})"
 fi

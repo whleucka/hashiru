@@ -15,8 +15,7 @@ install_packages "apps.txt"
 # Ensure a default Rust toolchain is set up. The rustup package alone installs
 # no toolchain, so cargo is unusable until a default is chosen. Needed because
 # blink.cmp (neovim) builds its Rust fuzzy-matching library from source on first
-# launch. tree-sitter-cli now comes from the repos (see pacman/dev.txt), so no
-# cargo build is needed here.
+# launch.
 if command -v rustup &>/dev/null; then
     if ! rustup show active-toolchain &>/dev/null; then
         log_info "Setting up Rust toolchain"

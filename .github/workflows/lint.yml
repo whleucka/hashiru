@@ -15,6 +15,7 @@ jobs:
           shellcheck --version
           shellcheck -x --source-path=. \
             install.sh \
+            doctor.sh \
             lib/common.sh \
             scripts/*.sh \
             iso/build.sh \

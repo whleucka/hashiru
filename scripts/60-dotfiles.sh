@@ -80,16 +80,24 @@ if [[ -x "${TPM_DIR}/bin/install_plugins" ]]; then
     log_success "tmux plugins installed"
 fi
 
-# Install tmux systemd user service (stow can't merge into existing systemd dir)
+# Install tmux systemd user service. Stow places the unit symlink itself when
+# ~/.config/systemd/user already exists, so the link may or may not be ours —
+# either way, a merely *linked* unit does not start at login: it must also be
+# enabled. Do the two steps independently so stow winning the link race can't
+# skip the enable (that exact bug left the unit dead on a real machine).
 readonly TMUX_SERVICE_SRC="${DOTFILES_DIR}/tmux/.config/systemd/user/tmux.service"
 readonly TMUX_SERVICE_DST="${HOME}/.config/systemd/user/tmux.service"
-if [[ -f "${TMUX_SERVICE_SRC}" ]] && [[ ! -f "${TMUX_SERVICE_DST}" ]]; then
-    log_info "Installing tmux systemd user service"
-    ensure_dir "${HOME}/.config/systemd/user"
-    ln -sf "${TMUX_SERVICE_SRC}" "${TMUX_SERVICE_DST}"
+if [[ -f "${TMUX_SERVICE_SRC}" ]]; then
+    if [[ ! -f "${TMUX_SERVICE_DST}" ]]; then
+        log_info "Installing tmux systemd user service"
+        ensure_dir "${HOME}/.config/systemd/user"
+        ln -sf "${TMUX_SERVICE_SRC}" "${TMUX_SERVICE_DST}"
+    fi
     systemctl --user daemon-reload
-    systemctl --user enable tmux.service
-    log_success "tmux service enabled (starts on login)"
+    if ! is_service_enabled tmux.service --user; then
+        systemctl --user enable tmux.service
+        log_success "tmux service enabled (starts on login)"
+    fi
 fi
 
 script_end "60-dotfiles.sh"
