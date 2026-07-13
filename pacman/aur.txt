@@ -17,3 +17,7 @@ wrk
 
 # Media
 spotify
+
+# Default terminal launcher (GLib/Thunar "open in terminal" apps -> kitty,
+# configured via thunar/.config/xdg-terminals.list in dotfiles)
+xdg-terminal-exec
