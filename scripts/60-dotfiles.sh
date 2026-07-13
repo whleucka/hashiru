@@ -25,6 +25,18 @@ else
     log_success "Dotfiles cloned to ${DOTFILES_DIR}"
 fi
 
+# useradd seeds /etc/skel copies into every new home, and stow refuses to
+# replace a real file with a symlink — so on a fresh install the bash package
+# always fails to stow. Drop them only if still byte-identical to skel (a
+# pristine copy carries no user data); anything modified is left for stow to
+# warn about. The -L guard skips already-stowed symlinks on re-runs.
+for f in .bashrc .bash_profile .bash_logout; do
+    if [[ -f "${HOME}/${f}" && ! -L "${HOME}/${f}" ]] && cmp -s "${HOME}/${f}" "/etc/skel/${f}"; then
+        rm "${HOME}/${f}"
+        log_info "Removed pristine skel file blocking stow: ~/${f}"
+    fi
+done
+
 # Stow all directories
 cd "${DOTFILES_DIR}" || { log_error "Failed to cd into ${DOTFILES_DIR}"; exit 1; }
 
