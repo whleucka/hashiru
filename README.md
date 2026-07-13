@@ -36,7 +36,9 @@ On an existing base Arch system:
 git clone https://github.com/whleucka/hashiru.git && cd hashiru && ./install.sh
 ```
 
-Run a single stage with `./install.sh 30`.
+Run a single stage with `./install.sh 30`, resume a failed run from a stage
+onward with `./install.sh 30+` (or `--from 30`), run several with
+`./install.sh 30 35`, and list stages with `./install.sh --list`.
 
 ## Stages
 
