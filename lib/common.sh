@@ -13,6 +13,10 @@ readonly NC='\033[0m' # No Color
 # Paths
 readonly HASHIRU_DATA_DIR="${HOME}/.local/share/hashiru"
 readonly HASHIRU_LOG="${HASHIRU_DATA_DIR}/install.log"
+# End-of-run warnings digest. install.sh truncates it at run start; warnings
+# and errors are appended only while it exists, so ad-hoc sourcing of this
+# library can't resurrect a stale digest.
+readonly HASHIRU_REPORT="${HASHIRU_DATA_DIR}/report.txt"
 HASHIRU_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly HASHIRU_ROOT
 
@@ -40,6 +44,12 @@ _log() {
 
     # File output (no colors)
     echo "[${timestamp}] [${level}] ${message}" >> "${HASHIRU_LOG}"
+
+    # Warnings/errors also feed the end-of-run digest (printed by install.sh
+    # and shown once on first login), tagged with the stage they came from.
+    if [[ ("${level}" == "WARN" || "${level}" == "ERROR") && -f "${HASHIRU_REPORT}" ]]; then
+        echo "[${HASHIRU_STAGE:-install}] ${message}" >> "${HASHIRU_REPORT}"
+    fi
 }
 
 log_info() {
@@ -276,6 +286,22 @@ require_network() {
     done
     log_error "No network connection"
     exit 1
+}
+
+# -----------------------------------------------------------------------------
+# Formatting
+# -----------------------------------------------------------------------------
+
+# Render a number of seconds as "1h 4m 2s" / "9m 42s" / "37s".
+fmt_duration() {
+    local s="$1"
+    if (( s >= 3600 )); then
+        printf '%dh %dm %ds' "$(( s / 3600 ))" "$(( s % 3600 / 60 ))" "$(( s % 60 ))"
+    elif (( s >= 60 )); then
+        printf '%dm %ds' "$(( s / 60 ))" "$(( s % 60 ))"
+    else
+        printf '%ds' "${s}"
+    fi
 }
 
 # -----------------------------------------------------------------------------

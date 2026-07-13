@@ -20,4 +20,5 @@ jobs:
             iso/build.sh \
             iso/test-qemu.sh \
             iso/firstboot/*.sh \
-            iso/overlay/airootfs/root/stage0.sh
+            iso/overlay/airootfs/root/stage0.sh \
+            config/profile.d/hashiru-report.sh
