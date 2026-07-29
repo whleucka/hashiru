@@ -84,8 +84,9 @@ wpa_supplicant
 # ZRAM swap
 zram-generator
 
-# Remote
+# Remote (xorg-xauth: ssh -X forwarding)
 sshfs
+xorg-xauth
 
 # Wireguard
 wireguard-tools
