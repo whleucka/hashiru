@@ -193,16 +193,10 @@ else
     bad "dotfiles missing at ${HOME}/.dotfiles (60-dotfiles.sh)"
 fi
 
-if [[ -d "${HOME}/.config/tmux/plugins/tpm" ]]; then
-    ok "TPM installed"
+if command -v herdr &>/dev/null || [[ -x "${HOME}/.local/bin/herdr" ]]; then
+    ok "herdr installed"
 else
-    bad "TPM missing (60-dotfiles.sh)"
-fi
-
-if is_service_enabled tmux.service --user; then
-    ok "tmux.service: enabled (user)"
-else
-    meh "tmux.service: not enabled (user)"
+    bad "herdr missing (60-dotfiles.sh)"
 fi
 
 # --- Summary -------------------------------------------------------------------

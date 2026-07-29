@@ -19,7 +19,7 @@ trap cleanup EXIT
 printf '%s ALL=(ALL) NOPASSWD: ALL\n' "${HASHIRU_USER}" > "${SUDOERS}"
 chmod 440 "${SUDOERS}"
 
-# Several stages call `systemctl --user` (PipeWire sockets, wireplumber, tmux).
+# Several stages call `systemctl --user` (PipeWire sockets, wireplumber).
 # Those need a running per-user systemd instance and D-Bus session bus, which
 # normally exist only inside a login session — and this unit runs the bootstrap
 # via `sudo -u` from a *system* service, where there is none. Enable lingering

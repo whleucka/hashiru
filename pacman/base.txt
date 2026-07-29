@@ -39,7 +39,6 @@ xdg-user-dirs
 
 # System utilities
 screen
-tmux
 inetutils
 man-db
 man-pages

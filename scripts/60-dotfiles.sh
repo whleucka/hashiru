@@ -62,41 +62,21 @@ if command -v bat &>/dev/null; then
     log_success "bat cache rebuilt"
 fi
 
-# Install TPM (tmux plugin manager) and plugins
-# XDG location: tmux.conf lives in ~/.config/tmux, so TPM and plugins do too
-readonly TPM_DIR="${HOME}/.config/tmux/plugins/tpm"
-if [[ ! -d "${TPM_DIR}" ]]; then
-    log_info "Installing tmux plugin manager (TPM)"
-    git clone https://github.com/tmux-plugins/tpm "${TPM_DIR}"
-    log_success "TPM installed"
+# Install herdr (terminal workspace manager; replaces tmux/TPM). There is no
+# AUR package, so use the official installer — it downloads the right binary for
+# the platform and drops it on PATH at ~/.local/bin/herdr. Runs as the invoking
+# user (not root) so it lands in this home; skip if already present. herdr's own
+# config comes from the stowed dotfiles, so no plugin bootstrap or systemd unit
+# is needed — herdr is the multiplexer, launched directly by the terminal.
+readonly HERDR_BIN="${HOME}/.local/bin/herdr"
+if command -v herdr &>/dev/null || [[ -x "${HERDR_BIN}" ]]; then
+    log_info "herdr already installed"
 else
-    log_info "TPM already installed"
-fi
-
-# Install tmux plugins (resurrect, continuum)
-if [[ -x "${TPM_DIR}/bin/install_plugins" ]]; then
-    log_info "Installing tmux plugins"
-    "${TPM_DIR}/bin/install_plugins"
-    log_success "tmux plugins installed"
-fi
-
-# Install tmux systemd user service. Stow places the unit symlink itself when
-# ~/.config/systemd/user already exists, so the link may or may not be ours —
-# either way, a merely *linked* unit does not start at login: it must also be
-# enabled. Do the two steps independently so stow winning the link race can't
-# skip the enable (that exact bug left the unit dead on a real machine).
-readonly TMUX_SERVICE_SRC="${DOTFILES_DIR}/tmux/.config/systemd/user/tmux.service"
-readonly TMUX_SERVICE_DST="${HOME}/.config/systemd/user/tmux.service"
-if [[ -f "${TMUX_SERVICE_SRC}" ]]; then
-    if [[ ! -f "${TMUX_SERVICE_DST}" ]]; then
-        log_info "Installing tmux systemd user service"
-        ensure_dir "${HOME}/.config/systemd/user"
-        ln -sf "${TMUX_SERVICE_SRC}" "${TMUX_SERVICE_DST}"
-    fi
-    systemctl --user daemon-reload
-    if ! is_service_enabled tmux.service --user; then
-        systemctl --user enable tmux.service
-        log_success "tmux service enabled (starts on login)"
+    log_info "Installing herdr"
+    if curl -fsSL https://herdr.dev/install.sh | sh; then
+        log_success "herdr installed"
+    else
+        log_warn "herdr install failed (retry: curl -fsSL https://herdr.dev/install.sh | sh)"
     fi
 fi
 

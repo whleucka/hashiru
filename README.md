@@ -51,7 +51,7 @@ onward with `./install.sh 30+` (or `--from 30`), run several with
 | 35 | `35-zsh.sh` | Oh My Zsh, Powerlevel10k, plugins |
 | 40 | `40-hyprland.sh` | Hyprland environment dirs |
 | 50 | `50-snapper.sh` | Snapper + grub-btrfs (btrfs only) |
-| 60 | `60-dotfiles.sh` | Clone + stow dotfiles, tmux/TPM, bat cache |
+| 60 | `60-dotfiles.sh` | Clone + stow dotfiles, herdr, bat cache |
 | 99 | `99-reboot.sh` | Dev tools, desktop apps, Rust, user groups, verify, reboot |
 
 ## Health check
