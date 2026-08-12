@@ -11,7 +11,10 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve the symlink first: this is normally invoked as /usr/local/bin/hashiru,
+# where a plain dirname would put the repo at /usr/local and fail to find lib/.
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "${SELF}")/.." && pwd)"
 
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
