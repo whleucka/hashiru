@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# 99-reboot.sh — Dev/app packages, user groups, verification, and reboot prompt
+# 99-reboot.sh — Dev/app packages, Rust toolchain, user groups, verification
+#
+# Keeps the name for stage ordering, but no longer reboots — see the note at the
+# bottom. The reboot prompt lives at the end of install.sh.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
