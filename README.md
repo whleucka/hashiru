@@ -12,18 +12,41 @@ in the code, not in prompts.
 
 ## Install (ISO)
 
-This is how I install. Build a live ISO that does the whole thing: prompts for
-a few machine-specific answers, installs an encrypted base Arch system with
+This is how I install. A live ISO does the whole thing: prompts for a few
+machine-specific answers, installs an encrypted base Arch system with
 `archinstall`, then runs the Hashiru stages automatically on first boot.
+
+### Download one
+
+Every release ships a prebuilt ISO, so there's nothing to build:
+
+**[Latest release →](https://github.com/whleucka/hashiru/releases/latest)** —
+`hashiru-YYYY.MM.DD-x86_64.iso`
+
+Each ISO is pinned to the exact commit it was built from: the installer clones
+this repo and `reset --hard`s to that commit, so the ISO and the code it installs
+can't drift apart. That also means a downloaded ISO installs *that* release, not
+whatever `main` looks like today — run `hashiru update` once you're booted to
+catch up.
+
+### Or build one
 
 ```bash
 sudo pacman -S archiso          # one-time
 sudo ./iso/build.sh             # -> iso/out/hashiru-*.iso
 ```
 
-Flash `iso/out/hashiru-*.iso`, boot it, and answer the prompts (username,
-password, timezone, hostname, target disk). Everything else is fixed in
-`iso/archinstall/user_config.json`.
+Building pins the ISO to your current `HEAD`, which is what you want when
+testing changes — the installed system gets the code you're holding, not what's
+on GitHub.
+
+### Either way
+
+Flash the ISO, boot it, and answer the prompts (username, password, timezone,
+hostname, target disk). Everything else is fixed in
+`iso/archinstall/user_config.json`. The target machine needs a network
+connection: the installer clones Hashiru from GitHub rather than carrying it in
+the ISO.
 
 The installed system keeps the repo at `/opt/hashiru`, owned by your user, with
 `~/hashiru` and `/usr/local/bin/hashiru` symlinked to it. First boot runs the
