@@ -217,8 +217,13 @@ section "Config"
 STOW_DIR="${HASHIRU_ROOT}/stow"
 if [[ -d "${STOW_DIR}" ]]; then
     # A stow package is "applied" when the paths it provides resolve back into
-    # the repo. Checking the package's own top-level entries (rather than a
-    # hardcoded list) keeps this honest as packages are added or renamed.
+    # the repo. Test the leaf files, not the package's top-level entries: stow
+    # folds a package into the shallowest symlink it can, which is almost never
+    # the top level. Every package's top entry is `.config`, and ~/.config is a
+    # real directory shared by all of them — checking there reports every
+    # correctly-stowed package as missing. ~/.config/bat is the actual link.
+    #
+    # Resolving both sides means this holds wherever stow chose to fold.
     for pkgdir in "${STOW_DIR}"/*/; do
         pkg="${pkgdir%/}"; pkg="${pkg##*/}"
         applied=0
@@ -226,19 +231,19 @@ if [[ -d "${STOW_DIR}" ]]; then
         while IFS= read -r -d '' src; do
             rel="${src#"${pkgdir}"}"
             link="${HOME}/${rel}"
-            if [[ -L "${link}" && "$(readlink -f "${link}" 2>/dev/null)" == "${src}" ]]; then
+            if [[ -e "${link}" && "$(readlink -f "${link}" 2>/dev/null)" == "$(readlink -f "${src}")" ]]; then
                 applied=$(( applied + 1 ))
             else
                 stray=$(( stray + 1 ))
             fi
-        done < <(find "${pkgdir}" -mindepth 1 -maxdepth 1 -print0)
+        done < <(find "${pkgdir}" -type f -print0)
 
         if [[ "${stray}" -eq 0 && "${applied}" -gt 0 ]]; then
             ok "${pkg}: stowed"
         elif [[ "${applied}" -eq 0 ]]; then
             bad "${pkg}: not stowed (cd ${STOW_DIR} && stow --restow --target=${HOME} ${pkg})"
         else
-            meh "${pkg}: partially stowed — ${stray} path(s) not linked here (conflict?)"
+            meh "${pkg}: partially stowed — ${stray}/$(( applied + stray )) file(s) resolve elsewhere (conflict?)"
         fi
     done
 else

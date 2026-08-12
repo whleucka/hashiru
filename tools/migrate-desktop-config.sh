@@ -89,6 +89,100 @@ fi
 
 log_info "Migrating ${#PACKAGES[@]} packages: ${PACKAGES[*]}"
 
+# --- Preflight: real files sitting where stow wants symlinks --------------------
+
+# Config that Hashiru now stows was, on older installs, written as plain files
+# by the stage scripts themselves — ~/.zprofile and
+# ~/.config/environment.d/10-hashiru.conf both came from an earlier
+# 30-desktop.sh. Stow refuses to replace a real file with a symlink, so each
+# one aborts a package mid-run. Find them all up front: discovering them one
+# crash at a time leaves the desktop unstowed for far longer than necessary.
+#
+# Only regular files collide. An existing *directory* is fine — stow descends
+# into it and links the leaves (which is how ~/.config/environment.d can hold
+# both this file and unrelated ones like fcitx.conf).
+#
+# A file reached *through* a symlinked ancestor is not a conflict either: stow
+# links whole directories when it can, so ~/.config/bat is itself a link into
+# the dotfiles repo and ~/.config/bat/config is a real file only by way of it.
+# The unstow step removes that link and the whole subtree with it. Testing the
+# leaf alone reports every such file as a collision — on a fully-stowed machine
+# that is every file in every package.
+_has_symlinked_ancestor() {
+    local p
+    p="$(dirname "$1")"
+    while [[ "${p}" != "${HOME}" && "${p}" != "/" ]]; do
+        [[ -L "${p}" ]] && return 0
+        p="$(dirname "${p}")"
+    done
+    return 1
+}
+
+CONFLICTS=()
+for pkg in "${PACKAGES[@]}"; do
+    while IFS= read -r -d '' src; do
+        rel="${src#"${STOW_DIR}/${pkg}/"}"
+        target="${HOME}/${rel}"
+        [[ -e "${target}" && ! -L "${target}" && ! -d "${target}" ]] || continue
+        _has_symlinked_ancestor "${target}" && continue
+        CONFLICTS+=("${target}|${src}")
+    done < <(find "${STOW_DIR}/${pkg}" -type f -print0)
+done
+
+if [[ ${#CONFLICTS[@]} -gt 0 ]]; then
+    log_error "${#CONFLICTS[@]} real file(s) sit where Hashiru's config needs to go."
+    log_error "Stow cannot replace a real file with a symlink. Compare each against"
+    log_error "Hashiru's copy, then move it aside and re-run this script."
+    log_error ""
+    for pair in "${CONFLICTS[@]}"; do
+        target="${pair%%|*}"
+        src="${pair#*|}"
+        if cmp -s "${target}" "${src}"; then
+            # Identical content: nothing to preserve, just in stow's way.
+            log_error "  ${target/#${HOME}/\~}  (identical to Hashiru's copy — safe to delete)"
+            log_error "      rm '${target}'"
+        else
+            log_error "  ${target/#${HOME}/\~}  (differs from Hashiru's copy)"
+            log_error "      diff '${target}' '${src}'"
+            log_error "      mv '${target}' '${target}.pre-hashiru'"
+        fi
+    done
+    log_error ""
+fi
+
+# Dangling symlinks anywhere in the target tree break stow's ownership analysis,
+# and it refuses to act — even on packages that have nothing to do with the
+# broken link. ~/.config/tmux surviving the tmux -> herdr switch (599134f) is
+# the canonical example: a dead link to a package that no longer exists in the
+# dotfiles repo, which blocks an unrelated `stow hyprland`. Cheap to detect, and
+# the alternative is an error message that names the wrong package.
+DEAD=()
+while IFS= read -r -d '' link; do
+    [[ -e "${link}" ]] && continue
+    target="$(readlink "${link}")"
+    case "${target}" in
+        ../*|*hashiru*|*.dotfiles*) DEAD+=("${link}") ;;
+    esac
+done < <(find "${HOME}/.config" -maxdepth 2 -type l -print0 2>/dev/null)
+
+if [[ ${#DEAD[@]} -gt 0 ]]; then
+    log_error "${#DEAD[@]} dangling symlink(s) in ~/.config will make stow refuse to act,"
+    log_error "including on packages unrelated to the broken link. Remove them, then re-run:"
+    log_error ""
+    for link in "${DEAD[@]}"; do
+        log_error "  ${link/#${HOME}/\~} -> $(readlink "${link}")"
+        log_error "      rm '${link}'"
+    done
+    log_error ""
+fi
+
+# Both classes are reported before stopping — fixing one and immediately
+# tripping the other is the failure mode this preflight exists to remove.
+if [[ ${#CONFLICTS[@]} -gt 0 || ${#DEAD[@]} -gt 0 ]]; then
+    log_error "Nothing has been changed — your config is still stowed from ${DOTFILES_DIR}."
+    exit 1
+fi
+
 # --- Warn about content drift --------------------------------------------------
 
 # The copies in this repo were taken at some point in the past; the dotfiles

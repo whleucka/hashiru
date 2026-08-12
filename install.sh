@@ -180,3 +180,23 @@ if [[ "${FULL_RUN}" -eq 1 ]]; then
         "${HASHIRU_COMMIT}" "$(date -Is)" | sudo tee /etc/hashiru-release > /dev/null
     log_info "Stamped /etc/hashiru-release (${HASHIRU_COMMIT:0:12})"
 fi
+
+# Reboot last, after the stamp above — stage 99 used to do this itself, which
+# meant a full interactive install rebooted before it could record its own
+# commit. Unattended runs never prompt: hashiru-firstboot reboots after it
+# disables its unit, and a reboot from in here would race that disable into a
+# boot loop.
+if [[ "${HASHIRU_UNATTENDED}" == "1" ]]; then
+    log_info "Unattended mode — firstboot will reboot"
+elif [[ " ${STAGE_NAMES[*]} " == *" 99-reboot.sh "* ]]; then
+    log_info "Reboot to start Hyprland."
+    if [[ -t 0 ]]; then
+        read -rp "Reboot now? [y/N] " response
+        if [[ "${response}" =~ ^[Yy]$ ]]; then
+            log_info "Rebooting..."
+            sudo reboot
+        fi
+    else
+        log_info "Non-interactive session — run 'sudo reboot' when ready"
+    fi
+fi

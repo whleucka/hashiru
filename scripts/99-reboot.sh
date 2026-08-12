@@ -74,29 +74,21 @@ echo "SHELL: ${SHELL}"
 
 echo ""
 log_success "=========================================="
-log_success "Hashiru installation complete!"
+log_success "Hashiru stages complete!"
 log_success "=========================================="
 echo ""
-log_info "Please reboot to start Hyprland"
-log_info "After reboot, select Hyprland from your display manager or run 'Hyprland' from TTY"
+log_info "Reboot to start Hyprland"
 echo ""
 
-# Reboot handling
-if [[ "${HASHIRU_UNATTENDED}" == "1" ]]; then
-    # First-boot bootstrap: do NOT reboot here. The hashiru-firstboot wrapper
-    # reboots us *after* it disables its own unit. Rebooting from inside the
-    # bootstrap races that disable — the machine goes down before the unit is
-    # torn down, so it re-runs on every boot (reboot loop). Just return.
-    log_info "Unattended mode — bootstrap complete; firstboot will reboot"
-elif [[ -t 0 ]]; then
-    read -rp "Reboot now? [y/N] " response
-    if [[ "${response}" =~ ^[Yy]$ ]]; then
-        log_info "Rebooting..."
-        sudo reboot
-    fi
-else
-    log_info "Non-interactive session — skipping reboot prompt"
-    log_info "Run 'sudo reboot' when ready"
-fi
+# This stage deliberately does NOT reboot. install.sh writes
+# /etc/hashiru-release *after* the stage loop, so rebooting from in here takes
+# the machine down before the stamp is written — a full interactive install
+# could never record which commit built it. The reboot prompt lives at the end
+# of install.sh instead, after the stamp.
+#
+# Unattended runs never reboot here either: the hashiru-firstboot wrapper
+# reboots *after* it disables its own unit, and rebooting from inside the
+# bootstrap races that disable — the machine goes down before the unit is torn
+# down, so it re-runs on every boot (reboot loop).
 
 script_end "99-reboot.sh"
