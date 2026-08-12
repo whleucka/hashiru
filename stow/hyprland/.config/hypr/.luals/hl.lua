@@ -107,6 +107,27 @@ function hl.env(name, value) end
 ---@param opts table
 function hl.monitor(opts) end
 
+--- A monitor as reported by hl.get_monitor / hl.get_monitors, and as handed to
+--- "monitor.added" / "monitor.removed" handlers.
+---
+--- Only `name` is spelled out — it is the field this config actually reads. The
+--- catch-all index keeps the rest of the real monitor object (geometry, refresh
+--- rate, and so on) from being flagged as undefined if it ever gets used.
+---@class hl.Monitor
+---@field name string
+---@field [string] any
+
+--- Every monitor currently in the layout. A disabled monitor is removed from
+--- the layout entirely, so it does not appear here.
+---@return hl.Monitor[]
+function hl.get_monitors() end
+
+--- Look up a monitor by name; nil when it is absent from the layout (which is
+--- how clamshell.lua detects that the built-in panel has been disabled).
+---@param name string
+---@return hl.Monitor|nil
+function hl.get_monitor(name) end
+
 --- Define a gesture.
 ---@param opts { fingers: integer, direction: string, action: string }
 function hl.gesture(opts) end
@@ -152,8 +173,13 @@ function hl.bind(keys, dispatcher, flags) end
 function hl.define_submap(name, body_or_next, body) end
 
 --- Subscribe to a Hyprland event (e.g. "hyprland.start", "hyprland.shutdown").
+---
+--- Some events pass a payload to the handler and some pass nothing:
+--- "monitor.added" / "monitor.removed" hand over the monitor (`.name` etc.),
+--- while lifecycle events like "hyprland.start" and "config.reloaded" call the
+--- handler with no arguments. The parameter is optional so both shapes check.
 ---@param event string
----@param handler fun()
+---@param handler fun(payload?: any)
 function hl.on(event, handler) end
 
 --- Execute a shell command asynchronously (via `bash -c`).

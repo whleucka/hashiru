@@ -184,6 +184,15 @@ hl.bind("XF86AudioStop", hl.dsp.exec_cmd("playerctl stop"))
 hl.bind(key("CTRL", "ALT", "L"), hl.dsp.exec_cmd("hyprlock"), { description = "Lock screen" })
 
 -- -----------------------------------------------------------------------------
+-- Session
+-- -----------------------------------------------------------------------------
+
+-- The only way out of the session from inside it. hyprctl needs
+-- HYPRLAND_INSTANCE_SIGNATURE, which does not exist on a TTY, so there is no
+-- equivalent command to reach for when this binding is missing.
+hl.bind(key("CTRL", "ALT", "Delete"), hl.dsp.exit(), { description = "Exit Hyprland" })
+
+-- -----------------------------------------------------------------------------
 -- Notifications
 -- -----------------------------------------------------------------------------
 

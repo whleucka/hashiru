@@ -28,9 +28,14 @@ Commands:
                        Stage selectors are passed straight through, so
                        'hashiru update 45' re-applies only config and
                        'hashiru update 45+' runs stage 45 onward.
+  install [stage ...]  Run install.sh WITHOUT pulling. For iterating on local
+                       changes — 'update' refuses on a dirty checkout.
   doctor               Read-only health check (never modifies the system).
   status               Show install provenance and whether a pull is available.
   help                 This message.
+
+Stage selectors match install.sh: N, N+, --from N, or several at once.
+See 'install.sh --list'.
 
 Repo: ${HASHIRU_ROOT}
 EOF
@@ -128,6 +133,7 @@ cmd_status() {
 
 case "${1:-help}" in
     update) shift; cmd_update "$@" ;;
+    install) shift; exec "${HASHIRU_ROOT}/install.sh" "$@" ;;
     doctor) shift; exec "${HASHIRU_ROOT}/doctor.sh" "$@" ;;
     status) cmd_status ;;
     help|-h|--help) usage ;;

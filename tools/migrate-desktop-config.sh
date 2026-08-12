@@ -102,31 +102,14 @@ log_info "Migrating ${#PACKAGES[@]} packages: ${PACKAGES[*]}"
 # into it and links the leaves (which is how ~/.config/environment.d can hold
 # both this file and unrelated ones like fcitx.conf).
 #
-# A file reached *through* a symlinked ancestor is not a conflict either: stow
-# links whole directories when it can, so ~/.config/bat is itself a link into
-# the dotfiles repo and ~/.config/bat/config is a real file only by way of it.
-# The unstow step removes that link and the whole subtree with it. Testing the
-# leaf alone reports every such file as a collision — on a fully-stowed machine
-# that is every file in every package.
-_has_symlinked_ancestor() {
-    local p
-    p="$(dirname "$1")"
-    while [[ "${p}" != "${HOME}" && "${p}" != "/" ]]; do
-        [[ -L "${p}" ]] && return 0
-        p="$(dirname "${p}")"
-    done
-    return 1
-}
-
+# stow_conflicts (lib/common.sh) does the detection, including skipping files
+# reached through a symlinked ancestor — those belong to a stow package already
+# and vanish when the unstow step removes the ancestor link.
 CONFLICTS=()
 for pkg in "${PACKAGES[@]}"; do
-    while IFS= read -r -d '' src; do
-        rel="${src#"${STOW_DIR}/${pkg}/"}"
-        target="${HOME}/${rel}"
-        [[ -e "${target}" && ! -L "${target}" && ! -d "${target}" ]] || continue
-        _has_symlinked_ancestor "${target}" && continue
-        CONFLICTS+=("${target}|${src}")
-    done < <(find "${STOW_DIR}/${pkg}" -type f -print0)
+    while IFS= read -r line; do
+        [[ -n "${line}" ]] && CONFLICTS+=("${line}")
+    done < <(stow_conflicts "${STOW_DIR}/${pkg}")
 done
 
 if [[ ${#CONFLICTS[@]} -gt 0 ]]; then

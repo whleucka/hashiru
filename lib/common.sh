@@ -111,6 +111,39 @@ is_service_active() {
     fi
 }
 
+# True if any directory between $HOME and this path is a symlink.
+#
+# Stow folds a package into the shallowest symlink it can, so a file can be
+# "real" only by way of a linked ancestor: ~/.config/bat is a link into a stow
+# package, which makes ~/.config/bat/config a regular file that nonetheless
+# belongs to stow. Anything reached that way disappears when the ancestor link
+# is removed, so it is never a genuine conflict — testing the leaf alone reports
+# every file of every correctly-stowed package as a collision.
+has_symlinked_ancestor() {
+    local p
+    p="$(dirname "$1")"
+    while [[ "${p}" != "${HOME}" && "${p}" != "/" ]]; do
+        [[ -L "${p}" ]] && return 0
+        p="$(dirname "${p}")"
+    done
+    return 1
+}
+
+# Echo every path a stow package wants to own that is blocked by a real file.
+# One "<target>|<source>" pair per line. Directories are fine (stow descends
+# into them), as are files behind a symlinked ancestor (see above).
+stow_conflicts() {
+    local pkgdir="${1%/}/"
+    local src rel target
+    while IFS= read -r -d '' src; do
+        rel="${src#"${pkgdir}"}"
+        target="${HOME}/${rel}"
+        [[ -e "${target}" && ! -L "${target}" && ! -d "${target}" ]] || continue
+        has_symlinked_ancestor "${target}" && continue
+        printf '%s|%s\n' "${target}" "${src}"
+    done < <(find "${pkgdir}" -type f -print0)
+}
+
 ensure_dir() {
     local dir="$1"
     local sudo_flag="${2:-}"

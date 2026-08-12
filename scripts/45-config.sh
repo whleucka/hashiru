@@ -41,6 +41,30 @@ for f in .zprofile .bash_profile; do
     fi
 done
 
+# Clear real files sitting where stowed config needs to go. These come from
+# older installs where the stage scripts wrote config directly — ~/.zprofile and
+# ~/.config/environment.d/10-hashiru.conf were both plain files written by an
+# earlier 30-desktop.sh, and stow refuses to replace a real file with a symlink.
+#
+# Unlike tools/migrate-desktop-config.sh, which stops and asks, this resolves
+# them: the stage runs unattended on first boot, where aborting would fail the
+# whole bootstrap over a file whose content Hashiru now owns anyway. Nothing is
+# discarded unless it is byte-identical to the copy replacing it.
+for pkgdir in "${STOW_DIR}"/*/; do
+    while IFS='|' read -r target src; do
+        [[ -n "${target}" ]] || continue
+        if cmp -s "${target}" "${src}"; then
+            rm "${target}"
+            log_info "Removed redundant file blocking stow (identical to ours): ${target/#${HOME}/\~}"
+        else
+            backup="${target}.pre-hashiru"
+            [[ -e "${backup}" ]] && backup="${target}.pre-hashiru.$(date +%s)"
+            mv "${target}" "${backup}"
+            log_warn "Backed up ${target/#${HOME}/\~} -> ${backup##*/} (Hashiru now owns this file)"
+        fi
+    done < <(stow_conflicts "${pkgdir}")
+done
+
 cd "${STOW_DIR}" || { log_error "Failed to cd into ${STOW_DIR}"; exit 1; }
 
 log_info "Stowing Hashiru config from ${STOW_DIR} to ${HOME}"
