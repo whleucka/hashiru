@@ -11,20 +11,33 @@
 set -euo pipefail
 
 HUSER="${1:?username required}"
-REPO_SRC="/opt/hashiru"
+# /opt/hashiru is permanent, not staging: it stays on the installed system as
+# the single copy of Hashiru. The desktop config is stowed out of it (symlinks
+# into stow/ point here for the life of the machine) and `hashiru update` pulls
+# into it. Copying it into the home directory instead would leave two divergent
+# checkouts and dangling stow links.
+REPO="/opt/hashiru"
 USER_HOME="/home/${HUSER}"
 
-install -Dm644 "${REPO_SRC}/iso/firstboot/hashiru-firstboot.service" \
+install -Dm644 "${REPO}/iso/firstboot/hashiru-firstboot.service" \
   /etc/systemd/system/hashiru-firstboot.service
-install -Dm755 "${REPO_SRC}/iso/firstboot/hashiru-firstboot.sh" \
+install -Dm755 "${REPO}/iso/firstboot/hashiru-firstboot.sh" \
   /usr/local/bin/hashiru-firstboot.sh
 
 # Tell the first-boot unit which user to bootstrap as.
 printf 'HASHIRU_USER=%s\n' "${HUSER}" > /etc/hashiru-firstboot.env
 
-# Drop the repo in the user's home so the bootstrap runs from there.
-cp -a "${REPO_SRC}" "${USER_HOME}/hashiru"
-chown -R "${HUSER}:${HUSER}" "${USER_HOME}/hashiru"
+# install.sh runs as the unprivileged user and refuses to run as root, and
+# `hashiru update` has to `git pull` here without sudo. Hand the whole checkout
+# to the user rather than leaving it root-owned.
+chown -R "${HUSER}:${HUSER}" "${REPO}"
+
+# Convenience only — the real location is /opt/hashiru.
+ln -sfn "${REPO}" "${USER_HOME}/hashiru"
+chown -h "${HUSER}:${HUSER}" "${USER_HOME}/hashiru"
+
+# Put the management CLI on PATH: `hashiru update`, `hashiru doctor`.
+ln -sfn "${REPO}/bin/hashiru" /usr/local/bin/hashiru
 
 systemctl enable hashiru-firstboot.service
 
@@ -32,8 +45,3 @@ systemctl enable hashiru-firstboot.service
 # no-op unless a wait-online service is enabled — without this, the bootstrap
 # can start before DHCP finishes and fail its network check.
 systemctl enable NetworkManager-wait-online.service
-
-# The user's copy is the one that runs; remove the staging clone so two
-# divergent copies don't linger. (bash keeps this script's fd open, so
-# deleting the directory we were invoked from is safe.)
-rm -rf "${REPO_SRC}"

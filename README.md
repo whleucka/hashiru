@@ -50,20 +50,92 @@ onward with `./install.sh 30+` (or `--from 30`), run several with
 | 30 | `30-desktop.sh` | Hyprland/Wayland stack, PipeWire, fonts, terminal tools, zsh, TTY1 auto-login |
 | 35 | `35-zsh.sh` | Oh My Zsh, Powerlevel10k, plugins |
 | 40 | `40-hyprland.sh` | Hyprland environment dirs |
+| 45 | `45-config.sh` | Stow Hashiru's own config from `stow/`, bat cache, `hashiru` CLI |
 | 50 | `50-snapper.sh` | Snapper + grub-btrfs (btrfs only) |
-| 60 | `60-dotfiles.sh` | Clone + stow dotfiles, herdr, bat cache |
+| 60 | `60-dotfiles.sh` | Clone + stow personal dotfiles, herdr binary |
 | 99 | `99-reboot.sh` | Dev tools, desktop apps, Rust, user groups, verify, reboot |
+
+## Config ownership
+
+Hashiru installs to **`/opt/hashiru` and stays there.** The desktop config is
+stowed out of that checkout, so the symlinks in `~/.config` point into
+`/opt/hashiru/stow/` for the life of the machine. Don't move it.
+
+`stow/` holds one GNU Stow package per config area, and Hashiru owns all of
+them: `hyprland` (hypr, waybar, mako, swayosd, fuzzel, gtk-3.0,
+xdg-desktop-portal, wallpapers), `kitty`, `thunar`, `yazi`, `bpytop`,
+`chromium`, `bat`, `fzf`, `ripgrep`, `herdr`.
+
+Personal config — shell, editor, git identity — stays in a separate dotfiles
+repo (`~/.dotfiles`, stowed by stage 60): `zsh`, `bash`, `nvim`, `vim`, `git`,
+`p10k`, `alias`, `functions`, `scripts`. The two sets are disjoint; stage 60
+skips anything Hashiru owns so a stale dotfiles checkout can't stow over it.
+
+Note the split is by *ownership*, not by directory: `stow/` is user config
+(`$HOME`), while the older `config/` directory is system config (`/etc`) that
+gets copied, not stowed.
+
+## Updating an installed machine
+
+```bash
+hashiru update          # pull, then replay every stage
+hashiru update 45+      # pull, then run stage 45 onward
+hashiru update 45       # config only — the common case
+hashiru status          # commit, install date, commits behind origin
+```
+
+There is no diffing or migration engine: every stage is idempotent and
+`stow --restow` reconciles added, removed and renamed config files on its own,
+so replaying the install *is* the update. `hashiru update` refuses to run with
+a dirty `/opt/hashiru`, and re-stamps `/etc/hashiru-release` afterwards.
+
+### Migrating a machine installed before this layout
+
+Machines bootstrapped when the desktop config still lived in the dotfiles repo
+need a one-time ownership handover.
+
+**Get the repo to `/opt/hashiru` first.** Stow writes the source path into every
+symlink it creates, so migrating from `~/hashiru` points all of `~/.config`
+there permanently — moving the repo afterwards leaves dangling links and needs a
+full re-stow. Older installs kept the repo at `~/hashiru`; relocate before
+migrating, not after:
+
+```bash
+sudo mv ~/hashiru /opt/hashiru
+sudo chown -R "${USER}:${USER}" /opt/hashiru
+ln -sfn /opt/hashiru ~/hashiru
+
+# ISOs built before this layout pinned the clone with `checkout --detach`, which
+# leaves no upstream for `hashiru update` to fast-forward. Get back on a branch:
+git -C /opt/hashiru checkout main
+git -C /opt/hashiru status          # confirm main tracks origin/main
+```
+
+Then hand over ownership:
+
+```bash
+/opt/hashiru/tools/migrate-desktop-config.sh --dry-run   # preview, safe anywhere
+/opt/hashiru/tools/migrate-desktop-config.sh             # from a TTY, Hyprland stopped
+```
+
+It unstows the Hashiru-owned packages from `~/.dotfiles`, stows the copies in
+this repo, verifies every link resolves here, and prints the `git rm` to clean
+up the dotfiles side. It refuses to run under a live Hyprland session, because
+the config directory briefly disappears mid-flight. Rollback is a `stow -D` /
+`stow` pair, and nothing is deleted until you run that final `git rm` yourself.
 
 ## Health check
 
 ```bash
-./doctor.sh
+hashiru doctor          # or ./doctor.sh
 ```
 
 Read-only audit of an installed machine: packages vs. the manifests, services,
-desktop stack, shell, storage, dotfiles. Exits non-zero on failures. Every full
-`./install.sh` run also stamps `/etc/hashiru-release` with the commit and date
-it was bootstrapped from.
+desktop stack, shell, storage, stowed config, dotfiles. Exits non-zero on
+failures. Deliberately never modifies anything — it has to be safe to run on a
+machine that is already broken; `hashiru update` is the thing that repairs.
+Every full `./install.sh` run also stamps `/etc/hashiru-release` with the commit
+and date it was bootstrapped from.
 
 ## Notes
 

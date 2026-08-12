@@ -26,37 +26,9 @@ enable_and_start_service "pipewire.socket" --user
 enable_and_start_service "pipewire-pulse.socket" --user
 enable_and_start_service "wireplumber.service" --user
 
-# Set up environment variables
-ensure_dir "${HOME}/.config/environment.d"
-ENV_FILE="${HOME}/.config/environment.d/10-hashiru.conf"
-
-if [[ ! -f "${ENV_FILE}" ]]; then
-    log_info "Creating environment configuration"
-    cat > "${ENV_FILE}" << 'EOF'
-# Hashiru environment configuration
-EDITOR=nvim
-VISUAL=nvim
-TERMINAL=kitty
-BROWSER=chromium
-
-# NOTE: XDG_SESSION_TYPE / XDG_CURRENT_DESKTOP are deliberately NOT set here.
-# environment.d applies to every session and user service; Hyprland sets them
-# itself, and stale static values confuse xdg-desktop-portal.
-
-# Qt
-QT_QPA_PLATFORM=wayland
-QT_WAYLAND_DISABLE_WINDOWDECORATION=1
-
-# GTK
-GDK_BACKEND=wayland
-
-# Firefox (native Wayland)
-MOZ_ENABLE_WAYLAND=1
-EOF
-    log_success "Environment configuration created"
-else
-    log_info "Environment configuration already exists"
-fi
+# Session environment (environment.d/10-hashiru.conf) is stowed by 45-config.sh
+# from stow/hyprland/ — it is config, so it lives with the rest of the config
+# and updates with a `hashiru update` like everything else.
 
 # Set default shell to zsh
 if [[ "${SHELL}" != */zsh ]]; then
@@ -84,35 +56,9 @@ else
     log_info "TTY1 auto-login already configured"
 fi
 
-# Add Hyprland auto-start to zprofile.
-# If .zprofile is a symlink it belongs to the stowed dotfiles — appending
-# would write into the dotfiles repo, and dotfiles should carry the
-# auto-start themselves. (Conversely, if dotfiles ever ship a .zprofile,
-# stow will refuse to replace the plain file this creates — keep auto-start
-# in the dotfiles, not here, if you add one.)
-ZPROFILE="${HOME}/.zprofile"
-if [[ -L "${ZPROFILE}" ]]; then
-    if ! grep -q "start-hyprland" "${ZPROFILE}" 2>/dev/null; then
-        log_warn ".zprofile is a stowed symlink without Hyprland auto-start — add it to your dotfiles"
-    else
-        log_info "Hyprland auto-start already in stowed .zprofile"
-    fi
-elif ! grep -q "start-hyprland" "${ZPROFILE}" 2>/dev/null; then
-    log_info "Adding Hyprland auto-start to .zprofile"
-    cat >> "${ZPROFILE}" << 'EOF'
-
-# Auto-start Hyprland on TTY1
-if [[ -z "${DISPLAY}" && "${XDG_VTNR}" == 1 ]]; then
-    if command -v start-hyprland &>/dev/null; then
-        exec start-hyprland
-    else
-        exec Hyprland
-    fi
-fi
-EOF
-    log_success "Hyprland auto-start configured"
-else
-    log_info "Hyprland auto-start already in .zprofile"
-fi
+# Hyprland's TTY1 auto-start lives in stow/hyprland/.zprofile and is stowed by
+# 45-config.sh. It used to be appended here, which left ownership of .zprofile
+# ambiguous between this script and the user's dotfiles; Hashiru owns the
+# desktop hand-off, so it owns that file.
 
 script_end "30-desktop.sh"

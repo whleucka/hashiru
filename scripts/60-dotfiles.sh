@@ -9,6 +9,15 @@ script_start "60-dotfiles.sh"
 readonly DOTFILES_REPO="https://github.com/whleucka/dotfiles.git"
 readonly DOTFILES_DIR="${HOME}/.dotfiles"
 
+# Packages Hashiru owns and stows itself in 45-config.sh. They were removed
+# from the dotfiles repo when config moved into Hashiru, but a checkout on a
+# machine that predates the move still carries them — skipping by name stops
+# those from re-stowing over Hashiru's copies. Safe to keep indefinitely: a
+# name listed here that no longer exists in the dotfiles repo costs nothing.
+readonly HASHIRU_OWNED=(
+    hyprland kitty thunar yazi bpytop chromium bat fzf ripgrep herdr
+)
+
 # Ensure stow is installed
 if ! command -v stow &>/dev/null; then
     log_info "Installing GNU Stow"
@@ -49,25 +58,29 @@ for dir in */; do
     [[ "${dir}" == "LICENSE"* ]] && continue
     [[ "${dir}" == "omarchy" ]] && continue
 
+    skip=0
+    for owned in "${HASHIRU_OWNED[@]}"; do
+        if [[ "${dir}" == "${owned}" ]]; then
+            log_info "Skipping ${dir} — owned by Hashiru (stow/${dir}, see 45-config.sh)"
+            skip=1
+            break
+        fi
+    done
+    [[ "${skip}" -eq 1 ]] && continue
+
     log_info "Stowing: ${dir}"
     stow --restow --target="${HOME}" "${dir}" || log_warn "Failed to stow ${dir}"
 done
 
 log_success "Dotfiles stowed successfully"
 
-# Rebuild bat cache for custom themes
-if command -v bat &>/dev/null; then
-    log_info "Rebuilding bat cache for custom themes"
-    bat cache --build
-    log_success "bat cache rebuilt"
-fi
-
 # Install herdr (terminal workspace manager; replaces tmux/TPM). There is no
 # AUR package, so use the official installer — it downloads the right binary for
 # the platform and drops it on PATH at ~/.local/bin/herdr. Runs as the invoking
-# user (not root) so it lands in this home; skip if already present. herdr's own
-# config comes from the stowed dotfiles, so no plugin bootstrap or systemd unit
-# is needed — herdr is the multiplexer, launched directly by the terminal.
+# user (not root) so it lands in this home; skip if already present. Only the
+# binary is installed here — herdr's config is a Hashiru-owned stow package
+# (45-config.sh). No plugin bootstrap or systemd unit is needed; herdr is the
+# multiplexer, launched directly by the terminal.
 readonly HERDR_BIN="${HOME}/.local/bin/herdr"
 if command -v herdr &>/dev/null || [[ -x "${HERDR_BIN}" ]]; then
     log_info "herdr already installed"

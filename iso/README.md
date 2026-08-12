@@ -67,7 +67,7 @@ Iterate: edit → `build.sh` → `test-qemu.sh`. Delete `iso/work/test-disk.qcow
 | `overlay/packages.x86_64.extra` | Extra live-ISO packages (`jq`) |
 | `archinstall/user_config.json` | Fixed install layout (templated) |
 | `archinstall/user_creds.example.json` | Reference creds shape (real one generated at runtime) |
-| `firstboot/install-firstboot.sh` | Runs in chroot; installs the first-boot unit |
+| `firstboot/install-firstboot.sh` | Runs in chroot; installs the first-boot unit, hands `/opt/hashiru` to the user |
 | `firstboot/hashiru-firstboot.service` | One-shot unit, first boot |
 | `firstboot/hashiru-firstboot.sh` | Runs `install.sh` as the user, then disables itself |
 
@@ -100,14 +100,22 @@ Iterate: edit → `build.sh` → `test-qemu.sh`. Delete `iso/work/test-disk.qcow
    first boot has connectivity for the bootstrap. If you go fully offline,
    bake the repo into the image instead of cloning.
 
-5. **Unattended mode is wired up via `HASHIRU_UNATTENDED`.** The first-boot
+5. **`/opt/hashiru` is permanent, and must stay a pullable checkout.** The
+   installed system stows its desktop config out of that directory and
+   `hashiru update` fast-forwards it, so `custom_commands` pins the clone with
+   `reset --hard` rather than `checkout --detach` — a detached HEAD has no
+   upstream to pull from. `install-firstboot.sh` then chowns the tree to the
+   user (`install.sh` refuses to run as root) and symlinks `~/hashiru` and
+   `/usr/local/bin/hashiru`. Deleting `/opt/hashiru` breaks the desktop.
+
+6. **Unattended mode is wired up via `HASHIRU_UNATTENDED`.** The first-boot
    unit runs `install.sh` with `HASHIRU_UNATTENDED=1` (defaulted to `0` in
    `lib/common.sh`). That makes stage 99 auto-reboot instead of prompting, and
    stage 30 sets the default shell via `sudo chsh` so it never blocks on a PAM
    password prompt. If you add new interactive prompts to any stage, branch on
    `${HASHIRU_UNATTENDED}` the same way.
 
-6. **Temporary passwordless sudo.** `hashiru-firstboot.sh` drops a
+7. **Temporary passwordless sudo.** `hashiru-firstboot.sh` drops a
    `/etc/sudoers.d/hashiru-firstboot` NOPASSWD rule for the bootstrap and
    removes it on exit. If the run is killed uncleanly, confirm that file is
    gone.

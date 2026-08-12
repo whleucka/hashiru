@@ -32,6 +32,38 @@ else
     meh "/etc/hashiru-release missing (installed before stamping existed — re-run ./install.sh to stamp)"
 fi
 
+ok "repo: ${HASHIRU_ROOT}"
+
+# The repo is permanent now — stow links resolve into it — so a checkout that
+# can't pull is a machine that can't be updated.
+if [[ -d "${HASHIRU_ROOT}/.git" ]]; then
+    if [[ -n "$(git -C "${HASHIRU_ROOT}" status --porcelain 2>/dev/null)" ]]; then
+        meh "repo has uncommitted changes ('hashiru update' will refuse until they're committed or stashed)"
+    else
+        ok "repo clean"
+    fi
+    # No fetch: doctor is read-only and must work offline, so this compares
+    # against whatever the last fetch left behind.
+    if upstream="$(git -C "${HASHIRU_ROOT}" rev-parse --abbrev-ref '@{upstream}' 2>/dev/null)"; then
+        behind="$(git -C "${HASHIRU_ROOT}" rev-list --count "HEAD..${upstream}" 2>/dev/null || echo 0)"
+        if [[ "${behind}" -eq 0 ]]; then
+            ok "up to date with ${upstream} (as of last fetch)"
+        else
+            meh "${behind} commit(s) behind ${upstream} — run 'hashiru update'"
+        fi
+    else
+        meh "no upstream branch — 'hashiru update' cannot pull (detached HEAD?)"
+    fi
+else
+    bad "${HASHIRU_ROOT} is not a git checkout — 'hashiru update' will not work"
+fi
+
+if command -v hashiru &>/dev/null; then
+    ok "hashiru CLI on PATH"
+else
+    meh "hashiru CLI not on PATH (45-config.sh links /usr/local/bin/hashiru)"
+fi
+
 for report in "${HASHIRU_REPORT}" "${HASHIRU_REPORT%.txt}.last.txt"; do
     if [[ -s "${report}" ]]; then
         meh "install finished with warnings — see ${report}"
@@ -176,6 +208,64 @@ if [[ "$(findmnt -n -o FSTYPE /)" == "btrfs" ]]; then
     fi
 else
     ok "root is not btrfs — snapper n/a"
+fi
+
+# --- Config (Hashiru-owned stow packages) ---------------------------------------
+
+section "Config"
+
+STOW_DIR="${HASHIRU_ROOT}/stow"
+if [[ -d "${STOW_DIR}" ]]; then
+    # A stow package is "applied" when the paths it provides resolve back into
+    # the repo. Checking the package's own top-level entries (rather than a
+    # hardcoded list) keeps this honest as packages are added or renamed.
+    for pkgdir in "${STOW_DIR}"/*/; do
+        pkg="${pkgdir%/}"; pkg="${pkg##*/}"
+        applied=0
+        stray=0
+        while IFS= read -r -d '' src; do
+            rel="${src#"${pkgdir}"}"
+            link="${HOME}/${rel}"
+            if [[ -L "${link}" && "$(readlink -f "${link}" 2>/dev/null)" == "${src}" ]]; then
+                applied=$(( applied + 1 ))
+            else
+                stray=$(( stray + 1 ))
+            fi
+        done < <(find "${pkgdir}" -mindepth 1 -maxdepth 1 -print0)
+
+        if [[ "${stray}" -eq 0 && "${applied}" -gt 0 ]]; then
+            ok "${pkg}: stowed"
+        elif [[ "${applied}" -eq 0 ]]; then
+            bad "${pkg}: not stowed (cd ${STOW_DIR} && stow --restow --target=${HOME} ${pkg})"
+        else
+            meh "${pkg}: partially stowed — ${stray} path(s) not linked here (conflict?)"
+        fi
+    done
+else
+    bad "stow tree missing: ${STOW_DIR}"
+fi
+
+# Dangling links are the signature of a moved or deleted repo — the failure
+# mode this whole layout is meant to make loud rather than mysterious.
+#
+# Only stow-shaped links count. Apps legitimately leave dangling symlinks in
+# ~/.config as runtime state — Chromium and Electron write SingletonLock and
+# SingletonCookie as links whose "target" is a hostname-pid string, never a
+# real path — and flagging those would make this check permanently red. Stow
+# always writes a relative path into the stow directory, so match on that.
+dangling=()
+while IFS= read -r -d '' link; do
+    [[ -e "${link}" ]] && continue
+    target="$(readlink "${link}")"
+    case "${target}" in
+        ../*|*hashiru*|*.dotfiles*) dangling+=("${link#"${HOME}"/} -> ${target}") ;;
+    esac
+done < <(find "${HOME}/.config" -maxdepth 2 -type l -print0 2>/dev/null)
+
+if [[ ${#dangling[@]} -eq 0 ]]; then
+    ok "no dangling config symlinks"
+else
+    bad "dangling config symlinks: ${dangling[*]}"
 fi
 
 # --- Dotfiles ------------------------------------------------------------------

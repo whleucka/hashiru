@@ -9,7 +9,7 @@
     },
     "custom_commands": [
         "git clone https://github.com/whleucka/hashiru.git /opt/hashiru",
-        "git -C /opt/hashiru checkout --detach __HASHIRU_REF__",
+        "git -C /opt/hashiru reset --hard __HASHIRU_REF__",
         "bash /opt/hashiru/iso/firstboot/install-firstboot.sh __HASHIRU_USER__"
     ],
     "disk_config": {

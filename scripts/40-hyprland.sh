@@ -6,14 +6,13 @@ source "${SCRIPT_DIR}/lib/common.sh"
 
 script_start "40-hyprland.sh"
 
-# Hyprland packages installed via wayland.txt
-# Configuration comes from dotfiles (60-dotfiles.sh)
+# Hyprland packages are installed via wayland.txt (30-desktop.sh).
+# Hyprland's configuration is a Hashiru-owned stow package and lands in the
+# next stage — this one only prepares the directories it expects to exist.
 
 # Create Screenshots directory for grim
 ensure_dir "${HOME}/Pictures/Screenshots"
 
-# Note: Hyprland configuration comes from dotfiles (60-dotfiles.sh)
-# Config will be stowed in a later stage
-log_info "Hyprland config will be provided by dotfiles (60-dotfiles.sh)"
+log_info "Hyprland config is stowed from stow/hyprland by 45-config.sh"
 
 script_end "40-hyprland.sh"

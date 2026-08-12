@@ -10,7 +10,8 @@ set -euo pipefail
 
 : "${HASHIRU_USER:?HASHIRU_USER not set}"
 SUDOERS="/etc/sudoers.d/hashiru-firstboot"
-REPO="/home/${HASHIRU_USER}/hashiru"
+# Permanent location — see install-firstboot.sh. ~/hashiru is a symlink here.
+REPO="/opt/hashiru"
 USER_UID="$(id -u "${HASHIRU_USER}")"
 
 cleanup() { rm -f "${SUDOERS}"; }

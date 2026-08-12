@@ -40,6 +40,11 @@ echo "==> Pinning installer to the ISO's commit"
 # clone to the commit this ISO was built from so the ISO and the code that
 # bootstraps the machine can't drift apart. Falls back to 'main' when
 # building from a non-git checkout (e.g. a release tarball).
+#
+# The pin is `reset --hard`, not `checkout --detach`: /opt/hashiru is permanent
+# on the installed system and `hashiru update` fast-forwards it, which needs a
+# branch with an upstream. Resetting keeps main checked out and tracking
+# origin/main while still starting the machine at this exact commit.
 HASHIRU_REF="$(git -C "${HERE}/.." rev-parse HEAD 2>/dev/null || echo main)"
 if [[ -n "$(git -C "${HERE}/.." status --porcelain 2>/dev/null)" ]]; then
   echo "    WARNING: working tree is dirty — uncommitted changes will NOT be"

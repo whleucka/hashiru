@@ -15,8 +15,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 
-# Get all scripts in numeric order
-mapfile -t SCRIPTS < <(find "${SCRIPT_DIR}/scripts" -maxdepth 1 -name '*.sh' -type f | sort)
+# Get all stages in numeric order. Only numerically-prefixed scripts are
+# stages; anything else in scripts/ is a helper and must never be swept into a
+# full run. One-off maintenance scripts live in tools/, not here.
+mapfile -t SCRIPTS < <(find "${SCRIPT_DIR}/scripts" -maxdepth 1 -name '[0-9][0-9]-*.sh' -type f | sort)
 
 if [[ ${#SCRIPTS[@]} -eq 0 ]]; then
     log_error "No scripts found in ${SCRIPT_DIR}/scripts/"

@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# hashiru — manage an installed Hashiru system.
+#
+#   hashiru update [stage ...]   pull latest, then replay the install stages
+#   hashiru doctor               read-only health check
+#   hashiru status               where this install came from, and how stale
+#
+# `update` works by replaying install.sh, not by computing a diff: every stage
+# is idempotent, and `stow --restow` in 45-config.sh reconciles added, removed
+# and renamed config files on its own. Replay is the update mechanism.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# shellcheck source=lib/common.sh
+source "${SCRIPT_DIR}/lib/common.sh"
+
+usage() {
+    cat << EOF
+Usage: hashiru <command> [args]
+
+Commands:
+  update [stage ...]   Pull the latest Hashiru, then run install.sh.
+                       Stage selectors are passed straight through, so
+                       'hashiru update 45' re-applies only config and
+                       'hashiru update 45+' runs stage 45 onward.
+  doctor               Read-only health check (never modifies the system).
+  status               Show install provenance and whether a pull is available.
+  help                 This message.
+
+Repo: ${HASHIRU_ROOT}
+EOF
+}
+
+# Fetch and report how far behind origin this checkout is. Echoes the number of
+# commits behind; empty if that can't be determined (no remote, no network).
+_behind_count() {
+    local branch upstream
+    branch="$(git -C "${HASHIRU_ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 0
+    upstream="$(git -C "${HASHIRU_ROOT}" rev-parse --abbrev-ref "${branch}@{upstream}" 2>/dev/null)" || return 0
+    git -C "${HASHIRU_ROOT}" fetch --quiet 2>/dev/null || return 0
+    git -C "${HASHIRU_ROOT}" rev-list --count "HEAD..${upstream}" 2>/dev/null || return 0
+}
+
+cmd_update() {
+    if [[ ! -d "${HASHIRU_ROOT}/.git" ]]; then
+        log_error "${HASHIRU_ROOT} is not a git checkout — cannot update."
+        log_error "Re-clone it: git clone https://github.com/whleucka/hashiru.git"
+        exit 1
+    fi
+
+    # A dirty tree means local edits that a pull would either clobber or
+    # conflict with. Local changes to a system's own config are legitimate —
+    # they just need to be committed or stashed deliberately, not by this tool.
+    if [[ -n "$(git -C "${HASHIRU_ROOT}" status --porcelain)" ]]; then
+        log_error "${HASHIRU_ROOT} has uncommitted changes — commit or stash them first."
+        git -C "${HASHIRU_ROOT}" status --short
+        exit 1
+    fi
+
+    local before after
+    before="$(git -C "${HASHIRU_ROOT}" rev-parse HEAD)"
+
+    log_info "Pulling latest Hashiru into ${HASHIRU_ROOT}"
+    if ! git -C "${HASHIRU_ROOT}" pull --ff-only; then
+        log_error "Pull failed — resolve it manually, then re-run 'hashiru update'."
+        exit 1
+    fi
+
+    after="$(git -C "${HASHIRU_ROOT}" rev-parse HEAD)"
+    if [[ "${before}" == "${after}" ]]; then
+        log_info "Already up to date (${after:0:12}) — replaying stages anyway to repair any drift"
+    else
+        log_info "Updated ${before:0:12} -> ${after:0:12}"
+        git -C "${HASHIRU_ROOT}" --no-pager log --oneline "${before}..${after}" | head -20
+    fi
+
+    "${HASHIRU_ROOT}/install.sh" "$@"
+
+    # install.sh only stamps on a full run, and an update with stage selectors
+    # is not one — but the machine is still now running this commit, which is
+    # exactly what the stamp is supposed to answer. Record it either way.
+    printf 'HASHIRU_COMMIT=%s\nHASHIRU_INSTALL_DATE=%s\nHASHIRU_UPDATED=%s\n' \
+        "${after}" "$(_install_date)" "$(date -Is)" | sudo tee /etc/hashiru-release > /dev/null
+    log_success "Update complete (${after:0:12})"
+}
+
+# Preserve the original install date across updates; fall back to now the first
+# time an un-stamped machine is updated.
+_install_date() {
+    if [[ -f /etc/hashiru-release ]]; then
+        local existing
+        existing="$(grep -m1 '^HASHIRU_INSTALL_DATE=' /etc/hashiru-release 2>/dev/null || true)"
+        if [[ -n "${existing}" ]]; then
+            echo "${existing#HASHIRU_INSTALL_DATE=}"
+            return
+        fi
+    fi
+    date -Is
+}
+
+cmd_status() {
+    if [[ -f /etc/hashiru-release ]]; then
+        # shellcheck source=/dev/null
+        source /etc/hashiru-release
+        echo "commit:    ${HASHIRU_COMMIT:0:12}"
+        echo "installed: ${HASHIRU_INSTALL_DATE:-unknown}"
+        [[ -n "${HASHIRU_UPDATED:-}" ]] && echo "updated:   ${HASHIRU_UPDATED}"
+    else
+        echo "commit:    unknown (/etc/hashiru-release missing)"
+    fi
+    echo "repo:      ${HASHIRU_ROOT}"
+
+    local behind
+    behind="$(_behind_count)"
+    if [[ -z "${behind}" ]]; then
+        echo "upstream:  unknown (no upstream branch, or no network)"
+    elif [[ "${behind}" -eq 0 ]]; then
+        echo "upstream:  up to date"
+    else
+        echo "upstream:  ${behind} commit(s) behind — run 'hashiru update'"
+    fi
+}
+
+case "${1:-help}" in
+    update) shift; cmd_update "$@" ;;
+    doctor) shift; exec "${HASHIRU_ROOT}/doctor.sh" "$@" ;;
+    status) cmd_status ;;
+    help|-h|--help) usage ;;
+    *) log_error "Unknown command: $1"; echo; usage; exit 1 ;;
+esac
