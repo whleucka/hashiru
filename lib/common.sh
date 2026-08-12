@@ -165,6 +165,78 @@ stow_conflicts() {
     done < <(find "${pkgdir}" -type f -print0)
 }
 
+# Stow Hashiru's fallback .zshrc when nothing else provides one, and unstow it
+# when something does.
+#
+# 35-zsh.sh installs zsh, Oh My Zsh, Powerlevel10k and three plugins and makes
+# zsh the login shell, then clears omz's generated .zshrc on the assumption that
+# a dotfiles repo supplies the real one. With dotfiles opted out, nothing does,
+# and the machine boots to a bare prompt with all of that installed but unwired.
+# Hashiru does not own ~/.zshrc — it only refuses to leave the shell it
+# configured without a config.
+#
+# Called twice per install, deliberately:
+#   45-config.sh — so `hashiru update 45` still works as a config-only command.
+#   60-dotfiles.sh — after the dotfiles are cloned and stowed, where "does a
+#                    .zshrc exist" is an exact answer rather than a guess. This
+#                    is what catches a dotfiles repo that ships no zsh package.
+# It is idempotent, so running it twice costs a second stow --restow.
+ensure_zshrc() {
+    local pkg="zsh-fallback"
+    local stow_dir="${HASHIRU_ROOT}/stow"
+    local zshrc="${HOME}/.zshrc"
+    local fallback_src provider candidate zshrc_is_ours=0
+
+    if [[ ! -d "${stow_dir}/${pkg}" ]]; then
+        log_warn "No ${pkg} package in ${stow_dir} — cannot guarantee a ~/.zshrc"
+        return 0
+    fi
+    fallback_src="$(readlink -f "${stow_dir}/${pkg}/.zshrc")"
+
+    # Our own stowed link must not count as "someone else provides it", or the
+    # fallback would stand down on its own second run.
+    if [[ -L "${zshrc}" && "$(readlink -f "${zshrc}" 2>/dev/null)" == "${fallback_src}" ]]; then
+        zshrc_is_ours=1
+    fi
+
+    provider=""
+    if [[ -e "${zshrc}" && "${zshrc_is_ours}" -eq 0 ]]; then
+        provider="existing ~/.zshrc"
+    elif [[ -d "${HASHIRU_DOTFILES_DIR}" ]]; then
+        # Checkout is here, so the question is answerable exactly: does any
+        # package in it ship a .zshrc? Tested with a glob and -e rather than
+        # `compgen -G`, which returns success with empty output when the
+        # directory doesn't exist — it reports a provider that isn't there.
+        for candidate in "${HASHIRU_DOTFILES_DIR}"/*/.zshrc; do
+            [[ -e "${candidate}" ]] || continue
+            provider="dotfiles checkout"
+            break
+        done
+    fi
+
+    # Note what is deliberately NOT a provider: a configured
+    # HASHIRU_DOTFILES_REPO that hasn't been cloned yet. Trusting a URL string
+    # is how a machine ends up with zsh as its login shell and no .zshrc at all
+    # — the repo may not ship one. When 45-config.sh runs before the clone it
+    # stows the fallback; the 60-dotfiles.sh call then removes it again if the
+    # dotfiles turned out to provide one after all.
+    # --dir rather than cd'ing: this runs from two different stages, and neither
+    # should have its working directory changed underneath it.
+    if [[ -n "${provider}" ]]; then
+        if [[ "${zshrc_is_ours}" -eq 1 ]]; then
+            log_info "Removing Hashiru's fallback .zshrc — now provided by ${provider}"
+            stow -D --dir="${stow_dir}" --target="${HOME}" "${pkg}" \
+                || log_warn "Failed to unstow ${pkg}"
+        else
+            log_info "Skipping ${pkg} — .zshrc provided by ${provider}"
+        fi
+    else
+        log_info "Stowing ${pkg} — nothing else provides ~/.zshrc"
+        stow --restow --dir="${stow_dir}" --target="${HOME}" "${pkg}" \
+            || log_warn "Failed to stow ${pkg}"
+    fi
+}
+
 ensure_dir() {
     local dir="$1"
     local sudo_flag="${2:-}"

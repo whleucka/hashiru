@@ -32,18 +32,64 @@ readonly HASHIRU_OWNED=(
 # gets them stowed without Hashiru needing to know where they came from.
 if [[ -d "${DOTFILES_DIR}" ]]; then
     if [[ -n "${DOTFILES_REPO}" ]]; then
+        # An existing checkout always wins over the configured URL, so say so when
+        # they disagree: pointing HASHIRU_DOTFILES_REPO at a new repo while an old
+        # checkout is in place pulls the old one forever and never clones the new.
+        existing_origin="$(git -C "${DOTFILES_DIR}" remote get-url origin 2>/dev/null || true)"
+        if [[ -n "${existing_origin}" && "${existing_origin}" != "${DOTFILES_REPO}" ]]; then
+            log_warn "${DOTFILES_DIR} tracks ${existing_origin}, not the configured ${DOTFILES_REPO}"
+            log_warn "Pulling the existing checkout. Move it aside to clone the configured repo instead."
+        fi
         log_info "Dotfiles directory already exists, pulling latest"
-        git -C "${DOTFILES_DIR}" pull --ff-only || log_warn "Could not pull dotfiles (may have local changes)"
+        git -C "${DOTFILES_DIR}" pull --ff-only || log_warn "Could not pull dotfiles (local changes, no upstream, or diverged history)"
     else
         log_info "Using existing dotfiles at ${DOTFILES_DIR} (no repo configured — not pulling)"
     fi
 elif [[ -n "${DOTFILES_REPO}" ]]; then
     log_info "Cloning dotfiles repository"
-    git clone "${DOTFILES_REPO}" "${DOTFILES_DIR}"
-    log_success "Dotfiles cloned to ${DOTFILES_DIR}"
+    # Guarded, unlike the rest of this stage's git calls used to be. Dotfiles are
+    # not load-bearing — Hashiru's own config is already stowed by 45-config.sh —
+    # but an unguarded clone dies under `set -e`, and install.sh aborts the whole
+    # run on any stage failure. On the ISO path that means firstboot never
+    # completes and retries every boot, so a typo'd URL or a rate-limited GitHub
+    # would loop forever.
+    #
+    # The two env vars cover the two ways a clone can block forever with no tty
+    # to answer it. GIT_TERMINAL_PROMPT=0 handles HTTPS credential prompts;
+    # BatchMode=yes handles ssh's own prompts, which git's variable does not —
+    # an unknown host key or an encrypted key passphrase. Note that an SSH repo
+    # therefore needs its host key in known_hosts before firstboot; without it
+    # the clone fails fast (warned, install continues) rather than auto-accepting
+    # an unverified key.
+    if GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -o BatchMode=yes" \
+        git clone "${DOTFILES_REPO}" "${DOTFILES_DIR}"; then
+        log_success "Dotfiles cloned to ${DOTFILES_DIR}"
+    else
+        log_warn "Could not clone ${DOTFILES_REPO} — continuing without dotfiles"
+        log_warn "Hashiru's own config is unaffected (45-config.sh). Retry with: hashiru update 60"
+        # git cleans up a failed clone, but be explicit — a partial directory here
+        # would send the stow block below into a half-cloned tree.
+        [[ -d "${DOTFILES_DIR}" ]] && rm -rf "${DOTFILES_DIR}"
+    fi
 else
     log_info "No dotfiles repo configured (HASHIRU_DOTFILES_REPO is empty) — skipping"
 fi
+
+# Reconcile the fallback .zshrc now — after the clone, but BEFORE stowing the
+# dotfiles below.
+#
+# 45-config.sh already ran this, but back then the checkout didn't exist, so
+# "does anything provide ~/.zshrc" could only be guessed and it stowed the
+# fallback. The order here matters and is not interchangeable: this call removes
+# that fallback when the dotfiles do ship a .zshrc, freeing the path for the stow
+# loop. Running it *after* the loop instead means the fallback symlink is still
+# in place when stow tries to claim ~/.zshrc, so the zsh package fails with
+# "existing target is not owned by stow" — and then this call unstows the
+# fallback anyway, leaving the machine with no .zshrc at all.
+#
+# When the dotfiles ship no .zshrc (or the clone failed), it keeps the fallback,
+# which is what stops zsh being the login shell with nothing configuring it.
+ensure_zshrc
 
 if [[ -d "${DOTFILES_DIR}" ]]; then
     # Ensure stow is installed
@@ -70,10 +116,9 @@ if [[ -d "${DOTFILES_DIR}" ]]; then
     log_info "Stowing dotfiles to ${HOME}"
     for dir in */; do
         dir="${dir%/}" # Remove trailing slash
-        # Skip hidden directories and common non-stow items
+        # Skip hidden directories. (No README/LICENSE guard: this loop iterates
+        # */ — directories only — so those never appear.)
         [[ "${dir}" == .* ]] && continue
-        [[ "${dir}" == "README"* ]] && continue
-        [[ "${dir}" == "LICENSE"* ]] && continue
 
         skip=0
         for owned in "${HASHIRU_OWNED[@]}"; do

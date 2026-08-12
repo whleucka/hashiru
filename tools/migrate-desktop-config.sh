@@ -18,7 +18,7 @@ source "${SCRIPT_DIR}/lib/common.sh"
 
 script_start "migrate-desktop-config.sh"
 
-readonly DOTFILES_DIR="${HOME}/.dotfiles"
+readonly DOTFILES_DIR="${HASHIRU_DOTFILES_DIR}"
 readonly STOW_DIR="${HASHIRU_ROOT}/stow"
 
 DRY_RUN=0

@@ -102,57 +102,13 @@ if [[ ${#failed[@]} -gt 0 ]]; then
 fi
 log_success "Stowed ${stowed} config packages"
 
-# --- zsh fallback ---------------------------------------------------------------
+# The fallback .zshrc, stowed only if nothing else provides one (see
+# ensure_zshrc in lib/common.sh).
 #
-# 35-zsh.sh installs zsh, Oh My Zsh, Powerlevel10k and three plugins, and makes
-# zsh the login shell — then deletes omz's generated .zshrc on the assumption
-# that a dotfiles repo provides one. With dotfiles opted out, nothing does, and
-# the machine boots to a bare prompt with all of that installed but unwired.
-#
-# So: stow zsh-fallback only when nothing else supplies ~/.zshrc, and unstow it
-# the moment something does. Hashiru does not own this file — it only refuses to
-# leave the shell it configured without a config.
-FALLBACK_SRC="$(readlink -f "${STOW_DIR}/${ZSH_FALLBACK}/.zshrc")"
-ZSHRC="${HOME}/.zshrc"
-
-# Our own stowed link must not count as "someone else provides it", or the
-# fallback would stand down on its own second run.
-zshrc_is_ours=0
-if [[ -L "${ZSHRC}" && "$(readlink -f "${ZSHRC}" 2>/dev/null)" == "${FALLBACK_SRC}" ]]; then
-    zshrc_is_ours=1
-fi
-
-provider=""
-if [[ -e "${ZSHRC}" && "${zshrc_is_ours}" -eq 0 ]]; then
-    provider="existing ~/.zshrc"
-elif [[ -d "${HASHIRU_DOTFILES_DIR}" ]]; then
-    # Checkout is here, so the question is answerable exactly: does any package
-    # in it ship a .zshrc? Tested with a glob and -e rather than `compgen -G`,
-    # which returns success with empty output when the directory doesn't exist —
-    # it reports a provider that isn't there.
-    for candidate in "${HASHIRU_DOTFILES_DIR}"/*/.zshrc; do
-        [[ -e "${candidate}" ]] || continue
-        provider="dotfiles checkout"
-        break
-    done
-elif [[ -n "${HASHIRU_DOTFILES_REPO}" ]]; then
-    # Not cloned yet — 60-dotfiles.sh runs after this stage. Assume it provides
-    # one, matching the assumption 35-zsh.sh already makes. If the repo turns out
-    # not to ship a .zshrc, the next run takes the branch above and stows this.
-    provider="${HASHIRU_DOTFILES_REPO} (stage 60)"
-fi
-
-if [[ -n "${provider}" ]]; then
-    if [[ "${zshrc_is_ours}" -eq 1 ]]; then
-        log_info "Removing Hashiru's fallback .zshrc — now provided by ${provider}"
-        stow -D --target="${HOME}" "${ZSH_FALLBACK}" || log_warn "Failed to unstow ${ZSH_FALLBACK}"
-    else
-        log_info "Skipping ${ZSH_FALLBACK} — .zshrc provided by ${provider}"
-    fi
-else
-    log_info "Stowing ${ZSH_FALLBACK} — nothing else provides ~/.zshrc"
-    stow --restow --target="${HOME}" "${ZSH_FALLBACK}" || log_warn "Failed to stow ${ZSH_FALLBACK}"
-fi
+# 60-dotfiles.sh calls this again once the checkout exists, where the answer is
+# exact. This call is the one that makes `hashiru update 45` complete on its own
+# rather than leaving the shell unconfigured until stage 60 runs.
+ensure_zshrc
 
 # bat only reads custom themes from its cache, and the themes arrive with the
 # bat package stowed just above — so the rebuild belongs here, not with the

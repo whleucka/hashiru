@@ -1,0 +1,18 @@
+# hashiru.conf — per-machine overrides. Copy to hashiru.conf (gitignored) to use.
+#
+# Sourced by lib/common.sh before any default is applied, so use the
+# `: "${VAR=value}"` form: it sets the variable only when unset, which keeps
+# one-off environment overrides working:
+#
+#   HASHIRU_DOTFILES_REPO= ./install.sh 60
+#
+# Note `=` and not `:=` — the latter would treat an explicit empty value as
+# unset, and empty is meaningful here (it means "no dotfiles").
+
+# Personal dotfiles repo cloned and stowed by 60-dotfiles.sh. Set to the empty
+# string to skip dotfiles entirely — Hashiru's own config lives in stow/ and
+# does not depend on this.
+#: "${HASHIRU_DOTFILES_REPO=https://github.com/you/dotfiles.git}"
+
+# Where that repo is cloned to.
+#: "${HASHIRU_DOTFILES_DIR=${HOME}/.dotfiles}"

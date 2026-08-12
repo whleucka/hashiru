@@ -296,12 +296,16 @@ fi
 # SingletonCookie as links whose "target" is a hostname-pid string, never a
 # real path — and flagging those would make this check permanently red. Stow
 # always writes a relative path into the stow directory, so match on that.
+#
+# The dotfiles pattern is derived from HASHIRU_DOTFILES_DIR rather than hardcoded
+# to ".dotfiles", so a custom checkout location is still covered.
+dotfiles_base="${HASHIRU_DOTFILES_DIR##*/}"
 dangling=()
 while IFS= read -r -d '' link; do
     [[ -e "${link}" ]] && continue
     target="$(readlink "${link}")"
     case "${target}" in
-        ../*|*hashiru*|*.dotfiles*) dangling+=("${link#"${HOME}"/} -> ${target}") ;;
+        ../*|*hashiru*|*"${dotfiles_base}"*) dangling+=("${link#"${HOME}"/} -> ${target}") ;;
     esac
 done < <(find "${HOME}/.config" -maxdepth 2 -type l -print0 2>/dev/null)
 

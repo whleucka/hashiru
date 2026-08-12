@@ -92,11 +92,18 @@ unconditionally. Stage 35 installs zsh, Oh My Zsh, Powerlevel10k and three
 plugins and makes zsh the login shell, then deletes omz's generated `.zshrc` on
 the assumption that dotfiles provide one. With dotfiles opted out, nothing does.
 
-So stage 45 stows it only when nothing else supplies `~/.zshrc`, and unstows it
-again the moment something does — a dotfiles repo that ships one, or a file you
-wrote yourself. Hashiru doesn't own your shell config; it just won't leave the
-shell it configured without one. Put machine-local settings in `~/.zshrc.local`,
-which the fallback sources and `hashiru update` never touches.
+So it is stowed only when nothing else supplies `~/.zshrc`, and unstowed again
+the moment something does — a dotfiles repo that ships one, or a file you wrote
+yourself. Hashiru doesn't own your shell config; it just won't leave the shell it
+configured without one. Put machine-local settings in `~/.zshrc.local`, which the
+fallback sources and `hashiru update` never touches.
+
+The decision (`ensure_zshrc` in `lib/common.sh`) runs twice per install: in
+stage 45, so `hashiru update 45` is complete on its own, and again in stage 60
+*before* the dotfiles are stowed, where the checkout exists and the answer is
+exact rather than guessed. The second call is what clears the fallback out of
+the way so a dotfiles `zsh` package can claim the path — and what keeps the
+fallback when the repo turns out not to ship one.
 
 Note the split is by *ownership*, not by directory: `stow/` is user config
 (`$HOME`), while the older `config/` directory is system config (`/etc`) that
