@@ -105,14 +105,9 @@ More detail on config ownership, updating, and migrating an older install is in
 
 ## Contributing
 
-Bug reports and fixes are welcome. Feature requests probably aren't, since this
-is my machine config and the features are whatever I happen to use.
-
-If you do send a patch:
+Bug reports and fixes are welcome. If you do send a patch:
 
 * Stages must be idempotent. Running one twice is normal and must not break.
-* `shellcheck` runs in CI and has to pass.
-* Scripts in `scripts/` need a numeric prefix or they won't run. One-off
   maintenance goes in `tools/`.
 
 ## Notes
