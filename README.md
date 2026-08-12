@@ -71,6 +71,33 @@ repo (`~/.dotfiles`, stowed by stage 60): `zsh`, `bash`, `nvim`, `vim`, `git`,
 `p10k`, `alias`, `functions`, `scripts`. The two sets are disjoint; stage 60
 skips anything Hashiru owns so a stale dotfiles checkout can't stow over it.
 
+That repo is **optional and configurable.** The shipped default is the author's,
+but nothing Hashiru owns depends on it. Copy `hashiru.conf.example` to
+`hashiru.conf` (gitignored, so it can't dirty the checkout and block
+`hashiru update`) to point at your own, or set it empty to opt out entirely:
+
+```bash
+: "${HASHIRU_DOTFILES_REPO=https://github.com/you/dotfiles.git}"
+: "${HASHIRU_DOTFILES_REPO=}"   # no dotfiles at all
+```
+
+With no repo configured, stage 60 still stows an existing `~/.dotfiles` if one
+is there — it just won't clone or pull — and `doctor` reports the dotfiles
+section as skipped rather than failed.
+
+### The zsh fallback
+
+`stow/zsh-fallback` is the one package Hashiru does **not** stow
+unconditionally. Stage 35 installs zsh, Oh My Zsh, Powerlevel10k and three
+plugins and makes zsh the login shell, then deletes omz's generated `.zshrc` on
+the assumption that dotfiles provide one. With dotfiles opted out, nothing does.
+
+So stage 45 stows it only when nothing else supplies `~/.zshrc`, and unstows it
+again the moment something does — a dotfiles repo that ships one, or a file you
+wrote yourself. Hashiru doesn't own your shell config; it just won't leave the
+shell it configured without one. Put machine-local settings in `~/.zshrc.local`,
+which the fallback sources and `hashiru update` never touches.
+
 Note the split is by *ownership*, not by directory: `stow/` is user config
 (`$HOME`), while the older `config/` directory is system config (`/etc`) that
 gets copied, not stowed.

@@ -19,6 +19,12 @@ script_start "45-config.sh"
 
 readonly STOW_DIR="${HASHIRU_ROOT}/stow"
 
+# The one package Hashiru does not stow unconditionally. Everything else in
+# stow/ is config Hashiru owns outright; this is a safety net for a file it
+# does not own, applied only when nothing else provides ~/.zshrc. Handled
+# separately at the bottom of this script, and excluded from both loops below.
+readonly ZSH_FALLBACK="zsh-fallback"
+
 if [[ ! -d "${STOW_DIR}" ]]; then
     log_error "Stow directory not found: ${STOW_DIR}"
     exit 1
@@ -51,6 +57,10 @@ done
 # whole bootstrap over a file whose content Hashiru now owns anyway. Nothing is
 # discarded unless it is byte-identical to the copy replacing it.
 for pkgdir in "${STOW_DIR}"/*/; do
+    # Never back up ~/.zshrc: an existing one is the very signal that tells the
+    # fallback to stand down, and moving it aside here would destroy that signal
+    # (and the user's shell config) before the check below ever runs.
+    [[ "$(basename "${pkgdir}")" == "${ZSH_FALLBACK}" ]] && continue
     while IFS='|' read -r target src; do
         [[ -n "${target}" ]] || continue
         if cmp -s "${target}" "${src}"; then
@@ -73,6 +83,7 @@ failed=()
 for dir in */; do
     dir="${dir%/}"
     [[ "${dir}" == .* ]] && continue
+    [[ "${dir}" == "${ZSH_FALLBACK}" ]] && continue  # conditional; see below
 
     log_info "Stowing: ${dir}"
     if stow --restow --target="${HOME}" "${dir}"; then
@@ -90,6 +101,58 @@ if [[ ${#failed[@]} -gt 0 ]]; then
     log_warn "Config packages that did NOT stow: ${failed[*]}"
 fi
 log_success "Stowed ${stowed} config packages"
+
+# --- zsh fallback ---------------------------------------------------------------
+#
+# 35-zsh.sh installs zsh, Oh My Zsh, Powerlevel10k and three plugins, and makes
+# zsh the login shell — then deletes omz's generated .zshrc on the assumption
+# that a dotfiles repo provides one. With dotfiles opted out, nothing does, and
+# the machine boots to a bare prompt with all of that installed but unwired.
+#
+# So: stow zsh-fallback only when nothing else supplies ~/.zshrc, and unstow it
+# the moment something does. Hashiru does not own this file — it only refuses to
+# leave the shell it configured without a config.
+FALLBACK_SRC="$(readlink -f "${STOW_DIR}/${ZSH_FALLBACK}/.zshrc")"
+ZSHRC="${HOME}/.zshrc"
+
+# Our own stowed link must not count as "someone else provides it", or the
+# fallback would stand down on its own second run.
+zshrc_is_ours=0
+if [[ -L "${ZSHRC}" && "$(readlink -f "${ZSHRC}" 2>/dev/null)" == "${FALLBACK_SRC}" ]]; then
+    zshrc_is_ours=1
+fi
+
+provider=""
+if [[ -e "${ZSHRC}" && "${zshrc_is_ours}" -eq 0 ]]; then
+    provider="existing ~/.zshrc"
+elif [[ -d "${HASHIRU_DOTFILES_DIR}" ]]; then
+    # Checkout is here, so the question is answerable exactly: does any package
+    # in it ship a .zshrc? Tested with a glob and -e rather than `compgen -G`,
+    # which returns success with empty output when the directory doesn't exist —
+    # it reports a provider that isn't there.
+    for candidate in "${HASHIRU_DOTFILES_DIR}"/*/.zshrc; do
+        [[ -e "${candidate}" ]] || continue
+        provider="dotfiles checkout"
+        break
+    done
+elif [[ -n "${HASHIRU_DOTFILES_REPO}" ]]; then
+    # Not cloned yet — 60-dotfiles.sh runs after this stage. Assume it provides
+    # one, matching the assumption 35-zsh.sh already makes. If the repo turns out
+    # not to ship a .zshrc, the next run takes the branch above and stows this.
+    provider="${HASHIRU_DOTFILES_REPO} (stage 60)"
+fi
+
+if [[ -n "${provider}" ]]; then
+    if [[ "${zshrc_is_ours}" -eq 1 ]]; then
+        log_info "Removing Hashiru's fallback .zshrc — now provided by ${provider}"
+        stow -D --target="${HOME}" "${ZSH_FALLBACK}" || log_warn "Failed to unstow ${ZSH_FALLBACK}"
+    else
+        log_info "Skipping ${ZSH_FALLBACK} — .zshrc provided by ${provider}"
+    fi
+else
+    log_info "Stowing ${ZSH_FALLBACK} — nothing else provides ~/.zshrc"
+    stow --restow --target="${HOME}" "${ZSH_FALLBACK}" || log_warn "Failed to stow ${ZSH_FALLBACK}"
+fi
 
 # bat only reads custom themes from its cache, and the themes arrive with the
 # bat package stowed just above — so the rebuild belongs here, not with the

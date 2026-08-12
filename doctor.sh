@@ -18,6 +18,9 @@ FAIL=0
 ok()      { echo -e "  ${GREEN}✔${NC} $*"; PASS=$(( PASS + 1 )); }
 meh()     { echo -e "  ${YELLOW}●${NC} $*"; WARN=$(( WARN + 1 )); }
 bad()     { echo -e "  ${RED}✘${NC} $*"; FAIL=$(( FAIL + 1 )); }
+# Not checked, and not a problem — this machine opted out. Uncounted on purpose:
+# a skip is neither a pass to be proud of nor a warning to act on.
+skip()    { echo -e "  ${BLUE}·${NC} $*"; }
 section() { echo; echo -e "${BLUE}:: $*${NC}"; }
 
 # --- Install provenance -------------------------------------------------------
@@ -167,6 +170,14 @@ else
     bad "environment.d config missing: ${HOME}/.config/environment.d/10-hashiru.conf (30-desktop.sh)"
 fi
 
+# Hashiru's multiplexer, installed by 60-dotfiles.sh but not a dotfiles thing —
+# the binary comes from herdr.dev and the config is a Hashiru stow package.
+if command -v herdr &>/dev/null || [[ -x "${HOME}/.local/bin/herdr" ]]; then
+    ok "herdr installed"
+else
+    bad "herdr missing (60-dotfiles.sh)"
+fi
+
 # --- Shell ---------------------------------------------------------------------
 
 section "Shell"
@@ -188,6 +199,16 @@ if [[ -d "${HOME}/.oh-my-zsh/custom/themes/powerlevel10k" ]]; then
     ok "Powerlevel10k installed"
 else
     bad "Powerlevel10k missing"
+fi
+
+# Hashiru sets zsh as the login shell and installs omz + p10k, so it needs a
+# .zshrc to exist — but it does not own the file, and how it got there (stowed,
+# hand-written, omz's own) is the user's business. 35-zsh.sh deliberately
+# removes omz's generated one on the assumption that something else provides it.
+if [[ -e "${HOME}/.zshrc" ]]; then
+    ok ".zshrc present"
+else
+    bad ".zshrc missing — zsh is the login shell but nothing configures it"
 fi
 
 # --- Storage -------------------------------------------------------------------
@@ -226,6 +247,23 @@ if [[ -d "${STOW_DIR}" ]]; then
     # Resolving both sides means this holds wherever stow chose to fold.
     for pkgdir in "${STOW_DIR}"/*/; do
         pkg="${pkgdir%/}"; pkg="${pkg##*/}"
+
+        # zsh-fallback is stowed conditionally (45-config.sh): it stands down
+        # whenever anything else provides ~/.zshrc, so "not stowed" is the
+        # correct state on any machine with dotfiles, not a failure.
+        if [[ "${pkg}" == "zsh-fallback" ]]; then
+            if [[ -e "${HOME}/.zshrc" ]]; then
+                if [[ "$(readlink -f "${HOME}/.zshrc" 2>/dev/null)" == "$(readlink -f "${pkgdir}/.zshrc")" ]]; then
+                    ok "${pkg}: stowed (nothing else provides ~/.zshrc)"
+                else
+                    skip "${pkg}: stood down — ~/.zshrc provided elsewhere"
+                fi
+            else
+                bad "${pkg}: not stowed and ~/.zshrc is missing (45-config.sh)"
+            fi
+            continue
+        fi
+
         applied=0
         stray=0
         while IFS= read -r -d '' src; do
@@ -275,23 +313,26 @@ fi
 
 # --- Dotfiles ------------------------------------------------------------------
 
+# Personal dotfiles are optional and none of Hashiru's config depends on them,
+# so this only asserts something when the machine is configured to have them:
+# a repo is set and 60-dotfiles.sh was therefore expected to produce a checkout.
+# With no repo configured there is nothing to be right or wrong about.
 section "Dotfiles"
 
-if [[ -d "${HOME}/.dotfiles" ]]; then
-    ok "dotfiles present at ${HOME}/.dotfiles"
-    if [[ -L "${HOME}/.zshrc" ]]; then
-        ok ".zshrc is stowed (symlink)"
-    else
-        bad ".zshrc is not a symlink — stow conflict? (60-dotfiles.sh)"
+if [[ -d "${HASHIRU_DOTFILES_DIR}" ]]; then
+    ok "dotfiles present at ${HASHIRU_DOTFILES_DIR/#${HOME}/\~}"
+    if git -C "${HASHIRU_DOTFILES_DIR}" rev-parse --git-dir &>/dev/null; then
+        dirty="$(git -C "${HASHIRU_DOTFILES_DIR}" status --porcelain 2>/dev/null | wc -l)"
+        if [[ "${dirty}" -gt 0 ]]; then
+            meh "dotfiles has ${dirty} uncommitted change(s) — 60-dotfiles.sh can't pull until they're resolved"
+        else
+            ok "dotfiles checkout is clean"
+        fi
     fi
+elif [[ -n "${HASHIRU_DOTFILES_REPO}" ]]; then
+    bad "dotfiles missing at ${HASHIRU_DOTFILES_DIR/#${HOME}/\~} — expected from ${HASHIRU_DOTFILES_REPO} (60-dotfiles.sh)"
 else
-    bad "dotfiles missing at ${HOME}/.dotfiles (60-dotfiles.sh)"
-fi
-
-if command -v herdr &>/dev/null || [[ -x "${HOME}/.local/bin/herdr" ]]; then
-    ok "herdr installed"
-else
-    bad "herdr missing (60-dotfiles.sh)"
+    skip "no dotfiles configured (HASHIRU_DOTFILES_REPO is empty)"
 fi
 
 # --- Summary -------------------------------------------------------------------

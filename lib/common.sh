@@ -25,6 +25,27 @@ readonly HASHIRU_ROOT
 # to interactive. Exported so every stage script inherits it.
 export HASHIRU_UNATTENDED="${HASHIRU_UNATTENDED:-0}"
 
+# Per-machine overrides, sourced before the defaults below so anything it sets
+# wins over them. Deliberately gitignored rather than tracked: `hashiru update`
+# refuses to run on a dirty checkout, so a tracked config file would make every
+# customised machine un-updatable on its first edit. See hashiru.conf.example
+# for the `: "${VAR=value}"` idiom, which leaves environment overrides working.
+if [[ -f "${HASHIRU_ROOT}/hashiru.conf" ]]; then
+    # shellcheck source=/dev/null
+    source "${HASHIRU_ROOT}/hashiru.conf"
+fi
+
+# Personal dotfiles: the repo 60-dotfiles.sh clones, and where it lands. This is
+# the one place Hashiru knows about anyone's personal config — the shipped
+# default is the author's, and everything downstream (the stage, doctor) treats
+# it as optional. Set it to the empty string to opt out of dotfiles entirely;
+# Hashiru's own config lives in stow/ and does not depend on it.
+#
+# `${VAR-default}` without the colon, so an explicit empty value means "none"
+# rather than falling back to the default.
+export HASHIRU_DOTFILES_REPO="${HASHIRU_DOTFILES_REPO-https://github.com/whleucka/dotfiles.git}"
+export HASHIRU_DOTFILES_DIR="${HASHIRU_DOTFILES_DIR:-${HOME}/.dotfiles}"
+
 # Ensure log directory exists
 mkdir -p "${HASHIRU_DATA_DIR}"
 

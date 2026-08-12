@@ -1,3 +1,7 @@
 # Hashiru live-ISO build artifacts
 /iso/out/
 /iso/work/
+
+# Per-machine overrides (see hashiru.conf.example). Untracked on purpose:
+# `hashiru update` refuses to run on a dirty checkout.
+/hashiru.conf
