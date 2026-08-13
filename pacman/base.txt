@@ -38,8 +38,9 @@ tlp-rdw
 xdg-user-dirs
 
 # System utilities
-screen
 inetutils
+# vim: rescue editor — neovim has no config until 60-dotfiles.sh stows it
+vim
 man-db
 man-pages
 texinfo
@@ -68,6 +69,10 @@ efibootmgr
 
 # Fingerprint
 fprintd
+
+# Thunderbolt/USB4 device authorization (docks). boltd is D-Bus activated —
+# no unit to enable. Devices still need one-time enrollment: boltctl enroll <uuid>
+bolt
 
 # DNS resolver
 openresolv

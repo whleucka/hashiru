@@ -38,6 +38,7 @@ pnpm
 
 # PHP
 php
+php-sqlite
 composer
 
 # Containers
