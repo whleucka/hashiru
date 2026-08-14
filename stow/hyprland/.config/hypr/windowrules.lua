@@ -12,18 +12,14 @@ hl.window_rule({ match = { class = ".*" }, suppress_event = "maximize" })
 -- Floating windows
 -- pavucontrol 6.x (GTK4) uses app_id org.pulseaudio.pavucontrol, not "pavucontrol"
 hl.window_rule({ match = { class = "org\\.pulseaudio\\.pavucontrol" }, float = true, center = true, persistent_size = true })
-hl.window_rule({ match = { class = "nm-connection-editor" }, float = true, persistent_size = true })
-hl.window_rule({ match = { class = "blueman-manager" }, float = true, persistent_size = true })
+hl.window_rule({ match = { class = "nm-connection-editor" }, float = true })
+hl.window_rule({ match = { class = "blueman-manager" }, float = true })
 hl.window_rule({ match = { class = "thunar" }, float = true, center = true, persistent_size = true })
-hl.window_rule({ match = { class = "org.gnome.Calculator" }, float = true, persistent_size = true })
--- No persistent_size on imv/satty: both size themselves to the image they open,
--- and a remembered size would letterbox every screenshot to the last one's shape.
+hl.window_rule({ match = { class = "org.gnome.Calculator" }, float = true })
 hl.window_rule({ match = { class = "imv" }, float = true })
-hl.window_rule({ match = { class = "satty" }, float = true })
--- Nor GIMP: its docks and dialogs all share the class, so one remembered size
--- would be applied to every one of them.
 hl.window_rule({ match = { class = "^[Gg]imp.*" }, float = true })
-hl.window_rule({ match = { class = "tlpui" }, float = true, persistent_size = true })
+hl.window_rule({ match = { class = "satty" }, float = true })
+hl.window_rule({ match = { class = "tlpui" }, float = true })
 
 -- Portal screen-share picker (xdg-desktop-portal-hyprland). Tiles by default,
 -- so "share your screen" reflows whatever layout you were about to share.
@@ -32,7 +28,7 @@ hl.window_rule({ match = { class = "^hyprland-share-picker$" }, float = true, ce
 -- Transmission's dialogs share its class, so the file-dialog titles below miss them
 hl.window_rule({ match = { class = "^transmission-gtk$", title = "^(Open Torrent|Torrent Properties|Preferences|Statistics)$" }, float = true })
 
--- Generic app dialogs (libreoffice, inkscape, thunar, transmission, GTK apps)
+-- Generic app dialogs (libreoffice, inkscape, thunar, transmission, GTK apps)!!
 hl.window_rule({ match = { title = "^(Preferences|Properties|Settings)$" }, float = true })
 
 -- Picture-in-Picture: float, pin above workspaces, keep the video's aspect ratio
@@ -40,8 +36,8 @@ hl.window_rule({ match = { title = pip }, float = true, pin = true, size = { 480
 hl.window_rule({ match = { title = pip }, keep_aspect_ratio = true, border_size = 0 })
 
 -- TUI in a dedicated kitty instance; waybar launches it with --class calcurse
-hl.window_rule({ match = { class = "calcurse" }, float = true, center = true, persistent_size = true })
-hl.window_rule({ match = { class = "btop" }, float = true, center = true, persistent_size = true })
+hl.window_rule({ match = { class = "calcurse" }, float = true, center = true, size = { 1000, 700 } })
+hl.window_rule({ match = { class = "btop" }, float = true, center = true, size = { 1400, 900 } })
 
 -- File dialogs (matches Open/Save/Export across GTK apps, GIMP, Inkscape, browsers)
 hl.window_rule({ match = { title = "^(Open|Save|Export|Import)( As)?( File| Image| Folder| Document)?\\.?\\.?\\.?$" }, float = true })
