@@ -84,7 +84,7 @@
         // mis-parses the America/Edmonton zone and drops its DST rule, losing an
         // hour. Denver has identical Mountain-time rules and parses correctly.
         "timezone": "America/Denver",
-        "on-click": "kitty calcurse",
+        "on-click": "kitty --class calcurse calcurse",
         "tooltip-format": "<tt>{calendar}</tt>"
     },
 
@@ -92,14 +92,14 @@
         "format": "󰍛 {usage}%",
         "tooltip-format": "Load avg: {loadavg}",
         "interval": 2,
-        "on-click": "kitty btop"
+        "on-click": "kitty --class btop btop"
     },
 
     "memory": {
         "format": "󰘚 {percentage}%",
         "tooltip-format": "{used:0.1f}G / {total:0.1f}G",
         "interval": 10,
-        "on-click": "kitty btop"
+        "on-click": "kitty --class btop btop"
     },
 
     "custom/weather": {

@@ -27,10 +27,9 @@ hl.bind(key(mod, "slash"), hl.dsp.exec_cmd(hypr_scripts .. "/keybinds"), { descr
 -- Tmux
 --hl.bind(key(mod, "return"), hl.dsp.exec_cmd(terminal .. " ks attach home"), { description = "terminal (tmux home)" })
 
--- Herdr
-hl.bind(key(mod, "return"), hl.dsp.exec_cmd(terminal .. " herdr"), { description = "terminal (herdr)" })
-
-
+-- Term
+hl.bind(key(mod, "return"), hl.dsp.exec_cmd(terminal), { description = "Kitty" })
+hl.bind(key(mod, "SHIFT", "return"), hl.dsp.exec_cmd(terminal .. " herdr"), { description = "terminal (herdr)" })
 
 -- Launcher
 hl.bind(key(mod, "Space"), hl.dsp.exec_cmd(menu), { description = "App launcher" })
@@ -40,7 +39,7 @@ hl.bind(key(mod, "SHIFT", "C"), hl.dsp.exec_cmd("gnome-calculator"), { descripti
 hl.bind(key(mod, "SHIFT", "D"), hl.dsp.exec_cmd(terminal .. " lazydocker"), { description = "Lazydocker" })
 hl.bind(key(mod, "SHIFT", "F"), hl.dsp.exec_cmd(filemanager), { description = "File manager" })
 hl.bind(key(mod, "SHIFT", "N"), hl.dsp.exec_cmd(terminal .. " nvim"), { description = "Neovim" })
-hl.bind(key(mod, "SHIFT", "O"), hl.dsp.exec_cmd(terminal .. " btop", { float = true, size = { 1200, 800 }, center = true }), { description = "System monitor (btop)" })
+hl.bind(key(mod, "SHIFT", "T"), hl.dsp.exec_cmd(terminal .. " --class btop btop"), { description = "System monitor (btop)" })
 hl.bind(key(mod, "SHIFT", "P"), hl.dsp.exec_cmd("sh -c 'pgrep -x hyprpicker >/dev/null || hyprpicker -a -r'"), { description = "Color picker" })
 hl.bind(key(mod, "SHIFT", "U"), hl.dsp.exec_cmd(terminal .. " -o font_size=9 /opt/hashiru/tools/update-system.sh", { float = true, size = { 900, 600 }, center = true }), { description = "Update system" })
 hl.bind(key(mod, "SHIFT", "V"), hl.dsp.exec_cmd("cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"), { description = "Clipboard history" })

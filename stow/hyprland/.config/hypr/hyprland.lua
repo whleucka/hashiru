@@ -5,6 +5,7 @@ require("monitors")
 require("autostart")
 require("keybinds")
 require("windowrules")
+require("layerrules")
 require("clamshell")
 
 -- -----------------------------------------------------------------------------
@@ -32,7 +33,9 @@ hl.config({
             inactive_border = "rgba(414868aa)",
         },
         resize_on_border = true,
-        allow_tearing    = false,
+        -- Gate only. Tearing needs a per-window `immediate` rule too, and the
+        -- only one is steam_app_* in windowrules.lua, so the desktop is unaffected.
+        allow_tearing    = true,
         layout           = "dwindle",
     },
 
