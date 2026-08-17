@@ -24,9 +24,6 @@ hl.bind(key(mod, "slash"), hl.dsp.exec_cmd(hypr_scripts .. "/keybinds"), { descr
 -- Applications
 -- -----------------------------------------------------------------------------
 
--- Tmux
---hl.bind(key(mod, "return"), hl.dsp.exec_cmd(terminal .. " ks attach home"), { description = "terminal (tmux home)" })
-
 -- Term
 hl.bind(key(mod, "return"), hl.dsp.exec_cmd(terminal), { description = "Kitty" })
 hl.bind(key(mod, "SHIFT", "return"), hl.dsp.exec_cmd(terminal .. " herdr"), { description = "terminal (herdr)" })
@@ -145,11 +142,6 @@ hl.bind(key(mod, "mouse:272"), hl.dsp.window.drag(), { mouse = true })
 hl.bind(key(mod, "mouse:273"), hl.dsp.window.resize(), { mouse = true })
 
 -- -----------------------------------------------------------------------------
--- Clipboard / Color picker
--- -----------------------------------------------------------------------------
-
-
--- -----------------------------------------------------------------------------
 -- Screenshots
 -- -----------------------------------------------------------------------------
 
@@ -187,9 +179,6 @@ hl.bind(key("CTRL", "ALT", "L"), hl.dsp.exec_cmd("hyprlock"), { description = "L
 -- Session
 -- -----------------------------------------------------------------------------
 
--- The only way out of the session from inside it. hyprctl needs
--- HYPRLAND_INSTANCE_SIGNATURE, which does not exist on a TTY, so there is no
--- equivalent command to reach for when this binding is missing.
 hl.bind(key("CTRL", "ALT", "Delete"), hl.dsp.exit(), { description = "Exit Hyprland" })
 
 -- -----------------------------------------------------------------------------
