@@ -36,12 +36,12 @@ hl.bind(key(mod, "SHIFT", "C"), hl.dsp.exec_cmd("gnome-calculator"), { descripti
 hl.bind(key(mod, "SHIFT", "D"), hl.dsp.exec_cmd(terminal .. " lazydocker"), { description = "Lazydocker" })
 hl.bind(key(mod, "SHIFT", "F"), hl.dsp.exec_cmd(filemanager), { description = "File manager" })
 hl.bind(key(mod, "SHIFT", "N"), hl.dsp.exec_cmd(terminal .. " nvim"), { description = "Neovim" })
-hl.bind(key(mod, "SHIFT", "T"), hl.dsp.exec_cmd(terminal .. " --class btop btop"), { description = "System monitor (btop)" })
 hl.bind(key(mod, "SHIFT", "P"), hl.dsp.exec_cmd("sh -c 'pgrep -x hyprpicker >/dev/null || hyprpicker -a -r'"), { description = "Color picker" })
+hl.bind(key(mod, "SHIFT", "T"), hl.dsp.exec_cmd(terminal .. " --class btop btop"), { description = "System monitor (btop)" })
 hl.bind(key(mod, "SHIFT", "U"), hl.dsp.exec_cmd(terminal .. " -o font_size=9 " .. hypr_scripts .. "/update-system.sh", { float = true, size = { 900, 600 }, center = true }), { description = "Update system" })
 hl.bind(key(mod, "SHIFT", "V"), hl.dsp.exec_cmd("cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"), { description = "Clipboard history" })
-hl.bind(key(mod, "SHIFT", "Y"), hl.dsp.exec_cmd(terminal .. " yazi"), { description = "Yazi File Manager" })
 hl.bind(key(mod, "SHIFT", "W"), hl.dsp.exec_cmd(browser), { description = "Browser" })
+hl.bind(key(mod, "SHIFT", "Y"), hl.dsp.exec_cmd(terminal .. " yazi"), { description = "Yazi File Manager" })
 
 -- Websites
 hl.bind(key(mod, "ALT", "A"), hl.dsp.exec_cmd(browser .. " --app=https://amazon.ca"), { description = "Amazon" })
