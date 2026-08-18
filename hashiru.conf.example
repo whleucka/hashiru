@@ -4,15 +4,13 @@
 # `: "${VAR=value}"` form: it sets the variable only when unset, which keeps
 # one-off environment overrides working:
 #
-#   HASHIRU_DOTFILES_REPO= ./install.sh 60
-#
-# Note `=` and not `:=` — the latter would treat an explicit empty value as
-# unset, and empty is meaningful here (it means "no dotfiles").
+#   HASHIRU_UNATTENDED=1 ./install.sh
 
-# Personal dotfiles repo cloned and stowed by 60-dotfiles.sh. Set to the empty
-# string to skip dotfiles entirely — Hashiru's own config lives in stow/ and
-# does not depend on this.
-#: "${HASHIRU_DOTFILES_REPO=https://github.com/you/dotfiles.git}"
+# Skip every interactive prompt. Set automatically on the ISO's firstboot run;
+# set it here if you want manual installs to be non-interactive too.
+#: "${HASHIRU_UNATTENDED=1}"
 
-# Where that repo is cloned to.
-#: "${HASHIRU_DOTFILES_DIR=${HOME}/.dotfiles}"
+# There is deliberately nothing here about dotfiles. Hashiru ships the whole
+# machine — desktop, terminal, shell, prompt, aliases — and does not clone,
+# stow, or read a personal config repo. Keep an editor config of your own if
+# you want one on other people's machines; Hashiru has no opinion about it.

@@ -2,15 +2,15 @@
 # 45-config.sh — Stow Hashiru's own user config into $HOME
 #
 # Everything under stow/ is a GNU Stow package owned by Hashiru: the desktop
-# (Hyprland, waybar, mako, ...) and the config for tools Hashiru installs.
-# Personal config — shell, editor, git identity — stays in the user's own
-# dotfiles repo and is stowed later by 60-dotfiles.sh. The two sets are
-# disjoint by design; see HASHIRU_OWNED in 60-dotfiles.sh, which stops a stale
-# dotfiles checkout from re-stowing over anything claimed here.
+# (Hyprland, waybar, mako, ...), the config for every tool Hashiru installs,
+# and the shell — prompt, aliases, functions, helper scripts.
 #
-# Runs before 60-dotfiles.sh so Hashiru's config is the base layer: stow
-# refuses to replace an existing symlink, so a dotfiles package that collides
-# surfaces as a warning there instead of silently winning.
+# The test for what belongs here is whether you would want it on a machine
+# Hashiru did not build. A shell prompt, a file manager theme and a terminal
+# colour scheme all fail that test: they describe *this* machine, so Hashiru
+# owns them outright and there is nothing to layer or negotiate. An editor
+# config passes it, which is why nvim and vim are the only things left in a
+# personal dotfiles repo — and Hashiru neither clones nor stows that repo.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
@@ -18,12 +18,6 @@ source "${SCRIPT_DIR}/lib/common.sh"
 script_start "45-config.sh"
 
 readonly STOW_DIR="${HASHIRU_ROOT}/stow"
-
-# The one package Hashiru does not stow unconditionally. Everything else in
-# stow/ is config Hashiru owns outright; this is a safety net for a file it
-# does not own, applied only when nothing else provides ~/.zshrc. Handled
-# separately at the bottom of this script, and excluded from both loops below.
-readonly ZSH_FALLBACK="zsh-fallback"
 
 if [[ ! -d "${STOW_DIR}" ]]; then
     log_error "Stow directory not found: ${STOW_DIR}"
@@ -39,7 +33,7 @@ fi
 # real file with a symlink, so a pristine skel copy would block a package on
 # every fresh install. Drop them only while still byte-identical to skel (a
 # pristine copy carries no user data); anything modified is left alone for
-# stow to warn about. Mirrors the same guard in 60-dotfiles.sh.
+# stow to warn about.
 for f in .zprofile .bash_profile; do
     if [[ -f "${HOME}/${f}" && ! -L "${HOME}/${f}" ]] && cmp -s "${HOME}/${f}" "/etc/skel/${f}"; then
         rm "${HOME}/${f}"
@@ -52,15 +46,11 @@ done
 # ~/.config/environment.d/10-hashiru.conf were both plain files written by an
 # earlier 30-desktop.sh, and stow refuses to replace a real file with a symlink.
 #
-# Unlike tools/migrate-desktop-config.sh, which stops and asks, this resolves
-# them: the stage runs unattended on first boot, where aborting would fail the
-# whole bootstrap over a file whose content Hashiru now owns anyway. Nothing is
-# discarded unless it is byte-identical to the copy replacing it.
+# This resolves them rather than asking: the stage runs unattended on first
+# boot, where aborting would fail the whole bootstrap over a file whose content
+# Hashiru now owns anyway. Nothing is discarded unless it is byte-identical to
+# the copy replacing it.
 for pkgdir in "${STOW_DIR}"/*/; do
-    # Never back up ~/.zshrc: an existing one is the very signal that tells the
-    # fallback to stand down, and moving it aside here would destroy that signal
-    # (and the user's shell config) before the check below ever runs.
-    [[ "$(basename "${pkgdir}")" == "${ZSH_FALLBACK}" ]] && continue
     while IFS='|' read -r target src; do
         [[ -n "${target}" ]] || continue
         if cmp -s "${target}" "${src}"; then
@@ -83,15 +73,14 @@ failed=()
 for dir in */; do
     dir="${dir%/}"
     [[ "${dir}" == .* ]] && continue
-    [[ "${dir}" == "${ZSH_FALLBACK}" ]] && continue  # conditional; see below
 
     log_info "Stowing: ${dir}"
     if stow --restow --target="${HOME}" "${dir}"; then
         stowed=$(( stowed + 1 ))
     else
-        # Almost always a pre-existing real file or a symlink pointing
-        # somewhere else (usually a dotfiles package that hasn't been unstowed
-        # yet — see scripts/migrate-desktop-config.sh).
+        # Almost always a pre-existing real file, or a symlink pointing
+        # somewhere else — commonly a package from an older setup that still
+        # claims this path. Resolve it by hand, then re-run.
         log_warn "Failed to stow ${dir} — resolve the conflict, then: cd ${STOW_DIR} && stow --restow --target=${HOME} ${dir}"
         failed+=("${dir}")
     fi
@@ -101,14 +90,6 @@ if [[ ${#failed[@]} -gt 0 ]]; then
     log_warn "Config packages that did NOT stow: ${failed[*]}"
 fi
 log_success "Stowed ${stowed} config packages"
-
-# The fallback .zshrc, stowed only if nothing else provides one (see
-# ensure_zshrc in lib/common.sh).
-#
-# 60-dotfiles.sh calls this again once the checkout exists, where the answer is
-# exact. This call is the one that makes `hashiru update 45` complete on its own
-# rather than leaving the shell unconfigured until stage 60 runs.
-ensure_zshrc
 
 # bat only reads custom themes from its cache, and the themes arrive with the
 # bat package stowed just above — so the rebuild belongs here, not with the

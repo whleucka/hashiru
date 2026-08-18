@@ -39,7 +39,7 @@ xdg-user-dirs
 
 # System utilities
 inetutils
-# vim: rescue editor — neovim has no config until 60-dotfiles.sh stows it
+# vim: rescue editor — neovim config is not shipped with Hashiru
 vim
 man-db
 man-pages

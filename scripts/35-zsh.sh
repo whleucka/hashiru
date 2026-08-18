@@ -19,15 +19,14 @@ else
     log_info "Oh My Zsh already installed"
 fi
 
-# Clear a real ~/.zshrc out of the way so a stow package can take the path —
-# either the user's dotfiles (60-dotfiles.sh) or Hashiru's fallback
-# (stow/zsh-fallback, see ensure_zshrc in lib/common.sh).
+# Clear a real ~/.zshrc out of the way so Hashiru's zsh package can take the
+# path (stow/zsh, stowed by 45-config.sh).
 #
 # Only omz's own freshly-generated copy is deleted outright, identified by
 # comparing against the template it was rendered from. Anything else is a file
 # the user wrote, and gets backed up rather than destroyed — this used to `rm`
 # unconditionally, which silently ate a hand-written .zshrc on the first run.
-# Mirrors the /etc/skel guard in 45-config.sh and 60-dotfiles.sh.
+# Mirrors the /etc/skel guard in 45-config.sh.
 readonly OMZ_TEMPLATE="${OH_MY_ZSH_DIR}/templates/zshrc.zsh-template"
 if [[ -f "${HOME}/.zshrc" && ! -L "${HOME}/.zshrc" ]]; then
     if [[ -f "${OMZ_TEMPLATE}" ]] && cmp -s "${HOME}/.zshrc" "${OMZ_TEMPLATE}"; then

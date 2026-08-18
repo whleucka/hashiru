@@ -170,12 +170,12 @@ else
     bad "environment.d config missing: ${HOME}/.config/environment.d/10-hashiru.conf (30-desktop.sh)"
 fi
 
-# Hashiru's multiplexer, installed by 60-dotfiles.sh but not a dotfiles thing —
+# Hashiru's multiplexer, installed by 60-herdr.sh —
 # the binary comes from herdr.dev and the config is a Hashiru stow package.
 if command -v herdr &>/dev/null || [[ -x "${HOME}/.local/bin/herdr" ]]; then
     ok "herdr installed"
 else
-    bad "herdr missing (60-dotfiles.sh)"
+    bad "herdr missing (60-herdr.sh)"
 fi
 
 # --- Shell ---------------------------------------------------------------------
@@ -248,21 +248,6 @@ if [[ -d "${STOW_DIR}" ]]; then
     for pkgdir in "${STOW_DIR}"/*/; do
         pkg="${pkgdir%/}"; pkg="${pkg##*/}"
 
-        # zsh-fallback is stowed conditionally (45-config.sh): it stands down
-        # whenever anything else provides ~/.zshrc, so "not stowed" is the
-        # correct state on any machine with dotfiles, not a failure.
-        if [[ "${pkg}" == "zsh-fallback" ]]; then
-            if [[ -e "${HOME}/.zshrc" ]]; then
-                if [[ "$(readlink -f "${HOME}/.zshrc" 2>/dev/null)" == "$(readlink -f "${pkgdir}/.zshrc")" ]]; then
-                    ok "${pkg}: stowed (nothing else provides ~/.zshrc)"
-                else
-                    skip "${pkg}: stood down — ~/.zshrc provided elsewhere"
-                fi
-            else
-                bad "${pkg}: not stowed and ~/.zshrc is missing (45-config.sh)"
-            fi
-            continue
-        fi
 
         applied=0
         stray=0
@@ -297,15 +282,14 @@ fi
 # real path — and flagging those would make this check permanently red. Stow
 # always writes a relative path into the stow directory, so match on that.
 #
-# The dotfiles pattern is derived from HASHIRU_DOTFILES_DIR rather than hardcoded
-# to ".dotfiles", so a custom checkout location is still covered.
-dotfiles_base="${HASHIRU_DOTFILES_DIR##*/}"
+# Only Hashiru's own links are Hashiru's business. A broken link into a personal
+# editor-config repo is that repo's problem to report, not this one's.
 dangling=()
 while IFS= read -r -d '' link; do
     [[ -e "${link}" ]] && continue
     target="$(readlink "${link}")"
     case "${target}" in
-        ../*|*hashiru*|*"${dotfiles_base}"*) dangling+=("${link#"${HOME}"/} -> ${target}") ;;
+        ../*|*hashiru*) dangling+=("${link#"${HOME}"/} -> ${target}") ;;
     esac
 done < <(find "${HOME}/.config" -maxdepth 2 -type l -print0 2>/dev/null)
 
@@ -315,29 +299,6 @@ else
     bad "dangling config symlinks: ${dangling[*]}"
 fi
 
-# --- Dotfiles ------------------------------------------------------------------
-
-# Personal dotfiles are optional and none of Hashiru's config depends on them,
-# so this only asserts something when the machine is configured to have them:
-# a repo is set and 60-dotfiles.sh was therefore expected to produce a checkout.
-# With no repo configured there is nothing to be right or wrong about.
-section "Dotfiles"
-
-if [[ -d "${HASHIRU_DOTFILES_DIR}" ]]; then
-    ok "dotfiles present at ${HASHIRU_DOTFILES_DIR/#${HOME}/\~}"
-    if git -C "${HASHIRU_DOTFILES_DIR}" rev-parse --git-dir &>/dev/null; then
-        dirty="$(git -C "${HASHIRU_DOTFILES_DIR}" status --porcelain 2>/dev/null | wc -l)"
-        if [[ "${dirty}" -gt 0 ]]; then
-            meh "dotfiles has ${dirty} uncommitted change(s) — 60-dotfiles.sh can't pull until they're resolved"
-        else
-            ok "dotfiles checkout is clean"
-        fi
-    fi
-elif [[ -n "${HASHIRU_DOTFILES_REPO}" ]]; then
-    bad "dotfiles missing at ${HASHIRU_DOTFILES_DIR/#${HOME}/\~} — expected from ${HASHIRU_DOTFILES_REPO} (60-dotfiles.sh)"
-else
-    skip "no dotfiles configured (HASHIRU_DOTFILES_REPO is empty)"
-fi
 
 # --- Summary -------------------------------------------------------------------
 

@@ -80,27 +80,32 @@ Stage selectors work the same on `install.sh` and `hashiru update`:
 | 40 | `40-hyprland.sh` | Makes a screenshots directory. That's it |
 | 45 | `45-config.sh` | Stows Hashiru's own config from `stow/`, puts `hashiru` on PATH |
 | 50 | `50-snapper.sh` | Snapper + grub-btrfs, btrfs only |
-| 60 | `60-dotfiles.sh` | Clones and stows your dotfiles if you have them, installs herdr |
+| 60 | `60-herdr.sh` | Installs the herdr binary |
 | 99 | `99-reboot.sh` | Dev tools, desktop apps, Rust, user groups, final verification |
 
-Package lists live in `pacman/*.txt`. Hyprland, waybar, kitty and friends are
-configured from `stow/`, which Hashiru owns and updates.
+Package lists live in `pacman/*.txt`. Everything else — Hyprland, waybar, kitty,
+the shell, the prompt, aliases, helper scripts — is configured from `stow/`,
+which Hashiru owns and updates.
 
-## Your dotfiles
+## Dotfiles
 
-Personal config (shell, editor, git identity) stays in your own repo and is
-optional. The default is mine, and you almost certainly don't want my aliases,
-so copy `hashiru.conf.example` to `hashiru.conf` and point it elsewhere:
+There aren't any. Hashiru doesn't clone a dotfiles repo, doesn't stow one, and
+has no setting pointing at one. It installs the whole machine and the machine is
+complete when it finishes.
 
-```bash
-: "${HASHIRU_DOTFILES_REPO=https://github.com/you/dotfiles.git}"
-: "${HASHIRU_DOTFILES_REPO=}"   # or none at all
-```
+That's a deliberate reversal of how this used to work, and the test that decided
+it is: **would you want this on a machine Hashiru didn't build?** A shell prompt,
+a file manager theme, a terminal colour scheme and a set of aliases all fail it —
+they describe this machine, so they belong here. What passes is an editor config,
+because that is what you actually miss when you ssh somewhere. So `nvim` and
+`vim` live in a personal repo, and nothing in Hashiru knows or cares.
 
-Stage 60 expects a stow-shaped repo, one package per top-level directory. If
-yours isn't, set it empty and manage your own config.
+The practical benefit is that config and the thing that activates it stop living
+in different repos. `stow/fzf` ships `fzfrc`; `stow/zsh` exports the
+`FZF_DEFAULT_OPTS_FILE` that makes fzf read it. Those two used to be split across
+Hashiru and a dotfiles checkout, and neither half worked on its own.
 
-More detail on config ownership, updating, and migrating an older install is in
+More detail on config ownership and updating is in
 [`docs/internals.md`](docs/internals.md).
 
 ## Contributing

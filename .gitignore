@@ -5,3 +5,7 @@
 # Per-machine overrides (see hashiru.conf.example). Untracked on purpose:
 # `hashiru update` refuses to run on a dirty checkout.
 /hashiru.conf
+
+# Thunar rewrites this on every run (bookmark hashes, line reordering).
+# All entries are commented defaults, so there is nothing worth tracking.
+/stow/thunar/.config/Thunar/accels.scm
