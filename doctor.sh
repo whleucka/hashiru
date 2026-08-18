@@ -284,6 +284,11 @@ fi
 #
 # Only Hashiru's own links are Hashiru's business. A broken link into a personal
 # editor-config repo is that repo's problem to report, not this one's.
+#
+# Both ~/.config and ~/.local are scanned: the bin package owns ~/.local/bin and
+# ~/.local/share/hashiru/assets, so a moved checkout breaks `update-system`,
+# `msync`, `usb` and friends without leaving a single bad link under ~/.config.
+# ~/.local needs one more level of depth than ~/.config to reach the assets dir.
 dangling=()
 while IFS= read -r -d '' link; do
     [[ -e "${link}" ]] && continue
@@ -291,7 +296,8 @@ while IFS= read -r -d '' link; do
     case "${target}" in
         ../*|*hashiru*) dangling+=("${link#"${HOME}"/} -> ${target}") ;;
     esac
-done < <(find "${HOME}/.config" -maxdepth 2 -type l -print0 2>/dev/null)
+done < <( { find "${HOME}/.config" -maxdepth 2 -type l -print0 2>/dev/null
+            find "${HOME}/.local"  -maxdepth 3 -type l -print0 2>/dev/null; } )
 
 if [[ ${#dangling[@]} -eq 0 ]]; then
     ok "no dangling config symlinks"

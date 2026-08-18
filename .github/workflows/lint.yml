@@ -19,7 +19,6 @@ jobs:
             lib/common.sh \
             bin/hashiru \
             scripts/*.sh \
-            tools/*.sh \
             iso/build.sh \
             iso/test-qemu.sh \
             iso/firstboot/*.sh \

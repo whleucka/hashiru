@@ -1,8 +1,29 @@
 #!/usr/bin/env bash
+# sssh — pick a host from ~/.ssh/config and ssh to it.
 
-LIST=`grep ^Host $HOME/.ssh/config | awk '{ print $2 }' | tail -n+2 | sort -r` 
-SELECTED=`printf "$LIST" | fzf-tmux`
-if [ -z "$SELECTED" ]; then
-   printf "See ya\n" && exit 1
+set -uo pipefail
+
+CONFIG="${HOME}/.ssh/config"
+[[ -r "${CONFIG}" ]] || { printf 'No readable %s\n' "${CONFIG}" >&2; exit 1; }
+
+# Wildcards are filtered by pattern, not by position. This used to be
+# `tail -n+2`, which assumed the `Host *` catch-all was always the first entry —
+# it dropped whatever came first regardless, so reordering the file silently hid
+# a real host, and any second wildcard showed up in the picker. Reads every name
+# on a Host line, since one line can define several aliases.
+LIST="$(awk '$1 == "Host" { for (i = 2; i <= NF; i++) if ($i !~ /[*?!]/) print $i }' \
+    "${CONFIG}" | sort -r)"
+
+[[ -n "${LIST}" ]] || { printf 'No hosts in %s\n' "${CONFIG}" >&2; exit 1; }
+
+# '%s\n' as the format, not the data: printf "$LIST" made the host names the
+# format string, so a stray % in a name mangled the list, and it ate the
+# trailing newline.
+SELECTED="$(printf '%s\n' "${LIST}" | fzf)"
+
+if [[ -z "${SELECTED}" ]]; then
+    printf 'See ya\n'
+    exit 1
 fi
-/usr/bin/ssh $SELECTED
+
+exec ssh "${SELECTED}"

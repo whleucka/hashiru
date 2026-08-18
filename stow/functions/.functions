@@ -4,7 +4,10 @@ cast() {
 }
 
 installed-since() {
-    awk -F'[][]' '$2 >= "$1"' /var/log/pacman.log | grep '\] installed ' --color=never
+    # -v, not interpolation: inside single quotes "$1" is an awk string literal,
+    # and since '$' sorts below every digit the comparison was true for every
+    # line — so this printed the whole install history whatever you passed.
+    awk -v since="$1" -F'[][]' '$2 >= since' /var/log/pacman.log | grep '\] installed ' --color=never
 }
 
 fg() {

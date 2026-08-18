@@ -57,10 +57,18 @@ Scripts live with whatever invokes them, which is not always the desktop:
   compositor — the one deliberate cross-package call, and the reason they set
   `hypr_scripts` explicitly.
 - `stow/bin/.local/bin/` — things you type: `update-system`, `job-viewer`,
-  `msync`, `sssh`, `usb`, `write-usb`, `installed-packages`. `~/.local/bin` is
-  already on PATH, so call sites use a bare name and no config directory needs
-  to be on the executable path. Assets they need live in
+  `msync`, `sssh`, `usb`, `write-usb`, `installed-packages`. Call sites use a
+  bare name, which relies on `~/.local/bin` being on PATH — and for the
+  graphical session that is `stow/hyprland/.zprofile`'s doing, not `.zshrc`'s.
+  Hyprland is exec'd from a *login* shell, which never reads `.zshrc`, so a
+  keybind naming one of these would otherwise die with "command not found"
+  while the same name worked fine in a terminal. Assets they need live in
   `~/.local/share/hashiru/`, not next to config.
+- `~/.local/bin` is also deliberately kept a **real directory** by
+  `45-config.sh`, never a stow tree-fold. Third-party installers write into it
+  (stage 60's herdr, cargo, `pip --user`); if stow owned the directory itself
+  those writes would land inside this checkout and leave it permanently dirty,
+  which makes `hashiru update` refuse to run.
 
 None carry a `.sh` extension: they are commands, and the extension leaked an
 implementation detail into every call site.

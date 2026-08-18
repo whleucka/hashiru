@@ -20,20 +20,24 @@ readonly HASHIRU_REPORT="${HASHIRU_DATA_DIR}/report.txt"
 HASHIRU_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly HASHIRU_ROOT
 
-# Unattended mode: set HASHIRU_UNATTENDED=1 to skip interactive prompts and
-# auto-reboot at the end. Used by the live-ISO first-boot bootstrap; defaults
-# to interactive. Exported so every stage script inherits it.
-export HASHIRU_UNATTENDED="${HASHIRU_UNATTENDED:-0}"
-
 # Per-machine overrides, sourced before the defaults below so anything it sets
 # wins over them. Deliberately gitignored rather than tracked: `hashiru update`
 # refuses to run on a dirty checkout, so a tracked config file would make every
 # customised machine un-updatable on its first edit. See hashiru.conf.example
 # for the `: "${VAR=value}"` idiom, which leaves environment overrides working.
+#
+# This must stay ABOVE the defaults: the `: "${VAR=value}"` idiom only assigns
+# when the variable is unset, so defaulting anything first would make the
+# corresponding hashiru.conf line a silent no-op.
 if [[ -f "${HASHIRU_ROOT}/hashiru.conf" ]]; then
     # shellcheck source=/dev/null
     source "${HASHIRU_ROOT}/hashiru.conf"
 fi
+
+# Unattended mode: set HASHIRU_UNATTENDED=1 to skip interactive prompts and
+# auto-reboot at the end. Used by the live-ISO first-boot bootstrap; defaults
+# to interactive. Exported so every stage script inherits it.
+export HASHIRU_UNATTENDED="${HASHIRU_UNATTENDED:-0}"
 
 
 # Ensure log directory exists

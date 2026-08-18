@@ -34,12 +34,42 @@ fi
 # every fresh install. Drop them only while still byte-identical to skel (a
 # pristine copy carries no user data); anything modified is left alone for
 # stow to warn about.
-for f in .zprofile .bash_profile; do
+for f in .zprofile .bash_profile .bashrc; do
     if [[ -f "${HOME}/${f}" && ! -L "${HOME}/${f}" ]] && cmp -s "${HOME}/${f}" "/etc/skel/${f}"; then
         rm "${HOME}/${f}"
         log_info "Removed pristine skel file blocking stow: ~/${f}"
     fi
 done
+
+# Directories that third-party installers write into must be real, not stow
+# tree-folds. When a package's directory doesn't exist in $HOME, stow links the
+# directory itself rather than its contents — so ~/.local/bin would become a
+# symlink into this repo, and anything later dropping a binary there (stage 60's
+# herdr installer, cargo, pip --user) would write *inside the git checkout*.
+# That leaves the tree permanently dirty, which makes `hashiru update` refuse to
+# run. Pre-creating the directory forces stow to link the files individually and
+# leaves the directory itself writable by everyone else.
+#
+# Also unfolds a directory an earlier run already turned into a link, so this is
+# a fix on existing machines and not just on fresh installs.
+if [[ -L "${HOME}/.local/bin" ]] \
+    && [[ "$(readlink -f "${HOME}/.local/bin")" == "${STOW_DIR}"/* ]]; then
+    folded="$(readlink -f "${HOME}/.local/bin")"
+    rm "${HOME}/.local/bin"
+    mkdir -p "${HOME}/.local/bin"
+    log_info "Unfolded stow-linked ~/.local/bin so installers can write into it"
+
+    # Rescue anything an installer already wrote *through* the old link into the
+    # checkout. Without this the file is simply re-stowed on the next line and
+    # the tree stays dirty, so `hashiru update` would keep refusing to run.
+    # Untracked-only: never relocate a file that legitimately belongs to Hashiru.
+    while IFS= read -r leaked; do
+        [[ -n "${leaked}" ]] || continue
+        mv "${folded}/${leaked}" "${HOME}/.local/bin/${leaked}"
+        log_warn "Moved ${leaked} out of the checkout into ~/.local/bin (an installer had written it through the old stow link)"
+    done < <(git -C "${folded}" ls-files --others --exclude-standard . 2>/dev/null)
+fi
+mkdir -p "${HOME}/.local/bin"
 
 # Clear real files sitting where stowed config needs to go. These come from
 # older installs where the stage scripts wrote config directly — ~/.zprofile and
@@ -74,8 +104,17 @@ for dir in */; do
     dir="${dir%/}"
     [[ "${dir}" == .* ]] && continue
 
+    # --no-folding for `bin`, because ~/.local/bin is a shared namespace: pipx,
+    # npm, and third-party install scripts all drop binaries there. Stow must
+    # own the individual links and never the directory, or their writes land in
+    # this checkout. The mkdir above already guarantees that by making the
+    # directory exist first; this states the invariant at the call site too, so
+    # it holds even if that guard is ever reordered or the directory is missing.
+    stow_args=(--restow --target="${HOME}")
+    [[ "${dir}" == "bin" ]] && stow_args+=(--no-folding)
+
     log_info "Stowing: ${dir}"
-    if stow --restow --target="${HOME}" "${dir}"; then
+    if stow "${stow_args[@]}" "${dir}"; then
         stowed=$(( stowed + 1 ))
     else
         # Almost always a pre-existing real file, or a symlink pointing
