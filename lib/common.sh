@@ -237,11 +237,19 @@ install_aur_packages() {
     # source verification, etc.) doesn't abort the whole bootstrap. Failures are
     # collected and reported; the function still returns success so later stages
     # run. Already-installed packages are skipped on a retry by the loop above.
+    #
+    # --removemake drops build-only dependencies once the package is built.
+    # Beyond keeping the system lean, this avoids a real conflict: a Rust AUR
+    # package (sherlock-confetti) makedepends on `rust`, while dev.txt installs
+    # `rustup` — and rustup declares `Conflicts With: rust`. Leaving the build
+    # dep behind therefore broke stage 99 with "conflicting packages" on every
+    # fresh install. Build deps are not part of the machine's definition, so
+    # they should not outlive the build that needed them.
     log_info "Installing ${#packages[@]} AUR packages from ${manifest}"
     local failed=()
     for pkg in "${packages[@]}"; do
         log_info "Installing AUR package: ${pkg}"
-        if yay -S --needed --noconfirm "${pkg}"; then
+        if yay -S --needed --noconfirm --removemake "${pkg}"; then
             log_success "Installed: ${pkg}"
         else
             log_warn "Failed to build/install AUR package: ${pkg} — skipping"
