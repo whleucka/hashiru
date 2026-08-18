@@ -1,6 +1,6 @@
 #!/bin/bash
 # Handle a Waybar workspace-button click.
-# Usage: ws-click.sh <workspace-number>
+# Usage: ws-click <workspace-number>
 #
 # Switches workspace via the Lua dispatcher (the native Waybar workspaces module
 # can't be used here: it sends a raw `dispatch workspace N` which this machine's

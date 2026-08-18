@@ -1,11 +1,11 @@
 #!/bin/bash
 # Emits Waybar JSON for a single workspace button.
-# Usage: ws-button.sh <workspace-number> [mode]
+# Usage: ws-button <workspace-number> [mode]
 #   mode = "always" (default) -> always shown
 #   mode = "auto"             -> hidden (empty output) unless active or occupied
 # class is "active" when focused, "occupied" when it has windows, else "empty".
 #
-# State comes from the cache written by ws-listener.sh (event-driven, cheap).
+# State comes from the cache written by ws-listener (event-driven, cheap).
 # If the cache is missing (listener not running), fall back to a live hyprctl
 # query so the bar still works.
 

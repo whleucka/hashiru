@@ -113,7 +113,8 @@ More detail on config ownership and updating is in
 Bug reports and fixes are welcome. If you do send a patch:
 
 * Stages must be idempotent. Running one twice is normal and must not break.
-  maintenance goes in `tools/`.
+* Scripts the desktop invokes live beside the config that invokes them, under
+  `stow/hyprland/.config/{hypr,waybar}/scripts/`, and carry no `.sh` extension.
 
 ## Notes
 

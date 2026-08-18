@@ -10,17 +10,17 @@ hl.on("hyprland.start", function()
 
     -- Wallpaper (time-of-day Tahoe Beach cycler)
     hl.exec_cmd("awww-daemon")
-    hl.exec_cmd("sleep 1 && ~/.config/hypr/scripts/tahoe-wallpaper.sh daemon")
+    hl.exec_cmd("sleep 1 && ~/.config/hypr/scripts/tahoe-wallpaper daemon")
 
     -- Status bar (workspace state listener feeds the ws buttons; start it first)
-    hl.exec_cmd("~/.config/waybar/scripts/ws-listener.sh")
+    hl.exec_cmd("~/.config/waybar/scripts/ws-listener")
     hl.exec_cmd("waybar")
 
     -- Notifications
     hl.exec_cmd("mako")
 
     -- Idle and lock
-    hl.exec_cmd("~/.config/hypr/scripts/hypridle-battery.sh")
+    hl.exec_cmd("~/.config/hypr/scripts/hypridle-battery")
 
     -- Clamshell owns the lid: logind must not suspend on lid close. It reacts to
     -- an undock (lid shut, dock pulled) within the same second, freezing us mid

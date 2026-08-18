@@ -2,7 +2,7 @@
 # Event-driven workspace state cache for Waybar.
 #
 # Subscribes to Hyprland's event socket (socket2) and, on any workspace/window
-# change, writes a tiny state file that ws-button.sh reads. This replaces the
+# change, writes a tiny state file that ws-button reads. This replaces the
 # old per-second polling where all 10 buttons each forked hyprctl+jq (~40
 # processes/sec). Now hyprctl is queried once per actual change, and buttons
 # just read the cache with shell builtins.
@@ -22,7 +22,7 @@ write_state() {
     local active occupied
     active=$(hyprctl activeworkspace -j | jq -r '.id')
     occupied=$(hyprctl workspaces -j | jq -r '.[] | select(.windows > 0 and .id > 0) | .id' | tr '\n' ' ')
-    # Atomic write so ws-button.sh never reads a half-written file.
+    # Atomic write so ws-button never reads a half-written file.
     printf 'active %s\noccupied %s\n' "$active" "$occupied" >"$CACHE.tmp" && mv "$CACHE.tmp" "$CACHE"
     pkill -RTMIN+8 waybar
 }

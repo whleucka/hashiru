@@ -37,14 +37,16 @@ lib/common.sh       logging, package helpers, stow helpers
 pacman/*.txt        package manifests
 stow/               Hashiru's user config ($HOME), stow packages
 config/             Hashiru's system config (/etc), copied not stowed
-tools/assets/       static assets referenced by stowed scripts
 iso/                ISO build, archinstall config, firstboot units
 ```
 
 Only numbered scripts in `scripts/` are stages — anything else in there would
-get swept into a full run, which happened once and was enough. `tools/` is not
-scanned; it currently holds only `assets/wow.mp3`, which `update-system.sh`
-plays by absolute path.
+get swept into a full run, which happened once and was enough.
+
+Scripts that the desktop invokes live beside the config that invokes them, under
+`stow/hyprland/.config/{hypr,waybar}/scripts/`, along with any assets they need
+(`hypr/scripts/assets/wow.mp3`). None carry a `.sh` extension: they are commands,
+and the extension leaked an implementation detail into every call site.
 
 ## Config ownership
 

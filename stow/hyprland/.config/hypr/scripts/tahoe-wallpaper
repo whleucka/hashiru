@@ -2,8 +2,8 @@
 # Time-of-day wallpaper cycler for the Tahoe Beach set.
 #
 # Usage:
-#   tahoe-wallpaper.sh          set wallpaper for the current time and exit
-#   tahoe-wallpaper.sh daemon   loop forever, switching on period change
+#   tahoe-wallpaper          set wallpaper for the current time and exit
+#   tahoe-wallpaper daemon   loop forever, switching on period change
 
 WALLPAPER_DIR="$HOME/.config/hypr/wallpapers"
 STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/tahoe-wallpaper-period"

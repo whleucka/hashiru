@@ -9,73 +9,73 @@
     "modules-right": ["group/tray-drawer", "custom/weather", "cpu", "memory", "pulseaudio", "custom/battery"],
 
     "custom/ws1": {
-        "exec": "~/.config/waybar/scripts/ws-button.sh 1",
+        "exec": "~/.config/waybar/scripts/ws-button 1",
         "return-type": "json",
         "signal": 8,
-        "on-click": "~/.config/waybar/scripts/ws-click.sh 1"
+        "on-click": "~/.config/waybar/scripts/ws-click 1"
     },
 
     "custom/ws2": {
-        "exec": "~/.config/waybar/scripts/ws-button.sh 2",
+        "exec": "~/.config/waybar/scripts/ws-button 2",
         "return-type": "json",
         "signal": 8,
-        "on-click": "~/.config/waybar/scripts/ws-click.sh 2"
+        "on-click": "~/.config/waybar/scripts/ws-click 2"
     },
 
     "custom/ws3": {
-        "exec": "~/.config/waybar/scripts/ws-button.sh 3",
+        "exec": "~/.config/waybar/scripts/ws-button 3",
         "return-type": "json",
         "signal": 8,
-        "on-click": "~/.config/waybar/scripts/ws-click.sh 3"
+        "on-click": "~/.config/waybar/scripts/ws-click 3"
     },
 
     "custom/ws4": {
-        "exec": "~/.config/waybar/scripts/ws-button.sh 4",
+        "exec": "~/.config/waybar/scripts/ws-button 4",
         "return-type": "json",
         "signal": 8,
-        "on-click": "~/.config/waybar/scripts/ws-click.sh 4"
+        "on-click": "~/.config/waybar/scripts/ws-click 4"
     },
 
     "custom/ws5": {
-        "exec": "~/.config/waybar/scripts/ws-button.sh 5",
+        "exec": "~/.config/waybar/scripts/ws-button 5",
         "return-type": "json",
         "signal": 8,
-        "on-click": "~/.config/waybar/scripts/ws-click.sh 5"
+        "on-click": "~/.config/waybar/scripts/ws-click 5"
     },
 
     "custom/ws6": {
-        "exec": "~/.config/waybar/scripts/ws-button.sh 6 auto",
+        "exec": "~/.config/waybar/scripts/ws-button 6 auto",
         "return-type": "json",
         "signal": 8,
-        "on-click": "~/.config/waybar/scripts/ws-click.sh 6"
+        "on-click": "~/.config/waybar/scripts/ws-click 6"
     },
 
     "custom/ws7": {
-        "exec": "~/.config/waybar/scripts/ws-button.sh 7 auto",
+        "exec": "~/.config/waybar/scripts/ws-button 7 auto",
         "return-type": "json",
         "signal": 8,
-        "on-click": "~/.config/waybar/scripts/ws-click.sh 7"
+        "on-click": "~/.config/waybar/scripts/ws-click 7"
     },
 
     "custom/ws8": {
-        "exec": "~/.config/waybar/scripts/ws-button.sh 8 auto",
+        "exec": "~/.config/waybar/scripts/ws-button 8 auto",
         "return-type": "json",
         "signal": 8,
-        "on-click": "~/.config/waybar/scripts/ws-click.sh 8"
+        "on-click": "~/.config/waybar/scripts/ws-click 8"
     },
 
     "custom/ws9": {
-        "exec": "~/.config/waybar/scripts/ws-button.sh 9 auto",
+        "exec": "~/.config/waybar/scripts/ws-button 9 auto",
         "return-type": "json",
         "signal": 8,
-        "on-click": "~/.config/waybar/scripts/ws-click.sh 9"
+        "on-click": "~/.config/waybar/scripts/ws-click 9"
     },
 
     "custom/ws10": {
-        "exec": "~/.config/waybar/scripts/ws-button.sh 10 auto",
+        "exec": "~/.config/waybar/scripts/ws-button 10 auto",
         "return-type": "json",
         "signal": 8,
-        "on-click": "~/.config/waybar/scripts/ws-click.sh 10"
+        "on-click": "~/.config/waybar/scripts/ws-click 10"
     },
 
     "clock": {
@@ -104,7 +104,7 @@
 
     "custom/weather": {
         "format": "{}",
-        "exec": "~/.config/waybar/scripts/weather.sh",
+        "exec": "~/.config/waybar/scripts/weather",
         "interval": 600,
         "tooltip": true,
         "on-click": "xdg-open 'https://weather.gc.ca/en/location/index.html?coords=49.693,-112.835'",
@@ -112,11 +112,11 @@
     },
 
     "custom/battery": {
-        "exec": "~/.config/waybar/scripts/battery.sh",
+        "exec": "~/.config/waybar/scripts/battery",
         "interval": 5,
         "return-type": "json",
         "tooltip": true,
-        "on-click-right": "~/.config/waybar/scripts/cycle-power-profile.sh",
+        "on-click-right": "~/.config/waybar/scripts/cycle-power-profile",
         "on-scroll-up": "brightnessctl set +5%",
         "on-scroll-down": "brightnessctl set 5%-"
     },
