@@ -62,4 +62,3 @@ playerctl
 
 # Other
 calcurse
-sherlock-confetti
