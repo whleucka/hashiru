@@ -43,10 +43,27 @@ iso/                ISO build, archinstall config, firstboot units
 Only numbered scripts in `scripts/` are stages — anything else in there would
 get swept into a full run, which happened once and was enough.
 
-Scripts that the desktop invokes live beside the config that invokes them, under
-`stow/hyprland/.config/{hypr,waybar}/scripts/`, along with any assets they need
-(`hypr/scripts/assets/wow.mp3`). None carry a `.sh` extension: they are commands,
-and the extension leaked an implementation detail into every call site.
+Scripts live with whatever invokes them, which is not always the desktop:
+
+- `stow/hyprland/.config/{hypr,waybar}/scripts/` — the compositor's own:
+  `focus`, `nav`, `keybinds`, `screenshot`, `screenshot-region`,
+  `hypridle-battery`, `tahoe-wallpaper`, and waybar's module scripts. Every one
+  is invoked from `keybinds.lua`, `autostart.lua`, `hyprlock.conf` or
+  `config.jsonc`, and none means anything without Hyprland running.
+- `stow/herdr/.config/herdr/scripts/` — `herdr-flip`, `-nav`, `-route`,
+  `-split-run`, `-swap`, alongside `scrollback`. These are driven by
+  `herdr/config.toml`, not by any hypr binding, so they belong to herdr. They
+  reach back to `hypr/scripts/focus` to escalate out of herdr into the
+  compositor — the one deliberate cross-package call, and the reason they set
+  `hypr_scripts` explicitly.
+- `stow/bin/.local/bin/` — things you type: `update-system`, `job-viewer`,
+  `msync`, `sssh`, `usb`, `write-usb`, `installed-packages`. `~/.local/bin` is
+  already on PATH, so call sites use a bare name and no config directory needs
+  to be on the executable path. Assets they need live in
+  `~/.local/share/hashiru/`, not next to config.
+
+None carry a `.sh` extension: they are commands, and the extension leaked an
+implementation detail into every call site.
 
 ## Config ownership
 

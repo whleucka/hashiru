@@ -27,7 +27,7 @@
 # daemon happened to be started.
 export PATH="$HOME/.local/bin:$PATH"
 
-scripts_dir="$HOME/.config/hypr/scripts"
+hypr_scripts="$HOME/.config/hypr/scripts"   # focus lives with the compositor config
 
 hd() { herdr pane "$@" 2>/dev/null; }
 
@@ -51,7 +51,7 @@ escalate() {
     changed=$(hd focus --direction "$word" --pane "$cur" | jq -r '.result.focus.changed')
     [ "$changed" = "true" ] && return
   fi
-  exec "$scripts_dir/focus" "$1"
+  exec "$hypr_scripts/focus" "$1"
 }
 
 case "${1:-}" in

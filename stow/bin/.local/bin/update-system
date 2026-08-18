@@ -10,5 +10,5 @@ echo "║                                          ║"
 echo "╚══════════════════════════════════════════╝"
 echo
 yay -Syu --noconfirm
-paplay "$HOME/.config/hypr/scripts/assets/wow.mp3" &
+paplay "$HOME/.local/share/hashiru/assets/wow.mp3" &
 confetti

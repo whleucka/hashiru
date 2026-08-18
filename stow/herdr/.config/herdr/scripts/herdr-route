@@ -37,7 +37,7 @@
 # query would silently fail.
 export PATH="$HOME/.local/bin:$PATH"
 
-scripts_dir="$HOME/.config/hypr/scripts"
+hypr_scripts="$HOME/.config/hypr/scripts"   # focus lives with the compositor config
 
 # Divider step for pane resizes. Matches the 0.05 the plain alt+hjkl binds used.
 resize_amount=0.05
@@ -76,7 +76,7 @@ cur=$(focused_pane)
 # No pane resolved: for nav, fail toward the Hyprland hop rather than a dead
 # key; for resize there is nothing sensible to do.
 if [ -z "$cur" ]; then
-  [ "$mode" = nav ] && exec "$scripts_dir/focus" "$(focus_letter "$key")"
+  [ "$mode" = nav ] && exec "$hypr_scripts/focus" "$(focus_letter "$key")"
   exit 0
 fi
 
@@ -114,11 +114,11 @@ at_edge=$(printf '%s' "$edges" | jq -r --arg d "$word" '.result.edges[$d]')
 if [ "$at_edge" = "true" ]; then
   # herdr's outer edge — hand off to the Hyprland window. This is the branch
   # the plugin's shipped script cannot express.
-  exec "$scripts_dir/focus" "$(focus_letter "$key")"
+  exec "$hypr_scripts/focus" "$(focus_letter "$key")"
 fi
 
 # A herdr pane exists that way; if the move unexpectedly fails, escalate rather
 # than eat the keypress.
 changed=$(hd focus --direction "$word" --pane "$cur" | jq -r '.result.focus.changed')
 [ "$changed" = "true" ] && exit 0
-exec "$scripts_dir/focus" "$(focus_letter "$key")"
+exec "$hypr_scripts/focus" "$(focus_letter "$key")"
