@@ -23,7 +23,7 @@ export LC_ALL=en_US.UTF-8
 export PKGEXT='.pkg.tar'
 
 # Path
-export PATH="$HOME/.cargo/bin:$HOME/.config/composer/vendor/bin:$HOME/.local/bin:/usr/local/go/bin:/usr/local/bin:$PATH"
+export PATH="$HOME/.config/hypr/scripts/:$HOME/.cargo/bin:$HOME/.config/composer/vendor/bin:$HOME/.local/bin:/usr/local/go/bin:/usr/local/bin:$PATH"
 
 # pnpm
 export PNPM_HOME="$HOME/.local/share/pnpm"
