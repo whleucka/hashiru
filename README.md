@@ -87,25 +87,7 @@ Package lists live in `pacman/*.txt`. Everything else — Hyprland, waybar, kitt
 the shell, the prompt, aliases, helper scripts — is configured from `stow/`,
 which Hashiru owns and updates.
 
-## Dotfiles
-
-There aren't any. Hashiru doesn't clone a dotfiles repo, doesn't stow one, and
-has no setting pointing at one. It installs the whole machine and the machine is
-complete when it finishes.
-
-That's a deliberate reversal of how this used to work, and the test that decided
-it is: **would you want this on a machine Hashiru didn't build?** A shell prompt,
-a file manager theme, a terminal colour scheme and a set of aliases all fail it —
-they describe this machine, so they belong here. What passes is an editor config,
-because that is what you actually miss when you ssh somewhere. So `nvim` and
-`vim` live in a personal repo, and nothing in Hashiru knows or cares.
-
-The practical benefit is that config and the thing that activates it stop living
-in different repos. `stow/fzf` ships `fzfrc`; `stow/zsh` exports the
-`FZF_DEFAULT_OPTS_FILE` that makes fzf read it. Those two used to be split across
-Hashiru and a dotfiles checkout, and neither half worked on its own.
-
-More detail on config ownership and updating is in
+More detail in
 [`docs/internals.md`](docs/internals.md).
 
 ## Contributing
@@ -121,5 +103,5 @@ Bug reports and fixes are welcome. If you do send a patch:
 ## Notes
 
 * Arch only. Hyprland only.
-* Open source, single user. The defaults are mine.
-* Work in progress. Breaking changes are expected and there is no changelog.
+* Breaking changes are expected
+* Work in progress. 
