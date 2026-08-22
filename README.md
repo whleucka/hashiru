@@ -7,8 +7,7 @@
 Hashiru (走る, "to run") is my personal Arch + Hyprland bootstrap. Bare metal to
 a working Wayland desktop in about 10 minutes.
 
-It's opinionated and built for me. You're welcome to use it. It won't ask you
-any questions about what you'd prefer.
+Looking for an alternative to Omarchy? You've found it.
 
 ## Install
 
