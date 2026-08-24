@@ -10,6 +10,7 @@ border-size=3
 border-color=#7AA2FFFF
 border-radius=4
 default-timeout=3000
+ignore-timeout=1
 group-by=summary
 icons=1
 
