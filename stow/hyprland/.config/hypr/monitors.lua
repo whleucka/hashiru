@@ -1,25 +1,38 @@
 -- Monitor Configuration
 -- https://wiki.hypr.land/Configuring/Basics/Monitors/
+--
+-- Hashiru ships the catch-all and nothing else, deliberately. Monitor layout is
+-- the most machine-specific config there is — output names, resolutions and
+-- positions describe one desk — and shipping a real layout here means every
+-- other machine inherits it. `eDP-1` in particular is the internal panel on
+-- *every* laptop, so a hardcoded mode and position for one ThinkPad silently
+-- misconfigures every other one.
+--
+-- To describe your own displays, drop a file at:
+--
+--     ~/.config/hashiru/hypr/monitors.lua
+--
+-- It replaces this file entirely (see hashiru.lua), lives outside the repo, and
+-- survives `hashiru update`. Working layouts for the maintainer's machines are
+-- in examples/hypr/ in the repo — copy one and edit, or start from the
+-- commented forms below.
+--
+-- `hyprctl monitors all` prints the names, descriptions and modes to use.
 
--- External monitor examples
--- 27" 4K on the right
+-- Position an output by name:
 -- hl.monitor({ output = "DP-1", mode = "3840x2160@60", position = "1920x0", scale = 1.5 })
--- 27" 1440p on the right
--- hl.monitor({ output = "HDMI-A-1", mode = "2560x1440@144", position = "1920x0", scale = 1 })
--- Mirror laptop display
+--
+-- Match by description instead, so the rule follows the physical display
+-- between ports and machines rather than firing on whatever is plugged into
+-- DP-1 today:
+-- hl.monitor({ output = "desc:BNQ BenQ GL2780 ETN7L07855SL0", mode = "1920x1080@74.97", position = "0x0", scale = 1 })
+--
+-- Rotate a quarter turn (transform 1 = 90°, 2 = 180°, 3 = 270°):
+-- hl.monitor({ output = "DP-1", mode = "2560x1080@60", position = "2560x0", scale = 1, transform = 1 })
+--
+-- Mirror the built-in panel:
 -- hl.monitor({ output = "HDMI-A-1", mode = "1920x1080@60", position = "0x0", scale = 1, mirror = "eDP-1" })
 
--- ThinkPad T14s (below the BenQ)
-hl.monitor({ output = "eDP-1", mode = "1920x1200@60", position = "0x1080", scale = 1 })
-
--- BENQ 27"
-hl.monitor({ output = "desc:BNQ BenQ GL2780 ETN7L07855SL0", mode = "1920x1080@74.97", position = "0x0", scale = 1 })
-
--- Desktop: dual LG ultrawides — match by description so these rules only fire
--- on the actual desktop monitors (not e.g. a BenQ on the laptop's HDMI port).
--- HDMI-A-1 landscape (left), DP-1 rotated portrait (right).
-hl.monitor({ output = "desc:LG Electronics LG ULTRAWIDE 0x0001D52A", mode = "2560x1080@60", position = "0x0",    scale = 1 })
-hl.monitor({ output = "desc:LG Electronics LG ULTRAWIDE 0x0004F527", mode = "2560x1080@60", position = "2560x0", scale = 1, transform = 1 })
-
--- Default: auto-detect and use preferred resolution for any unspecified monitor
+-- Auto-detect anything not named above: preferred mode, placed left to right.
+-- Alone, this is a working single- or multi-monitor desktop on any hardware.
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })

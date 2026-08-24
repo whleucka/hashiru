@@ -1,12 +1,20 @@
 -- Hashiru Hyprland Configuration (Lua, 0.55+)
 -- https://wiki.hypr.land/
 
-require("monitors")
-require("autostart")
-require("keybinds")
-require("windowrules")
-require("layerrules")
-require("clamshell")
+-- Each module can be replaced or extended per-machine from
+-- ~/.config/hashiru/hypr/ — see hashiru.lua for the rules.
+local hashiru = require("hashiru")
+
+for _, module in ipairs({
+    "monitors",
+    "autostart",
+    "keybinds",
+    "windowrules",
+    "layerrules",
+    "clamshell",
+}) do
+    hashiru.load(module)
+end
 
 -- -----------------------------------------------------------------------------
 -- Environment
@@ -162,3 +170,12 @@ hl.animation({ leaf = "fade", enabled = true, speed = 3, bezier = "easeOutQuart"
 -- Layers (waybar, rofi, notifications)
 hl.animation({ leaf = "layers",    enabled = true, speed = 3, bezier = "easeOutExpo",  style = "slide" })
 hl.animation({ leaf = "layersOut", enabled = true, speed = 2, bezier = "easeOutQuart", style = "fade" })
+
+-- -----------------------------------------------------------------------------
+-- Machine-local overrides
+-- -----------------------------------------------------------------------------
+
+-- ~/.config/hashiru/hypr/local.lua, if it exists. Loaded last on purpose: a
+-- later hl.config call wins per leaf, so this is where a single setting from
+-- the block above gets changed without restating any of it.
+hashiru.load_local()

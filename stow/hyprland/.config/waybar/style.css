@@ -144,3 +144,16 @@ window#waybar {
 #tray > .needs-attention {
     -gtk-icon-effect: highlight;
 }
+
+/* Machine-local overrides.
+ *
+ * CSS cascades, so anything here wins over the rules above. Lives outside the
+ * repo and survives `hashiru update`. Waybar's config.jsonc is Hashiru's alone
+ * — it has no include mechanism worth the complexity — but styling is most of
+ * what anyone wants to change, and that part is free.
+ *
+ * Relative, and resolved against this file's symlink location (~/.config/waybar)
+ * rather than its target in the checkout — verified, same as kitty's include.
+ * 45-config.sh creates this file empty so the import always resolves; GTK warns
+ * on a missing @import. */
+@import url("../hashiru/waybar/style.css");

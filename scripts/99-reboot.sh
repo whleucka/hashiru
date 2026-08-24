@@ -11,6 +11,17 @@ script_start "99-reboot.sh"
 
 log_info "Running final verification checks..."
 
+# One-time browser swap. Hashiru used to install omarchy-chromium-bin from the
+# AUR, which *provides* `chromium` — so `pacman -Qi chromium` reports the real
+# package as already installed and install_packages would skip it forever.
+# Remove the AUR build explicitly so apps.txt's chromium can land. Nothing
+# depends on it (Required By: None), so a plain -R is enough. No-op on every
+# machine that never had it, which is what keeps this stage idempotent.
+if is_pkg_installed omarchy-chromium-bin; then
+    log_info "Replacing omarchy-chromium-bin with chromium from [extra]"
+    sudo pacman -R --noconfirm omarchy-chromium-bin
+fi
+
 # Install dev and app packages
 install_packages "dev.txt"
 install_packages "apps.txt"

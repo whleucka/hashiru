@@ -26,13 +26,28 @@ readonly HASHIRU_ROOT
 # customised machine un-updatable on its first edit. See hashiru.conf.example
 # for the `: "${VAR=value}"` idiom, which leaves environment overrides working.
 #
+# ~/.config/hashiru/ is also where per-machine *config* overrides live (hypr
+# modules, kitty snippets, waybar CSS) — see docs/internals.md. Same reasoning:
+# outside the repo means outside anything `hashiru update` can revert.
+#
 # This must stay ABOVE the defaults: the `: "${VAR=value}"` idiom only assigns
 # when the variable is unset, so defaulting anything first would make the
 # corresponding hashiru.conf line a silent no-op.
-if [[ -f "${HASHIRU_ROOT}/hashiru.conf" ]]; then
-    # shellcheck source=/dev/null
-    source "${HASHIRU_ROOT}/hashiru.conf"
-fi
+#
+# Canonical location first. Because these files use `: "${VAR=value}"`, the
+# first file to set a variable wins — so ~/.config wins over the legacy in-repo
+# copy when both exist. The in-repo path stays supported: machines predating the
+# move still have one, and silently ignoring it would change their behaviour.
+HASHIRU_CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/hashiru"
+readonly HASHIRU_CONFIG_DIR
+
+for _conf in "${HASHIRU_CONFIG_DIR}/hashiru.conf" "${HASHIRU_ROOT}/hashiru.conf"; do
+    if [[ -f "${_conf}" ]]; then
+        # shellcheck source=/dev/null
+        source "${_conf}"
+    fi
+done
+unset _conf
 
 # Unattended mode: set HASHIRU_UNATTENDED=1 to skip interactive prompts and
 # auto-reboot at the end. Used by the live-ISO first-boot bootstrap; defaults

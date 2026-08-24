@@ -1,5 +1,11 @@
 # Desktop applications
 
+# Browser
+# Wayland flags live in stow/chromium/.config/chromium-flags.conf, which Arch's
+# chromium launcher reads. Was omarchy-chromium-bin from the AUR; the repo build
+# is the same browser without depending on another project's packaging.
+chromium
+
 # Office
 libreoffice-fresh
 hunspell-en_us

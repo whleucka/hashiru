@@ -306,6 +306,61 @@ else
 fi
 
 
+# --- Machine-local overrides ----------------------------------------------------
+
+section "Overrides"
+
+# Everything Hashiru stows is replayed on every update, so machine-specific
+# config lives in ~/.config/hashiru instead. Listed rather than judged: an
+# override is a deliberate choice, not a deviation to be corrected — which is
+# why these use skip() and don't move the pass/warn counts.
+#
+# The one thing worth failing on is a *broken* override, because Hyprland
+# silently ignores a file it can't parse and the symptom (a keybind that stopped
+# working) points nowhere near the cause.
+if [[ -d "${HASHIRU_CONFIG_DIR}" ]]; then
+    # Scoped to the directories that actually mean something to Hashiru, rather
+    # than everything under ~/.config/hashiru: hashiru.conf lives there too, and
+    # so may whatever else the user has parked in it.
+    overrides=()
+    while IFS= read -r -d '' f; do
+        overrides+=("${f#"${HASHIRU_CONFIG_DIR}"/}")
+    done < <(find "${HASHIRU_CONFIG_DIR}/hypr" "${HASHIRU_CONFIG_DIR}/kitty" \
+        "${HASHIRU_CONFIG_DIR}/waybar" -type f \
+        \( -name '*.lua' -o -name '*.conf' -o -name '*.css' \) -print0 2>/dev/null | sort -z)
+
+    if [[ ${#overrides[@]} -eq 0 ]]; then
+        skip "no machine-local overrides (~/.config/hashiru is empty)"
+    else
+        for f in "${overrides[@]}"; do
+            # An empty waybar/style.css is created by 45-config.sh purely so the
+            # @import resolves, so it isn't an override anyone chose. Comments
+            # only means nothing is being overridden.
+            if [[ "${f}" == "waybar/style.css" ]] \
+                && ! grep -qvE '^\s*(/\*|\*|//|$)' "${HASHIRU_CONFIG_DIR}/${f}"; then
+                continue
+            fi
+            skip "override: ${f}"
+        done
+    fi
+
+    # Hyprland ignores a Lua file it cannot parse and carries on, so a typo here
+    # is otherwise invisible until you notice something missing. luac is Lua 5.5
+    # and Hyprland embeds 5.4, so treat disagreement as advisory, not fatal.
+    if command -v luac &>/dev/null; then
+        broken=()
+        while IFS= read -r -d '' f; do
+            luac -p "${f}" &>/dev/null || broken+=("${f#"${HASHIRU_CONFIG_DIR}"/}")
+        done < <(find "${HASHIRU_CONFIG_DIR}/hypr" -type f -name '*.lua' -print0 2>/dev/null)
+
+        if [[ ${#broken[@]} -gt 0 ]]; then
+            meh "override files luac rejects (Hyprland will skip them): ${broken[*]}"
+        fi
+    fi
+else
+    skip "no override directory yet (created by stage 45)"
+fi
+
 # --- Summary -------------------------------------------------------------------
 
 # Plain echo, not log_*: log_error would append into a pending report.txt and

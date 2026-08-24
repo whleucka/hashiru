@@ -84,10 +84,55 @@ Stage selectors work the same on `install.sh` and `hashiru update`:
 
 Package lists live in `pacman/*.txt`. Everything else — Hyprland, waybar, kitty,
 the shell, the prompt, aliases, helper scripts — is configured from `stow/`,
-which Hashiru owns and updates.
+which Hashiru owns and updates. To change any of it on one machine, see
+[Making it yours](#making-it-yours) rather than editing the checkout.
 
-More detail in
-[`docs/internals.md`](docs/internals.md).
+More detail in [`docs/internals.md`](docs/internals.md). Where this is going:
+[`docs/roadmap.md`](docs/roadmap.md).
+
+## Making it yours
+
+Hashiru owns everything in `stow/` and restows all of it on every update, so
+editing a shipped config file is pointless at best — it gets reverted, or it
+leaves the checkout dirty and `hashiru update` refuses to run. Machine-local
+config goes in `~/.config/hashiru/` instead, which nothing in the install ever
+writes over.
+
+Monitors are the common case, and the only one you're likely to *need*:
+
+```bash
+cp /opt/hashiru/examples/hypr/monitors.thinkpad-t14s.lua \
+   ~/.config/hashiru/hypr/monitors.lua      # then edit for your displays
+hyprctl monitors all                        # names, descriptions, modes
+```
+
+Hashiru ships no real monitor layout of its own, just an auto-detect catch-all,
+because `eDP-1` is the internal panel on every laptop and a hardcoded mode for
+one of them is wrong for all the others.
+
+Beyond that:
+
+| Put a file here | Effect |
+|---|---|
+| `~/.config/hashiru/hypr/<module>.lua` | replaces that Hyprland module outright |
+| `~/.config/hashiru/hypr/<module>.extra.lua` | runs after it, adding to it |
+| `~/.config/hashiru/hypr/local.lua` | runs last — change any single setting from `hyprland.lua` |
+| `~/.config/hashiru/kitty/*.conf` | read after `kitty.conf`, last-wins |
+| `~/.config/hashiru/waybar/style.css` | cascades over the shipped bar styling |
+| `~/.zshrc.local` | sourced by the shipped `.zshrc` |
+
+Modules are `monitors`, `autostart`, `keybinds`, `windowrules`, `layerrules`,
+`clamshell`. `local.lua` reaches the settings that aren't in a module, because a
+later `hl.config` call wins per key and leaves the rest alone:
+
+```lua
+hl.config({ general = { gaps_in = 0, border_size = 1 } })
+```
+
+`hashiru doctor` lists what you've overridden and syntax-checks the Lua.
+
+Anything not in that table — mako, fuzzel, thunar, yazi, waybar's `config.jsonc`
+— is Hashiru's outright. Fork the repo if you disagree with it.
 
 ## Contributing
 

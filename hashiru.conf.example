@@ -1,4 +1,8 @@
-# hashiru.conf — per-machine overrides. Copy to hashiru.conf (gitignored) to use.
+# hashiru.conf — per-machine shell/install variables.
+#
+# Copy to ~/.config/hashiru/hashiru.conf. The old location — hashiru.conf beside
+# this file, inside the checkout — is still read, but loses to ~/.config when
+# both exist. Nothing per-machine belongs inside the checkout.
 #
 # Sourced by lib/common.sh before any default is applied, so use the
 # `: "${VAR=value}"` form: it sets the variable only when unset, which keeps
@@ -9,6 +13,11 @@
 # Skip every interactive prompt. Set automatically on the ISO's firstboot run;
 # set it here if you want manual installs to be non-interactive too.
 #: "${HASHIRU_UNATTENDED=1}"
+
+# This file is only for variables the install scripts read. Machine-local
+# *config* — monitors, keybinds, terminal and bar tweaks — goes in the sibling
+# directories instead: ~/.config/hashiru/{hypr,kitty,waybar}/. See
+# docs/internals.md, "Machine-local overrides".
 
 # There is deliberately nothing here about dotfiles. Hashiru ships the whole
 # machine — desktop, terminal, shell, prompt, aliases — and does not clone,

@@ -4,9 +4,6 @@
 # AUR helper
 yay-bin
 
-# Browser
-omarchy-chromium-bin
-
 # LSPs and dev tools
 claude-code
 nodejs-intelephense

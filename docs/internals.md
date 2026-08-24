@@ -38,6 +38,7 @@ pacman/*.txt        package manifests
 stow/               Hashiru's user config ($HOME), stow packages
 config/             Hashiru's system config (/etc), copied not stowed
 iso/                ISO build, archinstall config, firstboot units
+examples/           machine-local config to copy, never loaded from here
 ```
 
 Only numbered scripts in `scripts/` are stages — anything else in there would
@@ -115,6 +116,86 @@ single directory symlink that a *different* stow dir then refuses to touch
 (`existing target is not owned by stow`). Working around that needs
 `--no-folding` plus a drop-in include directory per app. None of it is necessary
 once one repo owns the machine.
+
+## Machine-local overrides
+
+Hashiru owns everything in `stow/`, and `hashiru update` restows all of it on
+every run. So an edit to a stowed file is either reverted on the next update or —
+if you edit it in the checkout — leaves the tree dirty, and `hashiru update`
+refuses to run on a dirty checkout. Those two rules together mean there has to
+be somewhere else to put config that describes one machine.
+
+That place is **`~/.config/hashiru/`**. Nothing in the install replays into it,
+so nothing overwrites it. `45-config.sh` creates the directories and then leaves
+them alone.
+
+Three tiers, split by what the underlying tool can actually support:
+
+| Tier | How | Applies to |
+|------|-----|------------|
+| Hashiru owns | stowed, replayed, not negotiable | mako, fuzzel, gtk, thunar, yazi, bat, fzf, ripgrep, waybar's `config.jsonc` |
+| Ships + extends | the tool's own include mechanism | hypr (Lua), kitty (`globinclude`), waybar CSS (`@import`), zsh (`~/.zshrc.local`) |
+| You own | fork the repo | anything in tier 1 you disagree with |
+
+There is no per-file adopt/skip machinery, on purpose. It needs a manifest, a
+carve-out inside stow's package model, and a drift report to stay honest — real
+complexity for one user. Tier 1 stays "fork it" until somebody actually asks.
+
+### Hyprland
+
+`hypr/hashiru.lua` is the loader; `hyprland.lua` runs every module through it
+instead of calling `require` directly. For any module it loads, two files in
+`~/.config/hashiru/hypr/` are honoured:
+
+- `<module>.lua` — **replaces** ours. The `require` is skipped entirely.
+- `<module>.extra.lua` — **runs after** ours, adding to it.
+
+Plus `local.lua`, loaded dead last, after the `hl.config` block in
+`hyprland.lua`. That one matters more than it looks: Hyprland keeps config
+values in a flat map and re-parses on every `hl.config` call, so a later call
+wins *per leaf* and leaves untouched keys alone. Which means `local.lua` can
+change one setting without restating the block it came from:
+
+```lua
+hl.config({ general = { gaps_in = 0, border_size = 1 } })
+```
+
+A replacement that throws falls back to the shipped module rather than taking
+the whole config down — Hyprland's fallback for an unparseable config is the
+emergency config, and a desktop with no keybinds is worse than a desktop missing
+one override. Errors go to `hyprctl rollinglog`, and `hashiru doctor` runs
+`luac -p` over these files so a typo is findable before the next reload.
+
+`monitors.lua` is the reason all of this exists. Monitor layout is the most
+machine-specific config there is, and `eDP-1` is the internal panel on *every*
+laptop — so the hardcoded ThinkPad mode and position that used to ship here
+silently misconfigured every other machine, including the maintainer's next one.
+Hashiru now ships only the `output = ""` catch-all, which is a working layout on
+any hardware. Real layouts live in `examples/hypr/`, outside the load path, and
+get copied to `~/.config/hashiru/hypr/monitors.lua`.
+
+### kitty and waybar
+
+Both use a relative include, and both are verified to resolve it against the
+file's **symlink** location (`~/.config/kitty`, `~/.config/waybar`) rather than
+its target in the checkout — which is what makes `../hashiru/...` land in
+`~/.config/hashiru/...` at all. kitty additionally rejects absolute glob
+patterns outright (`Non-relative patterns are unsupported`), so relative is the
+only option there, not a preference.
+
+`45-config.sh` creates `~/.config/hashiru/waybar/style.css` empty, because GTK
+logs a CSS error for an `@import` that resolves to nothing. It is created once
+and never overwritten.
+
+waybar's `config.jsonc` stays tier 1. Styling is most of what anyone wants to
+change and CSS cascades for free; the JSON has no include mechanism worth the
+complexity.
+
+### hashiru.conf
+
+Same directory, same reasoning: `~/.config/hashiru/hashiru.conf`. The in-repo
+`hashiru.conf` is still sourced for machines that predate the move, and loses to
+`~/.config` when both exist.
 
 ## The zsh package
 

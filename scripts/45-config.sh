@@ -11,6 +11,10 @@
 # owns them outright and there is nothing to layer or negotiate. An editor
 # config passes it, which is why nvim and vim are the only things left in a
 # personal dotfiles repo — and Hashiru neither clones nor stows that repo.
+#
+# What Hashiru owns, it owns completely: there is no layering *inside* stow/.
+# The seam is one level out, in ~/.config/hashiru/, which this stage creates and
+# then leaves alone — see docs/internals.md, "Machine-local overrides".
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
@@ -137,6 +141,32 @@ if command -v bat &>/dev/null; then
     log_info "Rebuilding bat cache for custom themes"
     bat cache --build
     log_success "bat cache rebuilt"
+fi
+
+# -----------------------------------------------------------------------------
+# Machine-local override tree
+# -----------------------------------------------------------------------------
+# Everything stowed above belongs to Hashiru and is restowed on every update, so
+# anything specific to *this* machine has to live outside the repo.
+# ~/.config/hashiru is that place: this stage creates the directories and then
+# never touches what is in them.
+#
+# Created empty rather than left to the user, because an override mechanism
+# nobody can find is not a feature. See docs/internals.md for what each accepts.
+for _dir in hypr kitty waybar; do
+    ensure_dir "${HASHIRU_CONFIG_DIR}/${_dir}"
+done
+unset _dir
+
+# waybar's style.css imports this one unconditionally, and GTK logs a CSS error
+# for an @import that resolves to nothing — so the file must exist even while
+# empty. Created once; never overwritten, or an update would eat the contents.
+if [[ ! -e "${HASHIRU_CONFIG_DIR}/waybar/style.css" ]]; then
+    printf '%s\n' \
+        "/* Machine-local waybar styling. Cascades over the shipped style.css," \
+        "   and nothing in Hashiru ever overwrites this file. */" \
+        > "${HASHIRU_CONFIG_DIR}/waybar/style.css"
+    log_info "Created empty waybar override: ${HASHIRU_CONFIG_DIR}/waybar/style.css"
 fi
 
 # Put the management CLI on PATH. The ISO does this too, but a manual install
