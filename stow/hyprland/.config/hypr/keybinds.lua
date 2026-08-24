@@ -126,8 +126,8 @@ hl.bind(key(mod, "Delete"), hl.dsp.window.move({ workspace = "e+0" }), { descrip
 
 hl.bind(key(mod, "G"), hl.dsp.group.toggle(), { description = "Toggle group" })
 hl.bind(key(mod, "D"), hl.dsp.window.move({ out_of_group = true }), { description = "Move out of group" })
-hl.bind(key(mod, "bracketleft"), hl.dsp.group.prev(), { description = "Previous group tab" })
-hl.bind(key(mod, "bracketright"), hl.dsp.group.next(), { description = "Next group tab" })
+hl.bind(key(mod, "P"), hl.dsp.group.prev(), { description = "Previous group tab" })
+hl.bind(key(mod, "N"), hl.dsp.group.next(), { description = "Next group tab" })
 hl.bind(key(mod, "CTRL", "H"), hl.dsp.window.move({ into_group = "l" }), { description = "Group left" })
 hl.bind(key(mod, "CTRL", "L"), hl.dsp.window.move({ into_group = "r" }), { description = "Group right" })
 hl.bind(key(mod, "CTRL", "K"), hl.dsp.window.move({ into_group = "u" }), { description = "Group up" })

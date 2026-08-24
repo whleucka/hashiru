@@ -23,11 +23,35 @@
 dir="$1"
 key="$2"
 
+# Injecting only helps if something inside the terminal actually binds
+# ctrl+alt+hjkl. A bare kitty running a shell (or claude, or any other plain
+# program) swallows the key and focus never moves — so ask kitty what is running
+# in the focused window first, and only inject for the programs in the nav chain.
+# Anything else falls through to a normal Hyprland focus move.
+#
+# Caveat: an ssh session is judged by the local `ssh` process, so a remote herdr
+# or nvim is not detected — add ssh to NAV_APPS if that becomes the common case.
+NAV_APPS='(^|/)(herdr|nvim|vim)( |$)'
+
 info=$(hyprctl activewindow)
 class=$(awk '/^[[:space:]]*class:/{print $2; exit}' <<<"$info")
 pid=$(awk '/^[[:space:]]*pid:/{print $2; exit}'   <<<"$info")
 
+inject=0
 if [ "$class" = "kitty" ] && [ -S "/tmp/mykitty-$pid" ]; then
+  # Prefer the focused kitty window; fall back to any window of this instance.
+  # (is_focused goes false everywhere the moment kitty is not the active OS
+  # window, so the fallback keeps a focus race from breaking the herdr case.)
+  fg=$(timeout 1 kitty @ --to "unix:/tmp/mykitty-$pid" ls 2>/dev/null |
+       jq -r '[..|objects|select(has("foreground_processes"))] as $w
+              | (first($w[]|select(.is_focused == true)) // $w[0])
+              | [.foreground_processes[]?.cmdline|join(" ")]|join(" ")' 2>/dev/null)
+  # No answer from kitty (socket busy, jq missing) -> fall through to focus move,
+  # so the keypress always does something.
+  [[ "$fg" =~ $NAV_APPS ]] && inject=1
+fi
+
+if [ "$inject" = 1 ]; then
   kitty @ --to "unix:/tmp/mykitty-$pid" send-key "ctrl+alt+$key"
 else
   hyprctl dispatch "hl.dsp.focus({ direction = \"$dir\" })"
