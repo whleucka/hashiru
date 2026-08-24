@@ -40,19 +40,29 @@ dirs fighting over `$HOME`. This isn't that.
 - `hashiru doctor` lists active overrides and runs `luac -p` over the Lua
 - `omarchy-chromium-bin` → `chromium` from `[extra]`
 
-## v1.7 — CI
+## v1.7 — CI *(done)*
 
-Releases are currently built by hand on a laptop. Nothing about that is
-deterministic and nothing about it scales to caring.
+Releases used to be built by hand on a laptop, which is neither deterministic nor
+something that scales to caring.
 
-- Build the ISO in CI on tag and attach it to the release. Needs a privileged
-  `archlinux` container: `mkarchiso` wants root, loop devices and mount. Watch
-  runner disk — the work dir holds a full pacstrap tree *plus* the squashfs
-  before the ISO exists, and `ubuntu-latest` has ~14 GB.
-- Run the install smoke test in QEMU. `iso/test-qemu.sh` exists and is not
-  automated. QEMU's virtual display is not `eDP-1`, which makes it a real test of
-  the monitors catch-all v1.6 shipped.
-Stage cleanups, done ahead of the workflow:
+- `.github/workflows/release.yml` builds the ISO on a `v*` tag in a privileged
+  `archlinux` container — `mkarchiso` needs root, loop devices and mount — then
+  verifies and publishes it. `workflow_dispatch` builds without touching a
+  release. Runs in about 7 minutes.
+- Building from CI on a tag removes the build-before-tag hazard entirely:
+  checkout gives the tag's commit, so the pin is correct by construction rather
+  than by remembering.
+- `iso/verify.sh` checks the built image without booting it: size against
+  GitHub's 2 GiB asset limit, the commit pin *inside* the squashfs, an
+  unsubstituted `__HASHIRU_REF__`, and `stage0.sh`'s mode.
+- `iso/build.sh` takes `HASHIRU_REF` from the environment, because
+  `actions/checkout` falls back to a tarball when git is missing from the image
+  — leaving no `.git`, and a `|| echo main` fallback that would quietly ship an
+  unpinned ISO.
+- Release bodies come from `docs/releases/<tag>.md`, falling back to
+  `--generate-notes`.
+
+Stage cleanups that went with it:
 
 - `require_network` is now per-stage. Stages opt out with `# hashiru: offline`;
   `./install.sh 45` no longer waits on an HTTPS probe it never uses.
@@ -61,12 +71,18 @@ Stage cleanups, done ahead of the workflow:
 - `99-reboot.sh` → `99-apps.sh`, and the reboot prompt now keys off the last
   stage by position rather than by filename.
 
-Deliberately *not* baking packages into the ISO here. That was the original
+**A full install test stays manual.** The original plan was to automate
+`iso/test-qemu.sh`, which is not possible on hosted runners: no `/dev/kvm`, no
+display, and software emulation of a whole archinstall plus bootstrap would run
+for hours rather than minutes. `verify.sh` covers what can be checked in seconds
+by reading the image; booting one before publishing remains a local step.
+
+**Packages are deliberately not baked into the ISO.** That was the original
 plan; it collides with GitHub's 2 GiB release-asset cap. The ISO is already
 1.5 GB, and the six package lists add at least another 1.4 GB — a floor, since
 that was measured on a machine that already had most of the dependencies. Past
-the cap, CI can build the ISO but can't publish it, which loses the entire point
-of this milestone. v1.8 gets determinism without touching ISO size.
+the cap, CI can build an ISO it cannot publish, which loses the entire point of
+the milestone. v1.8 gets determinism without touching ISO size.
 
 ## v1.8 — The package repo
 
