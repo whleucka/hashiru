@@ -92,7 +92,7 @@ More detail in [`docs/internals.md`](docs/internals.md). Where this is going:
 ## Making it yours
 
 Hashiru owns everything in `stow/` and restows all of it on every update, so
-editing a shipped config file is pointless at best — it gets reverted, or it
+editing a shipped config file is pointless at best. It will be reverted, or it
 leaves the checkout dirty and `hashiru update` refuses to run. Machine-local
 config goes in `~/.config/hashiru/` instead, which nothing in the install ever
 writes over.
@@ -130,8 +130,7 @@ hl.config({ general = { gaps_in = 0, border_size = 1 } })
 
 `hashiru doctor` lists what you've overridden and syntax-checks the Lua.
 
-Anything not in that table — mako, fuzzel, thunar, yazi, waybar's `config.jsonc`
-— is Hashiru's outright. Fork the repo if you disagree with it.
+Anything not in that table (mako, fuzzel, thunar, yazi, waybar's `config.jsonc`) is Hashiru's outright. Fork the repo if you disagree with it.
 
 ## Contributing
 
@@ -146,5 +145,5 @@ Bug reports and fixes are welcome. If you do send a patch:
 ## Notes
 
 * Arch only. Hyprland only.
-* Breaking changes are expected
+* Breaking changes are expected.
 * Work in progress. 
