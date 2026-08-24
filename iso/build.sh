@@ -45,7 +45,12 @@ echo "==> Pinning installer to the ISO's commit"
 # on the installed system and `hashiru update` fast-forwards it, which needs a
 # branch with an upstream. Resetting keeps main checked out and tracking
 # origin/main while still starting the machine at this exact commit.
-HASHIRU_REF="$(git -C "${HERE}/.." rev-parse HEAD 2>/dev/null || echo main)"
+# CI passes this explicitly. That is not just convenience: actions/checkout
+# falls back to a source tarball when git is missing from the image, leaving no
+# .git for rev-parse to read — and the `|| echo main` below would then quietly
+# produce an *unpinned* ISO that installs whatever main happens to be. An
+# explicit ref removes that failure mode; iso/verify.sh asserts the result.
+HASHIRU_REF="${HASHIRU_REF:-$(git -C "${HERE}/.." rev-parse HEAD 2>/dev/null || echo main)}"
 if [[ -n "$(git -C "${HERE}/.." status --porcelain 2>/dev/null)" ]]; then
   echo "    WARNING: working tree is dirty — uncommitted changes will NOT be"
   echo "    in the installed system (it checks out ${HASHIRU_REF})."

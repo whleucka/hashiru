@@ -51,7 +51,7 @@ if ! sudo -u "${HASHIRU_USER}" -H bash -lc "
 fi
 
 # Disable the unit BEFORE rebooting so it never runs a second time. The bootstrap
-# itself no longer reboots (see 99-reboot.sh) — the reboot lives here, after the
+# itself no longer reboots (see 99-apps.sh) — the reboot lives here, after the
 # disable, so the disable can't be pre-empted by an in-bootstrap reboot. The EXIT
 # trap (sudoers cleanup) still fires before the machine goes down.
 systemctl disable hashiru-firstboot.service

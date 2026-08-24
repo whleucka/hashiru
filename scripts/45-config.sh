@@ -15,6 +15,11 @@
 # What Hashiru owns, it owns completely: there is no layering *inside* stow/.
 # The seam is one level out, in ~/.config/hashiru/, which this stage creates and
 # then leaves alone — see docs/internals.md, "Machine-local overrides".
+# hashiru: offline
+#
+# Declares that this stage touches no network, so install.sh skips its up-front
+# connectivity check when every selected stage is marked. Unmarked is the safe
+# default — a new stage that fetches something still gets the check.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
@@ -28,8 +33,12 @@ if [[ ! -d "${STOW_DIR}" ]]; then
     exit 1
 fi
 
+# The only thing in this stage that reaches the network, and only on a machine
+# that has never installed stow — which is why the stage is still marked
+# offline, and asks here instead.
 if ! command -v stow &>/dev/null; then
     log_info "Installing GNU Stow"
+    require_network
     sudo pacman -S --needed --noconfirm stow
 fi
 
@@ -143,6 +152,12 @@ if command -v bat &>/dev/null; then
     log_success "bat cache rebuilt"
 fi
 
+# Directories the desktop expects to exist. grim writes screenshots here and
+# will not create the path itself, so the keybind silently does nothing without
+# it. This was stage 40, which existed solely to run this one line — a stage
+# number is permanent, and this did not warrant one.
+ensure_dir "${HOME}/Pictures/Screenshots"
+
 # -----------------------------------------------------------------------------
 # Machine-local override tree
 # -----------------------------------------------------------------------------
@@ -162,9 +177,12 @@ unset _dir
 # for an @import that resolves to nothing — so the file must exist even while
 # empty. Created once; never overwritten, or an update would eat the contents.
 if [[ ! -e "${HASHIRU_CONFIG_DIR}/waybar/style.css" ]]; then
+    # Every line is a recognisable CSS comment so doctor's "is this file empty?"
+    # test (which allows /*, *, // and blanks) reports it as unused rather than
+    # as an override the user chose.
     printf '%s\n' \
-        "/* Machine-local waybar styling. Cascades over the shipped style.css," \
-        "   and nothing in Hashiru ever overwrites this file. */" \
+        "/* Machine-local waybar styling. Cascades over the shipped style.css." \
+        " * Nothing in Hashiru ever overwrites this file. */" \
         > "${HASHIRU_CONFIG_DIR}/waybar/style.css"
     log_info "Created empty waybar override: ${HASHIRU_CONFIG_DIR}/waybar/style.css"
 fi

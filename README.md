@@ -76,11 +76,10 @@ Stage selectors work the same on `install.sh` and `hashiru update`:
 | 20 | `20-aur.sh` | yay, then AUR packages one at a time so one bad build can't take down the run |
 | 30 | `30-desktop.sh` | Wayland stack, PipeWire, fonts, terminal tools, zsh as login shell, TTY1 auto-login |
 | 35 | `35-zsh.sh` | Oh My Zsh, Powerlevel10k, plugins |
-| 40 | `40-hyprland.sh` | Makes a screenshots directory. That's it |
-| 45 | `45-config.sh` | Stows Hashiru's own config from `stow/`, puts `hashiru` on PATH |
+| 45 | `45-config.sh` | Stows Hashiru's own config from `stow/`, creates the override tree, puts `hashiru` on PATH |
 | 50 | `50-snapper.sh` | Snapper + grub-btrfs, btrfs only |
 | 60 | `60-herdr.sh` | Installs the herdr binary |
-| 99 | `99-reboot.sh` | Dev tools, desktop apps, Rust, user groups, final verification |
+| 99 | `99-apps.sh` | Dev tools, desktop apps, Rust, user groups, final verification |
 
 Package lists live in `pacman/*.txt`. Everything else — Hyprland, waybar, kitty,
 the shell, the prompt, aliases, helper scripts — is configured from `stow/`,

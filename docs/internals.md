@@ -5,7 +5,7 @@ you're changing how Hashiru works.
 
 ## Run mechanics
 
-Ten numbered scripts in `scripts/`, run in order by `install.sh`. Every stage can
+Nine numbered scripts in `scripts/`, run in order by `install.sh`. Every stage can
 run twice without breaking anything. That property is load-bearing, because it's
 the entire update mechanism.
 
@@ -19,12 +19,26 @@ A full run stamps `/etc/hashiru-release` with the commit and date that built the
 machine. Single stages don't, since one stage isn't a bootstrap. `hashiru update`
 re-stamps either way.
 
-Stage 99 does not reboot, despite the name. Renaming it would change the
-ordering. The reboot moved to the end of `install.sh`, after the release stamp
-gets written, since a stage that reboots first means a full install can never
-record which commit built it. Unattended runs never prompt: the firstboot wrapper
-reboots after disabling its own unit, and doing it any earlier produces a boot
-loop.
+The reboot lives at the end of `install.sh`, after the release stamp gets
+written — a stage that rebooted first meant a full install could never record
+which commit built it. It used to be stage `99-reboot.sh`, kept for a while
+under a name it had stopped earning; it is now `99-apps.sh`, and `install.sh`
+decides whether to offer a reboot from the *last* stage by position rather than
+by filename, so the next rename can't quietly disable the prompt. Unattended
+runs never prompt: the firstboot wrapper reboots after disabling its own unit,
+and doing it any earlier produces a boot loop.
+
+Stage 40 is gone. It created `~/Pictures/Screenshots` and nothing else, which is
+not worth a permanent stage number; that line moved to stage 45.
+
+`install.sh` checks connectivity once, before the stage loop, but only when a
+selected stage needs it. A stage opts out by declaring `# hashiru: offline` in
+its header — currently 15, 45 and 50. Unmarked means "needs network", so a new
+stage that fetches something is covered by default. This is what makes
+`./install.sh 45` instant instead of spending up to a minute on an HTTPS probe
+it never uses. Stage 45 is marked offline even though it can install stow,
+because that happens only on a machine that has never had it; the stage calls
+`require_network` at that one point of need.
 
 ## Layout
 
@@ -39,6 +53,7 @@ stow/               Hashiru's user config ($HOME), stow packages
 config/             Hashiru's system config (/etc), copied not stowed
 iso/                ISO build, archinstall config, firstboot units
 examples/           machine-local config to copy, never loaded from here
+docs/releases/      one file per tag; the release workflow uses it as the body
 ```
 
 Only numbered scripts in `scripts/` are stages — anything else in there would

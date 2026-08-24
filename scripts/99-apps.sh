@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# 99-reboot.sh — Dev/app packages, Rust toolchain, user groups, verification
+# 99-apps.sh — Dev/app packages, Rust toolchain, user groups, verification
 #
-# Keeps the name for stage ordering, but no longer reboots — see the note at the
-# bottom. The reboot prompt lives at the end of install.sh.
+# Was 99-reboot.sh, which had not rebooted since the prompt moved to the end of
+# install.sh — /etc/hashiru-release has to be stamped before the machine goes
+# down. Renamed while the number of people who would notice is one. See the note
+# at the bottom.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
-script_start "99-reboot.sh"
+script_start "99-apps.sh"
 
 log_info "Running final verification checks..."
 
@@ -105,4 +107,4 @@ echo ""
 # bootstrap races that disable — the machine goes down before the unit is torn
 # down, so it re-runs on every boot (reboot loop).
 
-script_end "99-reboot.sh"
+script_end "99-apps.sh"

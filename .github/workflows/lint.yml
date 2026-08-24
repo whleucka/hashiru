@@ -20,6 +20,7 @@ jobs:
             bin/hashiru \
             scripts/*.sh \
             iso/build.sh \
+            iso/verify.sh \
             iso/test-qemu.sh \
             iso/firstboot/*.sh \
             iso/overlay/airootfs/root/stage0.sh \

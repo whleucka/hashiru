@@ -1,0 +1,102 @@
+name: release
+
+# Builds the ISO and publishes it. Tag-driven, because the ISO *is* the release:
+# build.sh bakes the commit being built into the image, and the installed system
+# does `git reset --hard` to it. Building from CI on a tag removes the failure
+# mode of building locally before tagging, which produces an image that installs
+# code the tag doesn't contain.
+on:
+  push:
+    tags: ['v*']
+  # Build without publishing, to prove the pipeline works before spending a tag.
+  workflow_dispatch:
+
+jobs:
+  iso:
+    runs-on: ubuntu-latest
+
+    # mkarchiso needs root, loop devices and mount, so this runs in a privileged
+    # Arch container rather than on the Ubuntu host. Nothing in the build is
+    # Ubuntu-compatible: the profile comes from Arch's own archiso package.
+    container:
+      image: archlinux:latest
+      options: --privileged
+
+    permissions:
+      contents: write   # create the release and upload the ISO to it
+
+    steps:
+      # Before checkout, deliberately. actions/checkout silently falls back to a
+      # source tarball when git is absent, which leaves no .git — and the whole
+      # commit-pinning mechanism reads from git.
+      - name: Install build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            archiso git squashfs-tools libarchive github-cli
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tags and full history, so rev-parse and describe work
+
+      # The checkout is root-owned inside the container; git refuses to operate
+      # on a tree it considers foreign without this.
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
+      # The work dir holds a full pacstrap tree plus the squashfs before the ISO
+      # exists — several GB on a runner with ~14 GB free. Printed so a failure
+      # reads as "out of disk" instead of a confusing mkarchiso error.
+      - name: Show available disk
+        run: df -h / "${GITHUB_WORKSPACE}"
+
+      - name: Build ISO
+        # Explicit ref rather than letting build.sh derive it, so the pin cannot
+        # silently fall back to 'main'. verify.sh asserts it landed.
+        env:
+          HASHIRU_REF: ${{ github.sha }}
+        run: ./iso/build.sh
+
+      # Reads the image rather than booting it: size against GitHub's 2 GiB
+      # asset limit, the commit pin inside the squashfs, and stage0.sh's mode.
+      # A real install test needs KVM and a display, which hosted runners don't
+      # have — that stays manual, via iso/test-qemu.sh.
+      - name: Verify ISO
+        run: ./iso/verify.sh "" "${{ github.sha }}"
+
+      - name: Report what was built
+        run: |
+          ls -lh iso/out/*.iso
+          df -h /
+
+      # workflow_dispatch runs stop here: the artifact is downloadable from the
+      # run for inspection, and no release is touched.
+      - name: Upload ISO as a run artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hashiru-iso
+          path: iso/out/*.iso
+          retention-days: 7
+          compression-level: 0   # already compressed; zipping it again wastes minutes
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Hand-written notes if this tag has them, otherwise let GitHub
+          # generate from commits — never block a release on a missing file.
+          notes=(--generate-notes)
+          if [[ -f "docs/releases/${TAG}.md" ]]; then
+            notes=(--notes-file "docs/releases/${TAG}.md")
+          fi
+
+          # The release may already exist (created by hand, or a re-run of this
+          # job). Create it only if absent, then upload with --clobber so a
+          # re-run replaces the asset instead of failing on a duplicate name.
+          if ! gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release create "${TAG}" --title "Hashiru ${TAG}" "${notes[@]}"
+          fi
+          gh release upload "${TAG}" iso/out/*.iso --clobber

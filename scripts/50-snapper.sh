@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 # 50-snapper.sh — Snapper snapshot configuration, grub-btrfs integration
+# hashiru: offline
+#
+# Declares that this stage touches no network, so install.sh skips its up-front
+# connectivity check when every selected stage is marked. Unmarked is the safe
+# default — a new stage that fetches something still gets the check.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"

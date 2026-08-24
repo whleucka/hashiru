@@ -40,30 +40,40 @@ dirs fighting over `$HOME`. This isn't that.
 - `hashiru doctor` lists active overrides and runs `luac -p` over the Lua
 - `omarchy-chromium-bin` → `chromium` from `[extra]`
 
-## v1.7 — Deterministic installs
+## v1.7 — CI
 
-The install currently downloads the world and builds AUR packages on the user's
-machine at first boot, one at a time, with failures demoted to warnings. That
-means two installs of the same commit can produce measurably different machines,
-which is the one property a system definition should not have.
+Releases are currently built by hand on a laptop. Nothing about that is
+deterministic and nothing about it scales to caring.
 
-- Bake every package in `pacman/*.txt` into the ISO so `pacstrap` installs from
-  the ISO's own squashfs. Offline install, deterministic, and it cuts most of the
-  ten minutes. Currently `packages.x86_64.extra` contains one line.
-- CI builds the ISO on tag and attaches it to the release, instead of the
-  maintainer running `iso/build.sh` by hand
-- CI runs an install smoke test in QEMU — `iso/test-qemu.sh` exists and is not
-  automated
-- Move `require_network` off the stage-45 path; a config-only replay, which the
-  README calls the common case, currently blocks on an HTTPS probe it never needs
-- Fold stage 40 (it is one `mkdir`) and rename `99-reboot.sh`, which does not
-  reboot. Both docs currently apologise for it. Stage numbers are a public API
-  and this is the cheapest it will ever be to fix.
+- Build the ISO in CI on tag and attach it to the release. Needs a privileged
+  `archlinux` container: `mkarchiso` wants root, loop devices and mount. Watch
+  runner disk — the work dir holds a full pacstrap tree *plus* the squashfs
+  before the ISO exists, and `ubuntu-latest` has ~14 GB.
+- Run the install smoke test in QEMU. `iso/test-qemu.sh` exists and is not
+  automated. QEMU's virtual display is not `eDP-1`, which makes it a real test of
+  the monitors catch-all v1.6 shipped.
+Stage cleanups, done ahead of the workflow:
+
+- `require_network` is now per-stage. Stages opt out with `# hashiru: offline`;
+  `./install.sh 45` no longer waits on an HTTPS probe it never uses.
+- Stage 40 folded into 45 — it was one `mkdir`, which is not worth a permanent
+  stage number.
+- `99-reboot.sh` → `99-apps.sh`, and the reboot prompt now keys off the last
+  stage by position rather than by filename.
+
+Deliberately *not* baking packages into the ISO here. That was the original
+plan; it collides with GitHub's 2 GiB release-asset cap. The ISO is already
+1.5 GB, and the six package lists add at least another 1.4 GB — a floor, since
+that was measured on a machine that already had most of the dependencies. Past
+the cap, CI can build the ISO but can't publish it, which loses the entire point
+of this milestone. v1.8 gets determinism without touching ISO size.
 
 ## v1.8 — The package repo
 
-This is the actual line between "installer" and "distro" — not the ISO, which
-already exists.
+The install builds AUR packages on the user's machine at first boot, one at a
+time, with failures demoted to warnings. Two installs of the same commit can
+produce measurably different machines, which is the one property a system
+definition should not have.
 
 - Build every AUR dependency once in a clean chroot with `pkgctl`, sign them,
   publish as a pacman repo
@@ -72,6 +82,13 @@ already exists.
 - Ship `hashiru` itself as a package
 - Put a version, not just a commit, in `/etc/hashiru-release`; add
   `hashiru changelog`
+
+This is the actual line between "installer" and "distro" — not the ISO, which
+already exists. It also beats baking packages on its own terms: it fixes
+`hashiru update` as well as first boot, where baking only ever helped first
+boot, and it costs the ISO a few KB of `pacman.conf` rather than gigabytes.
+Offline install is the one thing it doesn't give, and Hashiru has never claimed
+to offer one — the README says to bring a network connection.
 
 Config stays in `stow/`. Shipping it as a package would delete the hairiest code
 in `45-config.sh` — the `~/.local/bin` unfolding, the leaked-file rescue, the

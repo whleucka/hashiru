@@ -25,6 +25,12 @@ if [[ ${#SCRIPTS[@]} -eq 0 ]]; then
     exit 1
 fi
 
+# The last stage, before any selector filtering narrows SCRIPTS. Used at the
+# bottom to decide whether the run finished the bootstrap and should offer a
+# reboot — by position rather than by name, so renaming or adding a final stage
+# doesn't quietly stop the prompt from appearing.
+FINAL_STAGE="${SCRIPTS[-1]##*/}"
+
 # --list answers before the network check so it works offline and instantly.
 if [[ "${1:-}" == "--list" ]]; then
     echo "Available stages:"
@@ -81,7 +87,26 @@ fi
 
 require_arch
 require_user
-require_network
+
+# Check connectivity once up front, but only when a selected stage actually
+# needs it. A stage opts out with `# hashiru: offline` in its header; unmarked
+# stages are assumed to need the network, so a new stage is fail-safe.
+#
+# This is for `./install.sh 45` — restowing config, and the common case per the
+# README — which had no reason to sit through an HTTPS probe that can wait a
+# full minute before giving up.
+NEEDS_NETWORK=0
+for script in "${SCRIPTS[@]}"; do
+    if ! grep -qx '# hashiru: offline' "${script}"; then
+        NEEDS_NETWORK=1
+        break
+    fi
+done
+if [[ "${NEEDS_NETWORK}" -eq 1 ]]; then
+    require_network
+else
+    log_info "Selected stages need no network — skipping connectivity check"
+fi
 
 # Manual runs use sudo inside nearly every stage; the default timestamp expires
 # after ~5 minutes of no prompting, silently pausing a long install on a hidden
@@ -188,7 +213,7 @@ fi
 # boot loop.
 if [[ "${HASHIRU_UNATTENDED}" == "1" ]]; then
     log_info "Unattended mode — firstboot will reboot"
-elif [[ " ${STAGE_NAMES[*]} " == *" 99-reboot.sh "* ]]; then
+elif [[ " ${STAGE_NAMES[*]} " == *" ${FINAL_STAGE} "* ]]; then
     log_info "Reboot to start Hyprland."
     if [[ -t 0 ]]; then
         read -rp "Reboot now? [y/N] " response
