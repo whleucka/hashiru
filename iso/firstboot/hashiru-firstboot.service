@@ -7,11 +7,26 @@ Description=Hashiru first-boot bootstrap
 Wants=network-online.target
 After=network-online.target multi-user.target
 ConditionPathExists=/etc/hashiru-firstboot.env
+# The bootstrap owns tty1 for its whole run: it logs to the console, and a live
+# login prompt underneath is both ugly (the two fight over the screen) and
+# wrong — someone could log in mid-bootstrap, and once stage 30 installs the
+# autologin drop-in a getty restart would launch Hyprland on top of the
+# install. The getty drop-in shipped by install-firstboot.sh keeps it from
+# starting at all; this Conflicts= is the backstop for a getty that is already
+# running (e.g. a retry after a failed first attempt).
+Conflicts=getty@tty1.service
+After=getty@tty1.service
 
 [Service]
 Type=oneshot
 EnvironmentFile=/etc/hashiru-firstboot.env
 ExecStart=/usr/local/bin/hashiru-firstboot.sh
+# Bind the unit to tty1 so systemd hangs up and resets it before we start
+# drawing, clearing the kernel/boot spam the bootstrap would otherwise be
+# printing on top of.
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
 # Bootstrap downloads/builds a lot; don't let systemd time it out.
 TimeoutStartSec=infinity
 StandardOutput=journal+console

@@ -119,3 +119,16 @@ Iterate: edit → `build.sh` → `test-qemu.sh`. Delete `iso/work/test-disk.qcow
    `/etc/sudoers.d/hashiru-firstboot` NOPASSWD rule for the bootstrap and
    removes it on exit. If the run is killed uncleanly, confirm that file is
    gone.
+
+8. **The bootstrap owns tty1.** `install-firstboot.sh` ships a
+   `getty@tty1.service.d/10-hashiru-firstboot.conf` drop-in gated on
+   `ConditionPathExists=!/etc/hashiru-firstboot.env`, so no login prompt
+   appears while the bootstrap is pending — otherwise the getty paints a prompt
+   at `multi-user.target` and the bootstrap's console logging scribbles over it
+   a moment later. It also stops someone logging in mid-install, which matters
+   once stage 30 has written the autologin drop-in. The getty returns on its
+   own when the bootstrap clears the env file; on the failure path
+   `hashiru-firstboot.sh` removes the drop-in and starts the getty from its
+   `EXIT` trap, so a broken run still leaves a way in. If you ever need tty1
+   back by hand: `rm` the drop-in, `systemctl daemon-reload`, then start
+   `getty@tty1`.

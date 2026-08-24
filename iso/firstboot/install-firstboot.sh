@@ -27,6 +27,20 @@ install -Dm755 "${REPO}/iso/firstboot/hashiru-firstboot.sh" \
 # Tell the first-boot unit which user to bootstrap as.
 printf 'HASHIRU_USER=%s\n' "${HUSER}" > /etc/hashiru-firstboot.env
 
+# Keep the tty1 login prompt off the screen for the whole first boot. Without
+# this, getty@tty1 comes up with multi-user.target, paints a login prompt, and
+# is then scribbled over by the bootstrap's console logging a moment later —
+# which looks broken. The condition is the same env file the first-boot unit
+# gates on, so the getty returns by itself the moment the bootstrap clears it
+# (and hashiru-firstboot.sh removes this drop-in on the failure path, so a
+# failed run still leaves a way to log in). A separate file from stage 30's
+# autologin.conf, so removing it never disturbs the autologin config.
+install -Dm644 /dev/stdin \
+  /etc/systemd/system/getty@tty1.service.d/10-hashiru-firstboot.conf <<'EOF'
+[Unit]
+ConditionPathExists=!/etc/hashiru-firstboot.env
+EOF
+
 # install.sh runs as the unprivileged user and refuses to run as root, and
 # `hashiru update` has to `git pull` here without sudo. Hand the whole checkout
 # to the user rather than leaving it root-owned.
