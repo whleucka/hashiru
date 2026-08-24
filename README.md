@@ -81,8 +81,8 @@ Stage selectors work the same on `install.sh` and `hashiru update`:
 | 60 | `60-herdr.sh` | Installs the herdr binary |
 | 99 | `99-apps.sh` | Dev tools, desktop apps, Rust, user groups, final verification |
 
-Package lists live in `pacman/*.txt`. Everything else — Hyprland, waybar, kitty,
-the shell, the prompt, aliases, helper scripts — is configured from `stow/`,
+Package lists live in `pacman/*.txt`. Everything else (Hyprland, waybar, kitty,
+the shell, the prompt, aliases, helper scripts, etc) is configured from `stow/`,
 which Hashiru owns and updates. To change any of it on one machine, see
 [Making it yours](#making-it-yours) rather than editing the checkout.
 
