@@ -4,8 +4,7 @@
 
 ---
 
-Hashiru (走る, "to run") is my personal Arch + Hyprland bootstrap. Bare metal to
-a working Wayland desktop in about 10 minutes.
+Hashiru (走る, "to run") is yet another opinionated Arch + Hyprland bootstrap.
 
 Looking for an alternative to Omarchy? You've found it.
 
