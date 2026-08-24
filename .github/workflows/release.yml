@@ -34,12 +34,14 @@ jobs:
           pacman -Syu --noconfirm --needed \
             archiso git squashfs-tools libarchive github-cli
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # tags and full history, so rev-parse and describe work
 
       # The checkout is root-owned inside the container; git refuses to operate
-      # on a tree it considers foreign without this.
+      # on a tree it considers foreign without this. actions/checkout does it
+      # too (set-safe-directory defaults on), so this is belt-and-braces for a
+      # future checkout that turns it off — it costs one shell invocation.
       - name: Trust the checkout
         run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
 
@@ -72,12 +74,14 @@ jobs:
       # run for inspection, and no release is touched.
       - name: Upload ISO as a run artifact
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: hashiru-iso
           path: iso/out/*.iso
           retention-days: 7
-          compression-level: 0   # already compressed; zipping it again wastes minutes
+          # No zip wrapper: the download is the .iso itself rather than a 1.5 GB
+          # archive of one incompressible file. Requires exactly one file, which
+          # holds because build.sh clears out/ before every build. The artifact
+          # takes the ISO's own filename, so `name` would be ignored here.
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
