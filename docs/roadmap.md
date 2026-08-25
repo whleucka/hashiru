@@ -42,8 +42,13 @@ Which is where the milestone dissolved entirely. Once the package repo was out,
 what remained was four items: a version in the release stamp, a `changelog`
 subcommand, AUR failures reaching the banner, and an `aur.txt` audit. Four
 patches. Naming that collection v1.8 would have been version-number theatre, so
-it shipped as v1.7.2 and v1.7.3 instead, and there is no v1.8. A minor gets
-earned; it doesn't get scheduled.
+it shipped as v1.7.2 instead, and there is no v1.8. A minor gets earned; it
+doesn't get scheduled.
+
+It was planned as two patches and shipped as one, for the same reason: the code
+never separated. Quiet mode and the version stamp are both in `install.sh`, the
+progress line and AUR batching are both in `lib/common.sh`. There was no commit
+where half of it existed, so there was nothing for a first tag to point at.
 
 ## v1.6 — Overrides *(done)*
 
@@ -114,12 +119,13 @@ that was measured on a machine that already had most of the dependencies. Past
 the cap, CI can build an ISO it cannot publish, which loses the entire point of
 the milestone. Baking also only ever helped first boot, never `hashiru update`.
 
-## v1.7.2 / v1.7.3 — Patches *(done)*
+## v1.7.2 — Patches *(done)*
 
-What used to be v1.8, plus the two things that actually made first boot worse
-than it needed to be. See `docs/releases/` for the full notes.
+What used to be v1.8, plus the things that actually made first boot worse than
+it needed to be. See [`releases/v1.7.2.md`](releases/v1.7.2.md) for the full
+notes.
 
-v1.7.2 — the console stopped being a flood:
+The console stopped being a flood:
 
 - `HASHIRU_QUIET` puts child output (pacman, makepkg, git) in the log and a
   progress line on the console. Defaults to whatever `HASHIRU_UNATTENDED` is:
@@ -137,7 +143,7 @@ v1.7.2 — the console stopped being a flood:
 - The completion banner names the warning count, so an unattended run that lost
   an AUR package doesn't read like a clean one.
 
-v1.7.3 — the install-time work, which was smaller than it looked:
+And the install stopped compiling things nobody asked for:
 
 - AUR packages install in one batched `yay` call, falling back to the existing
   serial loop only on failure. A stock `aur.txt` was paying seven dependency

@@ -5,7 +5,7 @@
 yay-bin
 
 # LSPs and dev tools. Nothing here compiles: both LSPs are npm shims.
-# sqls (SQL LSP) was dropped in v1.7.3 — a Go build on every fresh install, for
+# sqls (SQL LSP) was dropped in v1.7.2 — a Go build on every fresh install, for
 # a language server nothing in this repo configures. Install it by hand if an
 # editor config wants it.
 claude-code
