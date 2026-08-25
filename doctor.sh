@@ -30,7 +30,13 @@ section "Install"
 if [[ -f /etc/hashiru-release ]]; then
     # shellcheck source=/dev/null
     source /etc/hashiru-release
-    ok "hashiru-release: ${HASHIRU_COMMIT:0:12} (installed ${HASHIRU_INSTALL_DATE%%T*})"
+    # HASHIRU_VERSION arrived in v1.7.3; machines stamped before it have only a
+    # commit, and printing that twice reads worse than not printing it at all.
+    if [[ -n "${HASHIRU_VERSION:-}" ]]; then
+        ok "hashiru-release: ${HASHIRU_VERSION} (${HASHIRU_COMMIT:0:12}, installed ${HASHIRU_INSTALL_DATE%%T*})"
+    else
+        ok "hashiru-release: ${HASHIRU_COMMIT:0:12} (installed ${HASHIRU_INSTALL_DATE%%T*})"
+    fi
 else
     meh "/etc/hashiru-release missing (installed before stamping existed — re-run ./install.sh to stamp)"
 fi

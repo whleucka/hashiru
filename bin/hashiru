@@ -4,6 +4,9 @@
 #   hashiru update [stage ...]   pull latest, then replay the install stages
 #   hashiru doctor               read-only health check
 #   hashiru status               where this install came from, and how stale
+#   hashiru log                  the install log
+#   hashiru report               warnings from the last install
+#   hashiru changelog            release notes, newest first
 #
 # `update` works by replaying install.sh, not by computing a diff: every stage
 # is idempotent, and `stow --restow` in 45-config.sh reconciles added, removed
@@ -32,6 +35,9 @@ Commands:
                        changes — 'update' refuses on a dirty checkout.
   doctor               Read-only health check (never modifies the system).
   status               Show install provenance and whether a pull is available.
+  log [-f]             Page the install log; -f follows it live.
+  report               Warnings from the last install, if there were any.
+  changelog [tag]      Release notes, newest first, or just one tag's.
   help                 This message.
 
 Stage selectors match install.sh: N, N+, --from N, or several at once.
@@ -89,9 +95,11 @@ cmd_update() {
     # install.sh only stamps on a full run, and an update with stage selectors
     # is not one — but the machine is still now running this commit, which is
     # exactly what the stamp is supposed to answer. Record it either way.
-    printf 'HASHIRU_COMMIT=%s\nHASHIRU_INSTALL_DATE=%s\nHASHIRU_UPDATED=%s\n' \
-        "${after}" "$(_install_date)" "$(date -Is)" | sudo tee /etc/hashiru-release > /dev/null
-    log_success "Update complete (${after:0:12})"
+    local version
+    version="$(git -C "${HASHIRU_ROOT}" describe --tags 2>/dev/null || echo unknown)"
+    printf 'HASHIRU_VERSION=%s\nHASHIRU_COMMIT=%s\nHASHIRU_INSTALL_DATE=%s\nHASHIRU_UPDATED=%s\n' \
+        "${version}" "${after}" "$(_install_date)" "$(date -Is)" | sudo tee /etc/hashiru-release > /dev/null
+    log_success "Update complete (${version})"
 }
 
 # Preserve the original install date across updates; fall back to now the first
@@ -108,10 +116,105 @@ _install_date() {
     date -Is
 }
 
+# The install log is the whole record of a run, and quiet mode (the default on
+# the ISO's first boot) puts *all* child output there rather than on screen —
+# which makes reaching it a first-class command rather than a path to remember.
+cmd_log() {
+    if [[ ! -f "${HASHIRU_LOG}" ]]; then
+        log_error "No install log at ${HASHIRU_LOG}"
+        exit 1
+    fi
+
+    if [[ "${1:-}" == "-f" || "${1:-}" == "--follow" ]]; then
+        exec tail -f "${HASHIRU_LOG}"
+    fi
+
+    # Open at the end — the interesting part of an install log is always the
+    # bottom. Fall back to cat where there is no pager or no terminal.
+    if [[ -t 1 ]] && command -v less &>/dev/null; then
+        exec less +G "${HASHIRU_LOG}"
+    fi
+    exec cat "${HASHIRU_LOG}"
+}
+
+# The warnings digest, which install.sh prints at the end of a run and
+# /etc/profile.d/hashiru-report.sh shows once on the first interactive login —
+# and then renames to .last.txt. Both are checked here, because after that
+# login the live path is gone and the digest was otherwise unreachable.
+cmd_report() {
+    local live="${HASHIRU_REPORT}"
+    local archived="${HASHIRU_REPORT%.txt}.last.txt"
+
+    if [[ -s "${live}" ]]; then
+        echo "Warnings from the last install (${live}):"
+        echo
+        cat "${live}"
+        echo
+        echo "Full log: ${HASHIRU_LOG}  (hashiru log)"
+    elif [[ -s "${archived}" ]]; then
+        echo "Warnings from the last install (already shown at login):"
+        echo
+        cat "${archived}"
+        echo
+        echo "Full log: ${HASHIRU_LOG}  (hashiru log)"
+    else
+        echo "No warnings recorded — the last install finished clean."
+    fi
+}
+
+# Release notes for the machine you are standing on. docs/releases/ is already
+# the source CI reads for GitHub release bodies, so there is nothing new to keep
+# in sync — this just makes it reachable without a browser.
+cmd_changelog() {
+    local dir="${HASHIRU_ROOT}/docs/releases"
+    if [[ ! -d "${dir}" ]]; then
+        log_error "No release notes at ${dir}"
+        exit 1
+    fi
+
+    local files=()
+    if [[ -n "${1:-}" ]]; then
+        local one="${dir}/${1}.md"
+        # Accept 'v1.7.1' and '1.7.1' alike.
+        [[ -f "${one}" ]] || one="${dir}/v${1#v}.md"
+        if [[ ! -f "${one}" ]]; then
+            log_error "No release notes for '${1}' — try 'hashiru changelog' for the full list."
+            exit 1
+        fi
+        files=("${one}")
+    else
+        # Newest first, by version rather than by name: -V sorts v1.10 after
+        # v1.9, which a plain reverse sort gets wrong.
+        mapfile -t files < <(find "${dir}" -maxdepth 1 -name 'v*.md' -type f | sort -Vr)
+        if [[ ${#files[@]} -eq 0 ]]; then
+            log_error "No release notes found in ${dir}"
+            exit 1
+        fi
+    fi
+
+    # Pick the pager before the pipe, not inside it: past a `|` stdout is the
+    # pipe, so a `-t 1` test in there would always say "not a terminal".
+    local pager=cat
+    if [[ -t 1 ]] && command -v less &>/dev/null; then
+        pager=less
+    fi
+
+    {
+        local f
+        for f in "${files[@]}"; do
+            echo "===== ${f##*/} ====="
+            echo
+            cat "${f}"
+            echo
+        done
+    } | "${pager}"
+}
+
 cmd_status() {
     if [[ -f /etc/hashiru-release ]]; then
         # shellcheck source=/dev/null
         source /etc/hashiru-release
+        echo "version:   ${HASHIRU_VERSION:-unknown}"
         echo "commit:    ${HASHIRU_COMMIT:0:12}"
         echo "installed: ${HASHIRU_INSTALL_DATE:-unknown}"
         [[ -n "${HASHIRU_UPDATED:-}" ]] && echo "updated:   ${HASHIRU_UPDATED}"
@@ -136,6 +239,9 @@ case "${1:-help}" in
     install) shift; exec "${HASHIRU_ROOT}/install.sh" "$@" ;;
     doctor) shift; exec "${HASHIRU_ROOT}/doctor.sh" "$@" ;;
     status) cmd_status ;;
+    log) shift; cmd_log "$@" ;;
+    report) cmd_report ;;
+    changelog) shift; cmd_changelog "${1:-}" ;;
     help|-h|--help) usage ;;
     *) log_error "Unknown command: $1"; echo; usage; exit 1 ;;
 esac

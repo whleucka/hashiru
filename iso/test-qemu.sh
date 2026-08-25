@@ -9,7 +9,9 @@
 # the ISO (the CD is still "in the drive"). Use `run` mode to boot the system
 # you just installed — the equivalent of pulling the USB stick out.
 #
-# Requires: qemu (qemu-base), edk2-ovmf (UEFI firmware).
+# Requires: qemu-desktop (NOT qemu-base — `-display gtk` below needs the gtk UI
+# module, which only the desktop/full packages pull in), edk2-ovmf (UEFI
+# firmware), and /dev/kvm.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

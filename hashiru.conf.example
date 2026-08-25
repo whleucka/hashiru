@@ -14,6 +14,16 @@
 # set it here if you want manual installs to be non-interactive too.
 #: "${HASHIRU_UNATTENDED=1}"
 
+# Keep child-process output (pacman transactions, makepkg builds, git clones)
+# off the console and in the log, behind a single progress line. Defaults to
+# whatever HASHIRU_UNATTENDED is: on for the ISO's first boot, where the flood
+# is the problem and nobody is reading it, and off for manual runs, where that
+# output is what you debug against.
+#
+# Set it to 1 to quiet a manual install, or to 0 to make first boot verbose
+# again. `hashiru log` reads the full stream either way.
+#: "${HASHIRU_QUIET=1}"
+
 # This file is only for variables the install scripts read. Machine-local
 # *config* — monitors, keybinds, terminal and bar tweaks — goes in the sibling
 # directories instead: ~/.config/hashiru/{hypr,kitty,waybar}/. See

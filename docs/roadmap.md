@@ -7,28 +7,58 @@ project and dates would be fiction.
 
 Hashiru started as an Arch installer plus a dotfiles repo. It is now closer to a
 base Arch system definition: one repo that owns the whole machine, replayed
-idempotently instead of migrated. Two things follow from that, and they pull in
-opposite directions.
+idempotently instead of migrated. v1.6 gave that definition a seam users can
+bend without forking it; v1.7 moved release builds off a laptop and into CI.
 
-The first is that owning the machine means owning it completely — no layering,
-no negotiation, one repo per `$HOME`. That decision is documented in
-[`internals.md`](internals.md#what-belongs-in-stow) and it was the right one; the
-alternative cost real work and produced config split across two repos from the
-thing that activated it.
+The obvious next step looked like a signed package repo — the line where an
+installer becomes a distro. That milestone existed here for a while, justified by
+determinism: two installs of the same commit can produce different machines, and
+a system definition shouldn't have that property. The justification does not
+survive counting.
 
-The second is that "the machine" isn't singular. A monitor layout describes one
-desk. `hashiru update` refuses to run on a dirty checkout, so a tracked file
-that every machine has to edit is a file that makes every machine
-un-updatable — which is exactly why `hashiru.conf` was gitignored from the start.
-That reasoning was never extended past shell variables to config files, and
-`monitors.lua` shipped a hardcoded ThinkPad panel as a result.
+`pacman/aur.txt` is eight packages. The other six manifests are 165 packages
+pulled from rolling Arch repos, with no version pin anywhere in the tree. Two
+installs of the same commit *already* diverge by whatever `pacman -Syu` served
+that day, and the divergence that would ever be noticed is in the kernel,
+mesa and hyprland — none of which an AUR repo touches. Signing eight packages
+pins under five percent of the machine and calls it reproducible. The only thing
+that actually delivers the property is an Arch Linux Archive snapshot pin, which
+is a different project, and one that argues against a rolling base rather than
+for it.
 
-v1.6 closes that gap without reopening the layering question: the seam is one
-level outside `stow/`, in `~/.config/hashiru/`, using each tool's own include
-mechanism rather than a second stow tree. What got rejected before was two stow
-dirs fighting over `$HOME`. This isn't that.
+What the repo *would* have delivered honestly is smaller than the milestone
+claimed: `yay` off the critical path, and a few minutes of first-boot build time.
+What it costs is permanent — a signing key in CI secrets and its rotation,
+hosting, a `repo-add` pipeline, and the job of tracking eight upstreams that the
+AUR tracked for free. The first day the repo ships an older `claude-code` than
+the AUR does, that staleness is a Hashiru bug. That is a bad trade for a userbase
+of one, so it moves to [Deferred](#deferred) with a trigger written down.
+
+The real defect in the AUR path was never determinism. It is that the install
+does not admit when a package didn't land — a day of work rather than a build
+farm.
+
+Which is where the milestone dissolved entirely. Once the package repo was out,
+what remained was four items: a version in the release stamp, a `changelog`
+subcommand, AUR failures reaching the banner, and an `aur.txt` audit. Four
+patches. Naming that collection v1.8 would have been version-number theatre, so
+it shipped as v1.7.2 and v1.7.3 instead, and there is no v1.8. A minor gets
+earned; it doesn't get scheduled.
 
 ## v1.6 — Overrides *(done)*
+
+The machine isn't singular. A monitor layout describes one desk, and `hashiru
+update` refuses to run on a dirty checkout — so a tracked file that every machine
+has to edit is a file that makes every machine un-updatable. That is exactly why
+`hashiru.conf` was gitignored from the start; the reasoning had never been
+extended past shell variables to config files, and `monitors.lua` shipped a
+hardcoded ThinkPad panel as a result.
+
+v1.6 closed that gap without reopening the layering question. What got rejected
+before was two stow trees fighting over `$HOME` (see
+[`internals.md`](internals.md#what-belongs-in-stow)); this seam sits one level
+outside `stow/`, in `~/.config/hashiru/`, and uses each tool's own include
+mechanism.
 
 - `hypr/hashiru.lua` loader: `<module>.lua` replaces, `<module>.extra.lua`
   extends, `local.lua` gets the last word
@@ -82,34 +112,50 @@ plan; it collides with GitHub's 2 GiB release-asset cap. The ISO is already
 1.5 GB, and the six package lists add at least another 1.4 GB — a floor, since
 that was measured on a machine that already had most of the dependencies. Past
 the cap, CI can build an ISO it cannot publish, which loses the entire point of
-the milestone. v1.8 gets determinism without touching ISO size.
+the milestone. Baking also only ever helped first boot, never `hashiru update`.
 
-## v1.8 — The package repo
+## v1.7.2 / v1.7.3 — Patches *(done)*
 
-The install builds AUR packages on the user's machine at first boot, one at a
-time, with failures demoted to warnings. Two installs of the same commit can
-produce measurably different machines, which is the one property a system
-definition should not have.
+What used to be v1.8, plus the two things that actually made first boot worse
+than it needed to be. See `docs/releases/` for the full notes.
 
-- Build every AUR dependency once in a clean chroot with `pkgctl`, sign them,
-  publish as a pacman repo
-- Add it to `pacman.conf`; AUR builds on user machines go to zero and `yay`
-  leaves the critical path
-- Ship `hashiru` itself as a package
-- Put a version, not just a commit, in `/etc/hashiru-release`; add
-  `hashiru changelog`
+v1.7.2 — the console stopped being a flood:
 
-This is the actual line between "installer" and "distro" — not the ISO, which
-already exists. It also beats baking packages on its own terms: it fixes
-`hashiru update` as well as first boot, where baking only ever helped first
-boot, and it costs the ISO a few KB of `pacman.conf` rather than gigabytes.
-Offline install is the one thing it doesn't give, and Hashiru has never claimed
-to offer one — the README says to bring a network connection.
+- `HASHIRU_QUIET` puts child output (pacman, makepkg, git) in the log and a
+  progress line on the console. Defaults to whatever `HASHIRU_UNATTENDED` is:
+  on for first boot, off for the manual runs whose output you debug against.
+- The console gets its own descriptor, fd 3, so redirecting a stage's stdout
+  into the log doesn't take the log lines with it.
+- Progress granularity stops where knowledge does. Stage count is real and so is
+  the AUR loop's package index; a pacman transaction covers a whole manifest at
+  once, so it gets a label and no fraction. Smoothing the bar out of guessed
+  stage weights would only have been a nicer lie.
+- `hashiru log` and `hashiru report` — hiding output is only acceptable if
+  reaching it is a command rather than a path to remember. A failed stage also
+  dumps the last 40 log lines, because a bar and nothing else is worse than the
+  flood.
+- The completion banner names the warning count, so an unattended run that lost
+  an AUR package doesn't read like a clean one.
 
-Config stays in `stow/`. Shipping it as a package would delete the hairiest code
-in `45-config.sh` — the `~/.local/bin` unfolding, the leaked-file rescue, the
-baked checkout path — but it costs "edit the file, `hashiru install 45`, see it
-immediately," which is how this project is actually developed. Not worth it.
+v1.7.3 — the install-time work, which was smaller than it looked:
+
+- AUR packages install in one batched `yay` call, falling back to the existing
+  serial loop only on failure. A stock `aur.txt` was paying seven dependency
+  resolutions and seven `--removemake` cycles over the same build deps. The
+  isolation property is unchanged — it just isn't paid for when there is nothing
+  to isolate.
+- `HASHIRU_VERSION` from `git describe --tags` in `/etc/hashiru-release`, and
+  `hashiru changelog` over `docs/releases/`.
+- `update-system` guards `confetti` and `paplay`, both of which are optional.
+
+**Downloads were already tuned**, which is why the install-time half is modest.
+`ParallelDownloads = 10` and reflector mirror-ranking both run before the first
+`-Syu`, so what was left was dependency resolution and compiles, not bandwidth.
+The remaining compile cost is `sherlock-confetti` (cargo) and `sqls` (go), and
+`sherlock-confetti` is also why a fresh install downloads two Rust toolchains:
+it makedepends on `rust`, while stage 99 runs `rustup default stable`. It stays
+because `update-system` genuinely uses it — but deleting one line of `aur.txt`
+is the largest single install-time win still on the table.
 
 ## v2.0 — Identity
 
@@ -122,6 +168,20 @@ immediately," which is how this project is actually developed. Not worth it.
   expectations instead of implying a support obligation.
 
 ## Deferred
+
+**The package repo.** Build every AUR dependency once in a clean chroot with
+`pkgctl`, sign them, publish as a pacman repo, add it to `pacman.conf`. The
+honest wins are that `yay` and `base-devel` leave the critical path and first
+boot stops compiling anything. The cost is a signing key in CI, hosting, a
+`repo-add` pipeline, and inheriting eight upstreams' release tracking — forever,
+for one user. Build it when a second person is installing this regularly, or when
+`aur.txt` has grown past what a first boot can build reliably; v1.8's audit
+should push that further out, not closer.
+
+Shipping `hashiru` itself as a package rides along with that entry rather than
+splitting out, and for the same reason config stays in `stow/`: it would cost
+"edit the file, `hashiru install 45`, see it immediately," which is how this
+project is actually developed.
 
 **Per-file adopt/skip** (`hashiru adopt ~/.config/waybar/config.jsonc`). Would
 let a tier-1 file be handed over to the user, with stow stepping aside and

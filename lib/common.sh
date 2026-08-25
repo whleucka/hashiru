@@ -17,6 +17,13 @@ readonly HASHIRU_LOG="${HASHIRU_DATA_DIR}/install.log"
 # and errors are appended only while it exists, so ad-hoc sourcing of this
 # library can't resurrect a stale digest.
 readonly HASHIRU_REPORT="${HASHIRU_DATA_DIR}/report.txt"
+# Live progress state, as one "stage|total|name|label|start_epoch" line.
+#
+# A file rather than exported variables because progress crosses process
+# boundaries in both directions: install.sh sets the stage, a *child* stage sets
+# the label, and the ticker that animates the clock is a third process. Exports
+# only travel parent-to-child, so they cannot carry a label back out of a stage.
+readonly HASHIRU_PROGRESS="${HASHIRU_DATA_DIR}/progress"
 HASHIRU_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly HASHIRU_ROOT
 
@@ -54,6 +61,28 @@ unset _conf
 # to interactive. Exported so every stage script inherits it.
 export HASHIRU_UNATTENDED="${HASHIRU_UNATTENDED:-0}"
 
+# Quiet mode: keep child-process output (pacman transactions, makepkg builds,
+# git clones) off the console and in the log, behind a single progress line.
+#
+# Defaults to whatever HASHIRU_UNATTENDED is, which is the whole point: on the
+# ISO's first boot the flood is the entire problem and nobody is reading it,
+# while a manual `./install.sh 45` stays verbose because that output is what
+# gets debugged against. Force either way from hashiru.conf or the environment.
+export HASHIRU_QUIET="${HASHIRU_QUIET:-${HASHIRU_UNATTENDED}}"
+
+# fd 3 is "the console", wherever that was when the run started.
+#
+# Quiet mode redirects each stage's stdout and stderr into the log, which would
+# otherwise take the log lines with it — so console output gets a descriptor of
+# its own, opened once and inherited by every child.
+#
+# The guard is load-bearing. common.sh is sourced by every stage, and a stage's
+# bash inherits fd 3 from install.sh; without it, a stage whose stdout is the
+# log file would re-point fd 3 at the log and silence the console for the rest
+# of the run.
+if [[ ! -e /proc/self/fd/3 ]]; then
+    exec 3>&1
+fi
 
 # Ensure log directory exists
 mkdir -p "${HASHIRU_DATA_DIR}"
@@ -69,8 +98,19 @@ _log() {
     local timestamp
     timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
 
-    # Console output (colored)
-    echo -e "${color}[${level}]${NC} ${message}"
+    # Console output (colored), on fd 3 rather than stdout — see above.
+    if _progress_active; then
+        # The bar owns the last console line. INFO and OK are already in the log
+        # and are what the bar's own label describes, so only warnings and
+        # errors earn a line of their own: clear the bar, print, redraw beneath.
+        if [[ "${level}" == "WARN" || "${level}" == "ERROR" ]]; then
+            printf '\r\033[K' >&3
+            echo -e "${color}[${level}]${NC} ${message}" >&3
+            progress_render
+        fi
+    else
+        echo -e "${color}[${level}]${NC} ${message}" >&3
+    fi
 
     # File output (no colors)
     echo "[${timestamp}] [${level}] ${message}" >> "${HASHIRU_LOG}"
@@ -217,6 +257,10 @@ install_packages() {
     fi
 
     log_info "Installing ${#packages[@]} packages from ${manifest}"
+    # One transaction for the whole manifest, so there is no honest per-package
+    # fraction to show — breaking it into per-package calls to animate a bar
+    # would be slower and would take dependency resolution down with it.
+    progress_set "${manifest} — ${#packages[@]} packages"
     sudo pacman -S --needed --noconfirm "${packages[@]}"
     log_success "Installed packages from ${manifest}"
 }
@@ -248,10 +292,17 @@ install_aur_packages() {
         return 0
     fi
 
-    # Install one at a time so a single flaky AUR build (upstream churn, failed
-    # source verification, etc.) doesn't abort the whole bootstrap. Failures are
-    # collected and reported; the function still returns success so later stages
-    # run. Already-installed packages are skipped on a retry by the loop above.
+    # Batch first, then isolate.
+    #
+    # The serial loop below is what makes a flaky AUR build survivable — one
+    # package failing on upstream churn or a bad source checksum must not abort
+    # the whole bootstrap. But paying it unconditionally costs a separate
+    # dependency resolution and a separate --removemake cycle for every package,
+    # over largely the same build dependencies: seven of each on a stock
+    # aur.txt. One batched call collapses that to one in the common case where
+    # everything builds, and the loop still runs, unchanged, the moment anything
+    # doesn't. Nothing about the isolation property is given up — it is just no
+    # longer paid for when there is nothing to isolate.
     #
     # --removemake drops build-only dependencies once the package is built.
     # Beyond keeping the system lean, this avoids a real conflict: a Rust AUR
@@ -259,10 +310,23 @@ install_aur_packages() {
     # `rustup` — and rustup declares `Conflicts With: rust`. Leaving the build
     # dep behind therefore broke stage 99 with "conflicting packages" on every
     # fresh install. Build deps are not part of the machine's definition, so
-    # they should not outlive the build that needed them.
+    # they should not outlive the build that needed them. Batching keeps that
+    # true and removes them once rather than once per package.
     log_info "Installing ${#packages[@]} AUR packages from ${manifest}"
+    progress_set "AUR — ${#packages[@]} packages"
+    if yay -S --needed --noconfirm --removemake "${packages[@]}"; then
+        log_success "Finished AUR packages from ${manifest}"
+        return 0
+    fi
+    log_warn "Batched AUR install failed — retrying one at a time to find out which"
+
+    # Already-installed packages are skipped cheaply by --needed on the retry,
+    # so anything the batch did manage to land is not rebuilt here.
     local failed=()
+    local idx=0
     for pkg in "${packages[@]}"; do
+        idx=$(( idx + 1 ))
+        progress_set "AUR ${idx}/${#packages[@]} — ${pkg}"
         log_info "Installing AUR package: ${pkg}"
         if yay -S --needed --noconfirm --removemake "${pkg}"; then
             log_success "Installed: ${pkg}"
@@ -374,6 +438,132 @@ fmt_duration() {
     else
         printf '%ds' "${s}"
     fi
+}
+
+# -----------------------------------------------------------------------------
+# Progress display
+# -----------------------------------------------------------------------------
+#
+# One console line, redrawn in place, with the full output kept in the log.
+#
+# Only ever active in quiet mode on a real terminal. Everywhere else — a pipe, a
+# redirect, CI, any non-quiet run — this degrades to the ordinary log_info
+# stream, so nothing ever writes escape sequences into a file.
+#
+# Granularity is deliberately limited to what is actually known. Stage count is
+# real, and so is the AUR loop's package index. A pacman transaction's internal
+# progress is not, so install_packages contributes a label and no fraction:
+# smoothing the bar out of guessed stage weights would only be a nicer lie.
+
+# State shared by the readers below. Declared here so `set -u` holds even if
+# nothing has populated them yet.
+_p_num=0 _p_total=0 _p_name='' _p_label='' _p_start=0
+
+# Quiet mode, a console that can be redrawn, and a run actually in progress.
+#
+# That last condition is what keeps this scoped to installs. The state file only
+# exists between progress_init and progress_done, so `hashiru update`, `hashiru
+# status` and doctor keep their ordinary output even on a machine whose
+# hashiru.conf sets HASHIRU_QUIET=1 — otherwise setting that once would silence
+# every command in the suite.
+_progress_active() {
+    [[ "${HASHIRU_QUIET}" == "1" && -t 3 && -f "${HASHIRU_PROGRESS}" ]]
+}
+
+# Console width via TIOCGWINSZ on the console descriptor, not tput: tty1 on
+# first boot frequently has no TERM for tput to look up, and stdout there is the
+# log file rather than a terminal at all.
+_console_cols() {
+    local size cols
+    if size="$(stty size <&3 2>/dev/null)"; then
+        cols="${size##* }"
+        if [[ "${cols}" =~ ^[0-9]+$ ]] && (( cols >= 40 )); then
+            printf '%s' "${cols}"
+            return 0
+        fi
+    fi
+    printf '80'
+}
+
+# Write the state file through a rename so a reader never catches a half-written
+# line: the ticker polls this file once a second while stages are rewriting it.
+_progress_write() {
+    local tmp="${HASHIRU_PROGRESS}.$$"
+    printf '%s|%s|%s|%s|%s\n' "$1" "$2" "$3" "$4" "$5" > "${tmp}"
+    mv -f "${tmp}" "${HASHIRU_PROGRESS}"
+}
+
+_progress_read() {
+    [[ -f "${HASHIRU_PROGRESS}" ]] || return 1
+    IFS='|' read -r _p_num _p_total _p_name _p_label _p_start < "${HASHIRU_PROGRESS}" || return 1
+    return 0
+}
+
+# Start a run of <total> stages. install.sh owns this.
+progress_init() {
+    _progress_write 0 "$1" '' '' "$(date +%s)"
+}
+
+# Enter stage <num>, named <name>. install.sh owns this too.
+progress_stage() {
+    _progress_read || return 0
+    _progress_write "$1" "${_p_total}" "$2" '' "${_p_start}"
+    progress_render
+}
+
+# Describe what the current stage is doing. Called from inside stages, which are
+# child processes — hence the state file rather than an exported variable.
+progress_set() {
+    _progress_read || return 0
+    _progress_write "${_p_num}" "${_p_total}" "${_p_name}" "$1" "${_p_start}"
+    progress_render
+}
+
+progress_render() {
+    _progress_active || return 0
+    _progress_read || return 0
+    [[ "${_p_total}" =~ ^[0-9]+$ ]] && (( _p_total > 0 )) || return 0
+    [[ "${_p_num}" =~ ^[0-9]+$ ]] || return 0
+
+    # Credit finished stages only. Sitting at 0% through stage 1 of 9 is
+    # accurate; the elapsed clock is what shows the run is still alive.
+    local finished=$(( _p_num > 0 ? _p_num - 1 : 0 ))
+    local pct=$(( finished * 100 / _p_total ))
+
+    local width=20 filled i bar=''
+    filled=$(( finished * width / _p_total ))
+    for (( i = 0; i < width; i++ )); do
+        if (( i < filled )); then bar+='▓'; else bar+='░'; fi
+    done
+
+    local elapsed=0
+    if [[ "${_p_start}" =~ ^[0-9]+$ ]]; then
+        elapsed=$(( $(date +%s) - _p_start ))
+    fi
+
+    # Built uncoloured so its width is its length: the truncation below has to
+    # count columns, and escape sequences would make that arithmetic wrong.
+    local head
+    head="$(printf '[%s/%s] %s %3d%%  %s  ' \
+        "${_p_num}" "${_p_total}" "${bar}" "${pct}" "$(fmt_duration "${elapsed}")")"
+
+    # Truncate to the console width so the carriage return keeps landing on the
+    # same row — a line that wraps leaves the previous one behind as debris.
+    local cols room
+    cols="$(_console_cols)"
+    room=$(( cols - ${#head} - 1 ))
+    (( room > 0 )) || room=0
+    printf '\r\033[K%s%s' "${head}" "${_p_label:0:room}" >&3
+}
+
+progress_clear() {
+    _progress_active || return 0
+    printf '\r\033[K' >&3
+}
+
+progress_done() {
+    progress_clear
+    rm -f "${HASHIRU_PROGRESS}"
 }
 
 # -----------------------------------------------------------------------------

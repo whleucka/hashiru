@@ -10,5 +10,15 @@ echo "║                                          ║"
 echo "╚══════════════════════════════════════════╝"
 echo
 yay -Syu --noconfirm
-paplay "$HOME/.local/share/hashiru/assets/wow.mp3" &
-confetti
+
+# The fanfare is optional. sherlock-confetti builds from source on the AUR, and
+# install_aur_packages demotes a failed build to a warning on purpose — so a
+# machine can legitimately be finished and still have no `confetti` on it. Guard
+# both so an update doesn't end on a command-not-found for the sake of an
+# animation.
+if command -v paplay &>/dev/null; then
+    paplay "$HOME/.local/share/hashiru/assets/wow.mp3" &
+fi
+if command -v confetti &>/dev/null; then
+    confetti
+fi

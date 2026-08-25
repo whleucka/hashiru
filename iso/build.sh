@@ -55,6 +55,22 @@ if [[ -n "$(git -C "${HERE}/.." status --porcelain 2>/dev/null)" ]]; then
   echo "    WARNING: working tree is dirty — uncommitted changes will NOT be"
   echo "    in the installed system (it checks out ${HASHIRU_REF})."
 fi
+
+# A local commit is not enough. The pin is resolved on the *target* machine,
+# which clones from GitHub and then resets to this ref — so a ref that exists
+# only in this checkout produces an ISO whose install dies at `reset --hard`
+# on an unknown object, ten minutes into archinstall. Cheaper to say so now.
+#
+# Skipped when the ref isn't a sha this checkout knows about (CI passes one
+# explicitly, and a tarball build has no .git to ask).
+if git -C "${HERE}/.." cat-file -e "${HASHIRU_REF}^{commit}" 2>/dev/null; then
+  if ! git -C "${HERE}/.." branch -r --contains "${HASHIRU_REF}" 2>/dev/null | grep -q .; then
+    echo "    WARNING: ${HASHIRU_REF:0:12} is on no remote branch — push it first."
+    echo "    The installed system clones from GitHub and resets to this ref;"
+    echo "    an unpushed commit will fail the install, not this build."
+  fi
+fi
+
 echo "    ref: ${HASHIRU_REF}"
 sed -i "s|__HASHIRU_REF__|${HASHIRU_REF}|g" \
   "${PROFILE}/airootfs/root/archinstall/user_config.json"

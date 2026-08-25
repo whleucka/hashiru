@@ -56,8 +56,10 @@ Setting up your Hyprland desktop. This downloads
 and builds a fair amount, so it takes a while —
 leave it alone and it will reboot when it's done.
 
-Progress is logged below and to the journal
-(journalctl -u hashiru-firstboot).
+A progress line follows below. The full output of
+every stage goes to the install log instead of the
+screen; after the reboot, read it with
+`hashiru log` (or `hashiru report` for warnings).
 ==================================================
 BANNER
     echo
@@ -88,13 +90,37 @@ echo "==> Running Hashiru bootstrap as ${HASHIRU_USER}"
 # Pass the user-session env so `systemctl --user` can connect, plus
 # HASHIRU_UNATTENDED=1 (skip prompts, auto-reboot at the end). These are set
 # inside the user's shell because sudo strips the environment.
-if ! sudo -u "${HASHIRU_USER}" -H bash -lc "
-    export XDG_RUNTIME_DIR='/run/user/${USER_UID}'
-    export DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/${USER_UID}/bus'
-    cd '${REPO}' && HASHIRU_UNATTENDED=1 ./install.sh
-  "; then
+#
+# The bootstrap's own output goes straight to /dev/tty1 rather than through the
+# unit's journal+console: in quiet mode install.sh draws a progress line with
+# carriage returns, and a `\r`-redrawn bar recorded into the journal is
+# unreadable noise. Same guard as the banner above — a serial-console or
+# headless boot has no tty1, and there the unmodified stream is the only output
+# there is, so the bar degrades to plain log lines on its own.
+#
+# What this costs: install.sh's stage-by-stage detail no longer reaches the
+# journal. It is all in ~/.local/share/hashiru/install.log (`hashiru log`), and
+# the ==>/!! lines below still go to the journal, which is what someone
+# debugging a failed first boot as root before any login actually needs.
+run_bootstrap() {
+  sudo -u "${HASHIRU_USER}" -H bash -lc "
+      export XDG_RUNTIME_DIR='/run/user/${USER_UID}'
+      export DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/${USER_UID}/bus'
+      cd '${REPO}' && HASHIRU_UNATTENDED=1 ./install.sh
+    "
+}
+BOOTSTRAP_OK=1
+if [[ -w /dev/tty1 ]]; then
+  run_bootstrap > /dev/tty1 2>&1 || BOOTSTRAP_OK=0
+else
+  run_bootstrap || BOOTSTRAP_OK=0
+fi
+if [[ "${BOOTSTRAP_OK}" -eq 0 ]]; then
   echo "!! Hashiru bootstrap failed — unit left enabled; will retry next boot." >&2
-  echo "!! Log in below and check: journalctl -u hashiru-firstboot" >&2
+  # The log file, not just the journal: quiet mode sends every stage's own
+  # output there, so the journal holds only Hashiru's line-oriented messages.
+  echo "!! Log in below and check: ~${HASHIRU_USER}/.local/share/hashiru/install.log" >&2
+  echo "!! Stage boundaries and warnings: journalctl -u hashiru-firstboot" >&2
   echo "!! Or resume a partial run: cd ${REPO} && ./install.sh --from <stage>" >&2
   exit 1
 fi
