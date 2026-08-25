@@ -151,11 +151,16 @@ v1.7.3 — the install-time work, which was smaller than it looked:
 **Downloads were already tuned**, which is why the install-time half is modest.
 `ParallelDownloads = 10` and reflector mirror-ranking both run before the first
 `-Syu`, so what was left was dependency resolution and compiles, not bandwidth.
-The remaining compile cost is `sherlock-confetti` (cargo) and `sqls` (go), and
-`sherlock-confetti` is also why a fresh install downloads two Rust toolchains:
-it makedepends on `rust`, while stage 99 runs `rustup default stable`. It stays
-because `update-system` genuinely uses it — but deleting one line of `aur.txt`
-is the largest single install-time win still on the table.
+The one compile that mattered was `sherlock-confetti`, and it is gone from
+`aur.txt`. It built via cargo on every fresh install, and it was also why a
+fresh install downloaded two Rust toolchains — it makedepends on `rust`, while
+stage 99 runs `rustup default stable`. It existed to animate `update-system`,
+which now guards the call, so a machine without it simply gets no confetti.
+`sqls` (go) is the only build left, and it is a fraction of the cost.
+
+Dropping a package from `aur.txt` does not uninstall it. Machines that already
+have `sherlock-confetti` keep it, and keep the animation; it just stops being
+part of what a new machine is.
 
 ## v2.0 — Identity
 

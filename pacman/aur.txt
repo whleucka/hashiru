@@ -15,9 +15,6 @@ wrk
 # Media
 spotify
 
-# Desktop eye candy (Wayland confetti overlay; AUR-only, builds via cargo)
-sherlock-confetti
-
 # Default terminal launcher (GLib/Thunar "open in terminal" apps -> kitty,
 # configured via thunar/.config/xdg-terminals.list in dotfiles)
 xdg-terminal-exec
