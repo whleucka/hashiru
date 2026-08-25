@@ -10,6 +10,9 @@
 # All entries are commented defaults, so there is nothing worth tracking.
 /stow/thunar/.config/Thunar/accels.scm
 
+# Prevent gtk-3 bookmarks
+/stow/hyprland/.config/gtk-3.0/bookmarks
+
 # herdr writes runtime state into its own config dir. Untracked on purpose.
 /stow/herdr/.config/herdr/*.log
 /stow/herdr/.config/herdr/session.json
