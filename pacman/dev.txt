@@ -49,7 +49,7 @@ docker-buildx
 # LLMs (claude-code is AUR — see aur.txt)
 opencode
 
-# LSPs (from official repos; intelephense/sqls are AUR — see aur.txt)
+# LSPs (from official repos; intelephense is AUR — see aur.txt)
 lua-language-server
 bash-language-server
 typescript-language-server

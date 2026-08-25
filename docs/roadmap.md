@@ -156,7 +156,10 @@ The one compile that mattered was `sherlock-confetti`, and it is gone from
 fresh install downloaded two Rust toolchains — it makedepends on `rust`, while
 stage 99 runs `rustup default stable`. It existed to animate `update-system`,
 which now guards the call, so a machine without it simply gets no confetti.
-`sqls` (go) is the only build left, and it is a fraction of the cost.
+`sqls` went with it — a Go build on every fresh install, for a SQL language
+server nothing in this repo configures. What is left in `aur.txt` is two npm
+shims, a prebuilt binary, a binary repack and one small C build (`wrk`), so no
+fresh install waits on a compiler for anything that matters.
 
 Dropping a package from `aur.txt` does not uninstall it. Machines that already
 have `sherlock-confetti` keep it, and keep the animation; it just stops being
