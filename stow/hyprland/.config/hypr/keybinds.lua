@@ -44,9 +44,12 @@ hl.bind(key(mod, "SHIFT", "W"), hl.dsp.exec_cmd(browser), { description = "Brows
 hl.bind(key(mod, "SHIFT", "Y"), hl.dsp.exec_cmd(terminal .. " yazi"), { description = "Yazi File Manager" })
 
 -- Websites
+--
+-- Personal shortcuts (bank, own hosts) are deliberately absent: they fail the
+-- "would you want this on a machine Hashiru did not build?" test in
+-- docs/internals.md. They live in ~/.config/hashiru/hypr/keybinds.extra.lua,
 hl.bind(key(mod, "ALT", "A"), hl.dsp.exec_cmd(browser .. " --app=https://amazon.ca"), { description = "Amazon" })
 hl.bind(key(mod, "ALT", "B"), hl.dsp.exec_cmd(browser .. " --app=https://bsky.app"), { description = "Bluesky" })
-hl.bind(key(mod, "ALT", "C"), hl.dsp.exec_cmd(browser .. " --app=https://cibc.com"), { description = "CIBC Banking" })
 hl.bind(key(mod, "ALT", "E"), hl.dsp.exec_cmd(browser .. " --app=https://mail.google.com"), { description = "Email" })
 hl.bind(key(mod, "ALT", "F"), hl.dsp.exec_cmd(browser .. " --app=https://facebook.com"), { description = "Facebook" })
 hl.bind(key(mod, "ALT", "G"), hl.dsp.exec_cmd(browser .. " --app=https://github.com"), { description = "GitHub" })
@@ -54,7 +57,6 @@ hl.bind(key(mod, "ALT", "I"), hl.dsp.exec_cmd(browser .. " --app=https://instagr
 hl.bind(key(mod, "ALT", "M"), hl.dsp.exec_cmd(browser .. " --app=https://messages.google.com/web/conversations"), { description = "Google Messages" })
 hl.bind(key(mod, "ALT", "N"), hl.dsp.exec_cmd(browser .. " --app=https://nhl.com"), { description = "NHL" })
 hl.bind(key(mod, "ALT", "R"), hl.dsp.exec_cmd(browser .. " --app=https://reddit.com"), { description = "Reddit" })
-hl.bind(key(mod, "ALT", "S"), hl.dsp.exec_cmd(browser .. " --app=https://soprano.williamhleucka.com"), { description = "Soprano" })
 hl.bind(key(mod, "ALT", "Y"), hl.dsp.exec_cmd(browser .. " --app=https://youtube.com"), { description = "YouTube" })
 
 
