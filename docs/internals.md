@@ -100,8 +100,8 @@ Split by ownership, not by directory:
 
 `stow/` has one package per area: `hyprland` (hypr, waybar, mako, swayosd,
 fuzzel, gtk-3.0, xdg-desktop-portal, wallpapers), `kitty`, `herdr`, `thunar`,
-`yazi`, `bpytop`, `chromium`, `bat`, `fzf`, `ripgrep`, and the shell — `zsh`,
-`alias`, `functions`, `p10k`, `bash`, `scripts`.
+`yazi`, `btop`, `chromium`, `bat`, `fzf`, `ripgrep`, and the shell — `zsh`,
+`alias`, `functions`, `p10k`, `bash`, `bin`.
 
 The desktop hand-off belongs to Hashiru too: `stow/hyprland/.zprofile` starts
 Hyprland on TTY1, and `10-hashiru.conf` under `environment.d` sets the session
@@ -148,7 +148,7 @@ Three tiers, split by what the underlying tool can actually support:
 
 | Tier | How | Applies to |
 |------|-----|------------|
-| Hashiru owns | stowed, replayed, not negotiable | mako, fuzzel, gtk, thunar, yazi, bat, fzf, ripgrep, waybar's `config.jsonc` |
+| Hashiru owns | stowed, replayed, not negotiable | mako, fuzzel, gtk, thunar, yazi, btop, bat, fzf, ripgrep, waybar's `config.jsonc` |
 | Ships + extends | the tool's own include mechanism | hypr (Lua), kitty (`globinclude`), waybar CSS (`@import`), zsh (`~/.zshrc.local`) |
 | You own | fork the repo | anything in tier 1 you disagree with |
 
