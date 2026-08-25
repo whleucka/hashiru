@@ -138,6 +138,19 @@ if [[ "${HASHIRU_UNATTENDED}" != "1" ]]; then
     SUDO_KEEPALIVE_PID=$!
 fi
 
+# Run scripts
+TOTAL=${#SCRIPTS[@]}
+
+# Initialise progress state BEFORE the banner, not after. log_info stops
+# reaching the console once a run is in progress, and that is exactly what keeps
+# this banner out of a quiet run: on first boot the firstboot wrapper has
+# already drawn a better version of it — cleared screen, instructions, where the
+# log lives — and a second copy just scrolls that off the top.
+#
+# The banner still reaches the log either way, where it separates one run from
+# the next.
+progress_init "${TOTAL}"
+
 log_info "=========================================="
 log_info " "
 log_info "     ▓░ ░ ▓▒▀▓ ▓█▀▀ ▓░ ░ ▓░ ▓█▀▓ ▓█ ░"
@@ -152,10 +165,6 @@ log_info "=========================================="
 # Start a fresh warnings digest for this run; log_warn/log_error append to it
 # only while the file exists (see lib/common.sh).
 : > "${HASHIRU_REPORT}"
-
-# Run scripts
-TOTAL=${#SCRIPTS[@]}
-progress_init "${TOTAL}"
 
 # Animate the elapsed clock, so a four-minute cargo build doesn't read as a hung
 # machine. It re-reads the state file rather than inheriting variables, which is
