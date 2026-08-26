@@ -156,6 +156,12 @@ fi
 if command -v bat &>/dev/null; then
     export MANROFFOPT="-c"
     export MANPAGER="sh -c 'col -bx | bat -l man -p'"
-    alias -g -- -h='-h 2>&1 | bat --language=help --style=plain'
+    # Global, so it expands anywhere on the line rather than only in command
+    # position — which is the whole point, but also the reason there is no
+    # matching -h alias. `-h` is "help" in some CLIs and "host" in others, so
+    # expanding it ate the argument that followed: `gh auth refresh -h
+    # github.com -s workflow` became a bat invocation with github.com and
+    # workflow as filenames, and gh never saw the hostname. --help takes an
+    # argument nowhere, so it has no such failure mode.
     alias -g -- --help='--help 2>&1 | bat --language=help --style=plain'
 fi
