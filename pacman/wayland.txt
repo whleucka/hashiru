@@ -8,6 +8,16 @@ hyprpicker
 xdg-desktop-portal-hyprland
 xdg-desktop-portal-gtk
 
+# Vulkan drivers (install all, only the matching hardware's ICD loads — same
+# reasoning as intel-ucode + amd-ucode in base.txt). mesa arrives as a Hyprland
+# dependency but ships GL only, so without an ICD here there is no Vulkan at
+# all: wgpu apps fall back to GL and abort on the first surface configure, which
+# takes out the `confetti` fanfare in update-system. No lib32 — those matter
+# only to 32-bit Steam titles, which degrade to GL rather than failing.
+vulkan-radeon
+vulkan-intel
+vulkan-nouveau
+
 # GTK theming (Adwaita-dark variant for GTK3 apps)
 gnome-themes-extra
 
