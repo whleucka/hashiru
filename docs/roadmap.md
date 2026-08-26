@@ -50,6 +50,21 @@ never separated. Quiet mode and the version stamp are both in `install.sh`, the
 progress line and AUR batching are both in `lib/common.sh`. There was no commit
 where half of it existed, so there was nothing for a first tag to point at.
 
+The same counting kills v2.0. What sat here under that number was two items,
+both of them writing: a piece on the Hyprland Lua config, and a line in the
+README about the one-user policy. Neither changes a byte of what an install
+produces. Every release so far earned an `## Upgrading` section with something
+in it — v1.6 needed a monitor layout moved out of the repo before updating, v1.7
+renamed stages, v1.7.2 landed new commands on replay. Two doc commits would have
+to write "nothing to do" there, which is the tell. Spending a major on prose is
+the theatre v1.8 avoided, with a larger number.
+
+So there is no v2.0 either, and the version stops being a plan. For a system
+definition the threshold worth a major is not an API break but the moment replay
+stops being sufficient — when an existing machine cannot simply `hashiru update`
+into the new one. The package repo is exactly that line, which is why it is the
+one deferred item that would arrive as a major rather than a minor.
+
 ## v1.6 — Overrides *(done)*
 
 The machine isn't singular. A monitor layout describes one desk, and `hashiru
@@ -171,15 +186,23 @@ Dropping a package from `aur.txt` does not uninstall it. Machines that already
 have `sherlock-confetti` keep it, and keep the animation; it just stops being
 part of what a new machine is.
 
-## v2.0 — Identity
+## What's left
+
+Two pieces of writing. Neither is a release; both ship as commits on `main`.
 
 - Write up the Hyprland Lua config. It is the real differentiator: almost nobody
   has adopted 0.55+ Lua yet, and it is the same feature as the override system —
   `hl.config` re-parsing per key is *why* `local.lua` can work at all. A static
-  `.conf` could not do this.
+  `.conf` could not do this. The mechanism is already written down in
+  [`internals.md`](internals.md#hyprland); what is missing is the part that says
+  why it matters.
 - State the one-user policy in the README. "Even if I'm the only user, that's
   fine" is the correct framing for a project like this, and writing it down sets
   expectations instead of implying a support obligation.
+
+Those two are the whole of it, and the second says why: a project that states out
+loud that it has one user is a project under no obligation to keep having a next
+milestone. Nothing follows this section but the deferred list.
 
 ## Deferred
 
@@ -189,8 +212,10 @@ honest wins are that `yay` and `base-devel` leave the critical path and first
 boot stops compiling anything. The cost is a signing key in CI, hosting, a
 `repo-add` pipeline, and inheriting eight upstreams' release tracking — forever,
 for one user. Build it when a second person is installing this regularly, or when
-`aur.txt` has grown past what a first boot can build reliably; v1.8's audit
-should push that further out, not closer.
+`aur.txt` has grown past what a first boot can build reliably; the v1.7.2 audit
+should push that further out, not closer. This is the one entry here that would
+land as v2.0 rather than a minor — it changes where the machine's software comes
+from, which replay alone cannot carry an existing install across.
 
 Shipping `hashiru` itself as a package rides along with that entry rather than
 splitting out, and for the same reason config stays in `stow/`: it would cost
