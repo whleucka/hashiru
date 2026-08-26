@@ -1,5 +1,4 @@
-[services.cl-alpha]
-type = "sftp"
+[sftp.cl-alpha]
 host = "159.203.10.243"
 user = "whleucka"
 port = 22
