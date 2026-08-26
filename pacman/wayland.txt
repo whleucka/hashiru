@@ -12,11 +12,20 @@ xdg-desktop-portal-gtk
 # reasoning as intel-ucode + amd-ucode in base.txt). mesa arrives as a Hyprland
 # dependency but ships GL only, so without an ICD here there is no Vulkan at
 # all: wgpu apps fall back to GL and abort on the first surface configure, which
-# takes out the `confetti` fanfare in update-system. No lib32 — those matter
-# only to 32-bit Steam titles, which degrade to GL rather than failing.
+# takes out the `confetti` fanfare in update-system.
+#
+# The lib32 set is not about 32-bit games. steam depends on the virtual
+# `vulkan-driver` / `lib32-vulkan-driver`, and install_packages runs pacman
+# --noconfirm, which resolves a virtual dep to the first provider silently.
+# wayland.txt (stage 30) lands before apps.txt (stage 99), so installing the
+# ICDs here pins that choice — otherwise an unattended first boot can install
+# lib32-nvidia-utils on an AMD laptop, which is how this was found.
 vulkan-radeon
 vulkan-intel
 vulkan-nouveau
+lib32-vulkan-radeon
+lib32-vulkan-intel
+lib32-vulkan-nouveau
 
 # GTK theming (Adwaita-dark variant for GTK3 apps)
 gnome-themes-extra
