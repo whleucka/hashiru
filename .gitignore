@@ -6,6 +6,9 @@
 # `hashiru update` refuses to run on a dirty checkout.
 /hashiru.conf
 
+# ignore the pycache
+/stow/bin/.local/bin/__pycache__/
+
 # Thunar rewrites this on every run (bookmark hashes, line reordering).
 # All entries are commented defaults, so there is nothing worth tracking.
 /stow/thunar/.config/Thunar/accels.scm

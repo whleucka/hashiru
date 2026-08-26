@@ -15,6 +15,7 @@
 #   msync edit               Open config in $EDITOR
 #
 # Config: ~/.config/msync/config.toml
+#   Per project: ignore = [...] and/or gitignore = true
 
 import os
 import sys
@@ -69,6 +70,8 @@ def write_config(config):
         for key in ("host", "remote_dir", "local_dir"):
             if key in proj:
                 lines.append(f'{key} = "{proj[key]}"')
+        if "gitignore" in proj:
+            lines.append(f"gitignore = {str(bool(proj['gitignore'])).lower()}")
         if proj.get("ignore"):
             patterns = ", ".join(f'"{p}"' for p in proj["ignore"])
             lines.append(f"ignore = [{patterns}]")
@@ -87,6 +90,8 @@ def ensure_config():
             '# host = "my-server"\n'
             '# remote_dir = "/var/www/app"\n'
             '# local_dir = "~/projects/app"\n'
+            "# ignore = [\"node_modules\", \"*.log\"]\n"
+            "# gitignore = true   # also ignore everything in the project's .gitignore\n"
         )
         info(f"Created config at {CONFIG_FILE}")
         info("Add projects with 'msync add' or edit directly.")
@@ -94,6 +99,48 @@ def ensure_config():
 
 def get_projects():
     return read_config().get("projects", {})
+
+
+# ── Ignore Patterns ─────────────────────────────────────────────────────────
+
+
+def read_gitignore(proj):
+    """Patterns from the project's .gitignore, local copy first, else remote.
+
+    mutagen's ignore syntax is gitignore's, so the lines pass through as-is.
+    """
+    local_file = Path(proj["local_dir"]).expanduser() / ".gitignore"
+    if local_file.is_file():
+        text = local_file.read_text()
+    else:
+        # Local dir is often empty before the first sync - ask the remote.
+        remote_file = f"{proj['remote_dir'].rstrip('/')}/.gitignore"
+        result = subprocess.run(
+            ["ssh", proj["host"], "cat", "--", remote_file],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return []
+        text = result.stdout
+
+    return [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
+def ignore_patterns(proj):
+    patterns = list(proj.get("ignore", []))
+    if proj.get("gitignore"):
+        from_git = read_gitignore(proj)
+        if from_git:
+            info(f"Using {len(from_git)} pattern(s) from .gitignore")
+        else:
+            warn("gitignore = true but no .gitignore found")
+        patterns += from_git
+    return list(dict.fromkeys(patterns))
 
 
 # ── Session Helpers ─────────────────────────────────────────────────────────
@@ -148,7 +195,7 @@ def cmd_start(name):
         "--default-file-mode=0644",
         "--default-directory-mode=0755",
     ]
-    for pattern in proj.get("ignore", []):
+    for pattern in ignore_patterns(proj):
         cmd.append(f"--ignore={pattern}")
     result = subprocess.run(cmd)
 
@@ -253,11 +300,15 @@ def cmd_add():
     if not local_dir:
         local_dir = f"~/.mount/{name}"
 
+    yn = input("Ignore everything in the project's .gitignore? [Y/n]: ")
+    gitignore = not yn.lower().startswith("n")
+
     config = read_config()
     config.setdefault("projects", {})[name] = {
         "host": host,
         "remote_dir": remote_dir,
         "local_dir": local_dir,
+        "gitignore": gitignore,
     }
     write_config(config)
     ok(f"Added '{name}' ({host}:{remote_dir} -> {local_dir})")
@@ -370,7 +421,17 @@ Interactive keybindings (fzf):
   Ctrl-E   Edit config file
   Esc      Exit
 
-Config: ~/.config/msync/config.toml"""
+Config: ~/.config/msync/config.toml
+
+  [projects."app"]
+  host = "my-server"
+  remote_dir = "/var/www/app"
+  local_dir = "~/.mount/app"
+  ignore = ["node_modules", "*.log"]   # mutagen ignore patterns
+  gitignore = true                     # also ignore the project's .gitignore
+
+.git is always ignored. Ignore patterns are baked in at 'msync start' -
+restart a session to pick up .gitignore edits."""
 
 
 def main():
