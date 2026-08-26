@@ -95,3 +95,6 @@ xorg-xauth
 
 # Wireguard
 wireguard-tools
+
+# Cron (calcurse-sync)
+cronie
