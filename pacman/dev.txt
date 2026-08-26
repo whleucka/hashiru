@@ -5,6 +5,10 @@ github-cli
 
 # Editor (stable neovim from extra)
 neovim
+# tree-sitter-cli: nvim-treesitter (main) shells out to `tree-sitter build`
+# to compile parsers. The `tree-sitter` package is only the library, so
+# without this every :TSInstall fails with ENOENT: 'tree-sitter'.
+tree-sitter-cli
 
 # Build essentials
 base-devel
