@@ -40,6 +40,33 @@ it never uses. Stage 45 is marked offline even though it can install stow,
 because that happens only on a machine that has never had it; the stage calls
 `require_network` at that one point of need.
 
+## Stages
+
+| Stage | Script | What it does |
+|-------|--------|--------------|
+| 10 | `10-base.sh` | Base packages, microcode, firmware, NetworkManager, Bluetooth, TLP, cronie, zram, sysctl/udev |
+| 15 | `15-grub.sh` | GRUB boot tune. Skips itself on systemd-boot |
+| 20 | `20-aur.sh` | yay, then AUR packages one at a time so one bad build can't take down the run |
+| 30 | `30-desktop.sh` | Wayland stack, PipeWire, fonts, terminal tools, zsh as login shell, TTY1 auto-login |
+| 35 | `35-zsh.sh` | Oh My Zsh, Powerlevel10k, plugins |
+| 45 | `45-config.sh` | Stows Hashiru's own config from `stow/`, creates the override tree, puts `hashiru` on PATH |
+| 50 | `50-snapper.sh` | Snapper + grub-btrfs, btrfs only |
+| 60 | `60-herdr.sh` | Installs the herdr binary |
+| 99 | `99-apps.sh` | Dev tools, desktop apps, Rust, user groups, final verification |
+
+Package lists live in `pacman/*.txt`. Everything else (Hyprland, waybar, kitty,
+the shell, the prompt, aliases, helper scripts) is configured from `stow/`.
+
+Stage selectors work the same on `install.sh` and `hashiru update`:
+
+```
+./install.sh            # everything, in order
+./install.sh 45         # just stage 45
+./install.sh 45+        # stage 45 onward, for resuming a failed run
+./install.sh 30 45      # these two
+./install.sh --list     # what stages exist
+```
+
 ## Layout
 
 ```
@@ -156,6 +183,30 @@ There is no per-file adopt/skip machinery, on purpose. It needs a manifest, a
 carve-out inside stow's package model, and a drift report to stay honest — real
 complexity for one user. Tier 1 stays "fork it" until somebody actually asks.
 
+The whole surface, in one table:
+
+| Put a file here | Effect |
+|---|---|
+| `~/.config/hashiru/hypr/<module>.lua` | replaces that Hyprland module outright |
+| `~/.config/hashiru/hypr/<module>.extra.lua` | runs after it, adding to it |
+| `~/.config/hashiru/hypr/local.lua` | runs last, changes any single setting from `hyprland.lua` |
+| `~/.config/hashiru/kitty/*.conf` | read after `kitty.conf`, last-wins |
+| `~/.config/hashiru/waybar/style.css` | cascades over the shipped bar styling |
+| `~/.zshrc.local` | sourced by the shipped `.zshrc` |
+| `~/.config/hashiru/hashiru.conf` | Hashiru's own settings |
+
+Modules are `monitors`, `autostart`, `keybinds`, `windowrules`, `layerrules`,
+`clamshell`. `hashiru doctor` lists what you have overridden and syntax-checks
+the Lua.
+
+Monitors are the common case, and the only override most people need:
+
+```bash
+cp /opt/hashiru/examples/hypr/monitors.thinkpad-t14s.lua \
+   ~/.config/hashiru/hypr/monitors.lua      # then edit for your displays
+hyprctl monitors all                        # names, descriptions, modes
+```
+
 ### Hyprland
 
 `hypr/hashiru.lua` is the loader; `hyprland.lua` runs every module through it
@@ -238,3 +289,14 @@ The installed system keeps the repo at `/opt/hashiru`, owned by the user, with
 `~/hashiru` and `/usr/local/bin/hashiru` pointing at it. First boot runs from a
 systemd one-shot. If it dies, the unit stays enabled and retries next boot
 instead of leaving half a machine.
+
+## Contributing
+
+Bug reports and fixes are welcome.
+
+* Stages must be idempotent. Running one twice is normal and must not break.
+* Scripts live with whatever invokes them, and carry no `.sh` extension:
+  compositor scripts under `stow/hyprland/.config/{hypr,waybar}/scripts/`,
+  herdr's helpers under `stow/herdr/.config/herdr/scripts/`, and anything you
+  run yourself in `stow/bin/.local/bin/` (on PATH, so callers use a bare name).
+* Release notes go in `docs/releases/`, one file per tag.
