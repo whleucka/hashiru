@@ -1,0 +1,4 @@
+#!/bin/bash
+pgrep -x slurp >/dev/null && exit 0
+FILE=~/Pictures/Screenshots/Screenshot-$(date +%F_%T).png
+grim -g "$(slurp)" "$FILE" && notify-send -t 2000 "Region saved" "$FILE"

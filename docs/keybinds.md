@@ -151,8 +151,9 @@ Grouped windows stack into one tabbed frame.
 
 | Bind | Does |
 |---|---|
-| `Print` | select a region |
-| `Super+Print` | whole screen |
+| `Print` | select a region, copy to clipboard |
+| `Shift+Print` | select a region, save to `~/Pictures/Screenshots` |
+| `Super+Print` | whole screen, save to `~/Pictures/Screenshots` |
 
 ## Notifications
 

@@ -149,6 +149,7 @@ hl.bind(key(mod, "mouse:273"), hl.dsp.window.resize(), { mouse = true })
 
 hl.bind("Print", hl.dsp.exec_cmd(hypr_scripts .. "/screenshot-region"), { description = "Screenshot region" })
 hl.bind(key(mod, "Print"), hl.dsp.exec_cmd(hypr_scripts .. "/screenshot"), { description = "Screenshot full" })
+hl.bind(key("SHIFT", "Print"), hl.dsp.exec_cmd(hypr_scripts .. "/screenshot-region-file"), { description = "Screenshot region to file" })
 
 -- -----------------------------------------------------------------------------
 -- Media / Hardware keys
