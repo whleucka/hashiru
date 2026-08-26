@@ -62,3 +62,7 @@ playerctl
 
 # Other
 calcurse
+# calcurse-caldav (Google Calendar sync): httplib2 is a hard import,
+# oauth2client is needed for AuthMethod = oauth2
+python-httplib2
+python-oauth2client
