@@ -112,6 +112,9 @@ Scripts live with whatever invokes them, which is not always the desktop:
   (stage 60's herdr, cargo, `pip --user`); if stow owned the directory itself
   those writes would land inside this checkout and leave it permanently dirty,
   which makes `hashiru update` refuse to run.
+- `~/.claude/skills` is kept real for the same reason: Claude Code writes skills
+  there itself, so the directory has to be a shared namespace. Both packages —
+  `bin` and `claude` — are the only two stowed with `--no-folding`.
 
 None carry a `.sh` extension: they are commands, and the extension leaked an
 implementation detail into every call site.
@@ -127,8 +130,8 @@ Split by ownership, not by directory:
 
 `stow/` has one package per area: `hyprland` (hypr, waybar, mako, swayosd,
 fuzzel, gtk-3.0, xdg-desktop-portal, wallpapers), `kitty`, `herdr`, `thunar`,
-`yazi`, `btop`, `chromium`, `bat`, `fzf`, `ripgrep`, and the shell — `zsh`,
-`alias`, `functions`, `p10k`, `bash`, `bin`.
+`yazi`, `btop`, `chromium`, `bat`, `fzf`, `ripgrep`, `claude`, and the shell —
+`zsh`, `alias`, `functions`, `p10k`, `bash`, `bin`.
 
 The desktop hand-off belongs to Hashiru too: `stow/hyprland/.zprofile` starts
 Hyprland on TTY1, and `10-hashiru.conf` under `environment.d` sets the session
@@ -151,6 +154,11 @@ shipped `fzfrc` while `FZF_DEFAULT_OPTS_FILE` was exported from a `.zshrc` in a
 dotfiles checkout, so a fresh Hashiru install stowed a file nothing ever read,
 and the dotfiles alone pointed at a file that didn't exist. Both halves now sit
 in `stow/`.
+
+`stow/claude` is the same call in a newer place. `~/.claude/skills/hashiru` is a
+Claude Code skill describing *this repo* — the stage rules, where a change goes,
+which overrides exist. It is worthless on a machine Hashiru did not build, so
+Hashiru owns it and ships it beside the thing it documents.
 
 The other cost was collisions. Two stow dirs writing into one `$HOME` fight over
 `~/.zshrc`, and any attempt to layer them runs into stow folding a package into a

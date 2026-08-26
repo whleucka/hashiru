@@ -84,6 +84,13 @@ if [[ -L "${HOME}/.local/bin" ]] \
 fi
 mkdir -p "${HOME}/.local/bin"
 
+# Same reasoning for ~/.claude/skills: Claude Code writes skills, plugins and
+# state under ~/.claude, so the directory that holds them must be real. If stow
+# folded it, a skill added later would be written into this checkout and leave
+# the tree dirty. ~/.claude itself is created too, because it does not exist on
+# a machine that has never run Claude Code.
+mkdir -p "${HOME}/.claude/skills"
+
 # Clear real files sitting where stowed config needs to go. These come from
 # older installs where the stage scripts wrote config directly — ~/.zprofile and
 # ~/.config/environment.d/10-hashiru.conf were both plain files written by an
@@ -117,14 +124,16 @@ for dir in */; do
     dir="${dir%/}"
     [[ "${dir}" == .* ]] && continue
 
-    # --no-folding for `bin`, because ~/.local/bin is a shared namespace: pipx,
-    # npm, and third-party install scripts all drop binaries there. Stow must
-    # own the individual links and never the directory, or their writes land in
-    # this checkout. The mkdir above already guarantees that by making the
-    # directory exist first; this states the invariant at the call site too, so
-    # it holds even if that guard is ever reordered or the directory is missing.
+    # --no-folding for `bin` and `claude`, because ~/.local/bin and
+    # ~/.claude/skills are shared namespaces: pipx, npm and third-party install
+    # scripts all drop binaries in the first, and Claude Code writes its own
+    # skills into the second. Stow must own the individual links and never the
+    # directory, or their writes land in this checkout. The mkdirs above already
+    # guarantee that by making the directories exist first; this states the
+    # invariant at the call site too, so it holds even if those guards are ever
+    # reordered or a directory is missing.
     stow_args=(--restow --target="${HOME}")
-    [[ "${dir}" == "bin" ]] && stow_args+=(--no-folding)
+    [[ "${dir}" == "bin" || "${dir}" == "claude" ]] && stow_args+=(--no-folding)
 
     log_info "Stowing: ${dir}"
     if stow "${stow_args[@]}" "${dir}"; then
