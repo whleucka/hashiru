@@ -137,8 +137,8 @@ the milestone. Baking also only ever helped first boot, never `hashiru update`.
 ## v1.7.2 — Patches *(done)*
 
 What used to be v1.8, plus the things that actually made first boot worse than
-it needed to be. See [`releases/v1.7.2.md`](releases/v1.7.2.md) for the full
-notes.
+it needed to be. [`releases/v1.7.2.md`](releases/v1.7.2.md) lists what shipped;
+this is why.
 
 The console stopped being a flood:
 
