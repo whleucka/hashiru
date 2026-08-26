@@ -1,9 +1,24 @@
 # Keybinds
 
-`SUPER` (the Windows key) is the modifier for everything except lock and exit,
-which are deliberately harder to hit by accident.
+`SUPER` is the modifier for everything below except lock and exit, which are
+deliberately harder to hit by accident.
 
-The source of truth is
+**Caps Lock is a second Super.** Hashiru ships `kb_options = "caps:super"`, so
+the key under your left little finger is the modifier — every bind here is
+reachable without moving your hand off home row. `Super+Q` is Caps Lock + Q.
+
+The trade is that Caps Lock no longer locks anything: the key is a modifier now,
+not a toggle, and nothing in the bar reports its state because there is no state
+to report. Wanting shouting back is a one-line override — that setting lives in
+`hyprland.lua`'s `input` block rather than in `keybinds.lua`, and a later
+`hl.config` call wins per leaf, so `~/.config/hashiru/hypr/local.lua` can undo
+just this one without restating the block:
+
+```lua
+hl.config({ input = { kb_options = "" } })
+```
+
+The binds themselves are in
 [`stow/hyprland/.config/hypr/keybinds.lua`](../stow/hyprland/.config/hypr/keybinds.lua).
 This file mirrors it; if the two disagree, the Lua is right.
 
