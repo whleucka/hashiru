@@ -51,6 +51,11 @@ Flags (accepted by both 'update' and 'install', passed to install.sh):
                        it didn't. Package transactions were already
                        non-interactive (pacman and yay run --noconfirm).
   --no-reboot          Never reboot and never ask. Wins over --no-confirm.
+  --no-reflector       Skip stage 10's mirror ranking, worth about a minute.
+                       reflector.timer has been re-ranking weekly since this
+                       machine was built, so on an update the ranking buys
+                       nothing; the timer stays enabled either way. Settable
+                       for good via HASHIRU_NO_REFLECTOR=1 in hashiru.conf.
 
 Neither flag touches the dirty-checkout refusal or the sudo password prompt:
 the first is a hard error rather than a question, and the second can't be

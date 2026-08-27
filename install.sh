@@ -8,8 +8,9 @@
 #   --from 30   same as 30+
 #   --list      show available stages and exit
 # Flags:
-#   --no-confirm  answer every prompt with yes (implies rebooting at the end)
-#   --no-reboot   never reboot, and don't ask — wins over --no-confirm
+#   --no-confirm    answer every prompt with yes (implies rebooting at the end)
+#   --no-reboot     never reboot, and don't ask — wins over --no-confirm
+#   --no-reflector  skip the mirror ranking in stage 10 (saves ~1 min)
 
 set -euo pipefail
 
@@ -45,7 +46,8 @@ fi
 
 # Parse arguments up front so a typo fails fast, before any requires.
 # Selectors: N (exact stage), N+ (stage N and everything after), --from N.
-# Flags: --no-confirm answers every prompt yes, --no-reboot never reboots.
+# Flags: --no-confirm answers every prompt yes, --no-reboot never reboots,
+# --no-reflector skips stage 10's mirror ranking.
 #
 # Flags are peeled out of the argument list here rather than left among the
 # selectors, because a bare `./install.sh --no-confirm` is still a *full* run —
@@ -56,6 +58,7 @@ fi
 FULL_RUN=1
 ASSUME_YES=0
 NO_REBOOT=0
+NO_REFLECTOR=0
 SELECTORS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -63,6 +66,8 @@ while [[ $# -gt 0 ]]; do
             ASSUME_YES=1; shift ;;
         --no-reboot|--noreboot)
             NO_REBOOT=1; shift ;;
+        --no-reflector|--noreflector)
+            NO_REFLECTOR=1; shift ;;
         --from)
             [[ $# -ge 2 ]] || { log_error "--from needs a stage number"; exit 1; }
             SELECTORS+=("$2+"); shift 2 ;;
@@ -70,17 +75,23 @@ while [[ $# -gt 0 ]]; do
             SELECTORS+=("${1#--from=}+"); shift ;;
         -*)
             log_error "Unknown flag: $1"
-            log_error "Flags: --no-confirm, --no-reboot, --from N, --list"
+            log_error "Flags: --no-confirm, --no-reboot, --no-reflector, --from N, --list"
             exit 1 ;;
         *)
             SELECTORS+=("$1"); shift ;;
     esac
 done
 
-# Exported so stages inherit the answer. Nothing in scripts/ prompts today —
-# every pacman and yay call already passes --noconfirm — but a stage that grows
-# a prompt should read this rather than invent a second flag for it.
+# Hand the flags to the stages. Both are declared with defaults in
+# lib/common.sh; see there for why only one of them is a hashiru.conf knob.
 export HASHIRU_ASSUME_YES="${ASSUME_YES}"
+
+# Raise only: hashiru.conf has already had its say by the time we get here, so
+# --no-reflector can turn the skip on, but its absence must not turn a
+# configured 1 back off.
+if [[ "${NO_REFLECTOR}" -eq 1 ]]; then
+    export HASHIRU_NO_REFLECTOR=1
+fi
 
 if [[ ${#SELECTORS[@]} -gt 0 ]]; then
     FULL_RUN=0

@@ -67,11 +67,12 @@ Stage selectors work the same on `install.sh` and `hashiru update`:
 ./install.sh --list     # what stages exist
 ```
 
-Two flags ride alongside them, on `install.sh` and `hashiru update` both:
+Three flags ride alongside them, on `install.sh` and `hashiru update` both:
 
 ```
 ./install.sh --no-confirm              # answer every prompt yes
 ./install.sh --no-reboot               # never reboot, never ask
+./install.sh --no-reflector            # skip stage 10's mirror ranking
 ./install.sh --no-confirm --no-reboot  # unattended, machine stays up
 ```
 
@@ -98,6 +99,24 @@ of `y` will satisfy — an unattended update needs a warm sudo timestamp or
 NOPASSWD. `HASHIRU_ASSUME_YES` is exported for stages, though nothing in
 `scripts/` reads it yet; a stage that grows a prompt should use it instead of
 adding a second flag.
+
+`--no-reflector` is the one flag that reaches into a stage, via
+`HASHIRU_NO_REFLECTOR`. Stage 10 ranks mirrors before the heaviest download of
+the machine's life, on whatever mirrorlist archinstall left behind — that is an
+argument about first install, and it stops applying the moment the machine has
+been re-ranking weekly under `reflector.timer`. The flag buys back the minute on
+an update. It does *not* opt the machine out of reflector: the timer is still
+enabled at the bottom of the same stage, so the flag only skips doing the work
+in the foreground.
+
+It is also the only one of the three that `hashiru.conf` can set
+(`HASHIRU_NO_REFLECTOR=1`), because it is the only one that reads as a standing
+property of a machine. `--no-confirm` deliberately isn't: `--no-reboot` is not a
+config knob either, so a machine that turned "yes to everything" on in config
+would have no way to turn the resulting auto-reboot back off in config.
+`HASHIRU_UNATTENDED` already exists for "never ask me anything here". Because
+config gets its say first, `install.sh` only ever *raises* the reflector flag —
+its absence on the command line must not clear a configured 1.
 
 ## Layout
 

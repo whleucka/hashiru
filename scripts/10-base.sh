@@ -35,16 +35,27 @@ fi
 # updates). Reflector ships in base.txt but that installs after -Syu, so pull
 # it in first — it's small. Never fatal: a reflector failure just means
 # installing on the stock mirrors.
-if ! command -v reflector &>/dev/null; then
-    sudo pacman -S --needed --noconfirm reflector || true
-fi
-if command -v reflector &>/dev/null; then
-    log_info "Ranking pacman mirrors (reflector, ~1 min)"
-    if sudo reflector --protocol https --latest 10 --sort rate \
-        --save /etc/pacman.d/mirrorlist; then
-        log_success "Mirrorlist updated with fastest mirrors"
-    else
-        log_warn "reflector failed — keeping existing mirrorlist"
+#
+# --no-reflector (or HASHIRU_NO_REFLECTOR=1 in hashiru.conf) skips the ranking.
+# The argument above is an argument about *first install* — on an update the
+# machine has been ranking mirrors weekly via reflector.timer since the day it
+# was built, so the minute this spends is buying nothing. The timer below is
+# still enabled either way: the flag skips doing this in the foreground, it does
+# not opt the machine out of reflector.
+if [[ "${HASHIRU_NO_REFLECTOR}" == "1" ]]; then
+    log_info "Skipping mirror ranking (--no-reflector)"
+else
+    if ! command -v reflector &>/dev/null; then
+        sudo pacman -S --needed --noconfirm reflector || true
+    fi
+    if command -v reflector &>/dev/null; then
+        log_info "Ranking pacman mirrors (reflector, ~1 min)"
+        if sudo reflector --protocol https --latest 10 --sort rate \
+            --save /etc/pacman.d/mirrorlist; then
+            log_success "Mirrorlist updated with fastest mirrors"
+        else
+            log_warn "reflector failed — keeping existing mirrorlist"
+        fi
     fi
 fi
 

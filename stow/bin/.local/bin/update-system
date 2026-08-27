@@ -2,7 +2,7 @@
 
 set -e
 
-hashiru update --no-confirm --no-reboot
+hashiru update --no-confirm --no-reflector --no-reboot
 
 # This is really, really dumb lol
 if command -v paplay &>/dev/null; then

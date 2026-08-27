@@ -24,6 +24,16 @@
 # again. `hashiru log` reads the full stream either way.
 #: "${HASHIRU_QUIET=1}"
 
+# Skip the mirror ranking at the top of stage 10 — reflector, and about a
+# minute of it. That ranking is an argument about *first install*: it happens
+# before the heaviest download of the machine's life, on whatever mirrorlist
+# archinstall left behind. By the time you are running updates, reflector.timer
+# has been re-ranking weekly for months and the foreground run buys nothing.
+# Setting this does not disable reflector — the timer is still enabled.
+#
+# `hashiru update --no-reflector` does the same thing for one run.
+#: "${HASHIRU_NO_REFLECTOR=1}"
+
 # This file is only for variables the install scripts read. Machine-local
 # *config* — monitors, keybinds, terminal and bar tweaks — goes in the sibling
 # directories instead: ~/.config/hashiru/{hypr,kitty,waybar}/. See

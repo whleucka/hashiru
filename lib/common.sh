@@ -70,6 +70,24 @@ export HASHIRU_UNATTENDED="${HASHIRU_UNATTENDED:-0}"
 # gets debugged against. Force either way from hashiru.conf or the environment.
 export HASHIRU_QUIET="${HASHIRU_QUIET:-${HASHIRU_UNATTENDED}}"
 
+# Answer every prompt with yes. install.sh sets this from --no-confirm and owns
+# its value; the default here is only so a stage run on its own doesn't trip
+# `set -u`. Deliberately not a hashiru.conf knob — its partner --no-reboot isn't
+# one either, so a machine that turned it on in config would have no way to
+# turn the auto-reboot back off in config. HASHIRU_UNATTENDED is the setting for
+# "never ask me anything on this machine".
+#
+# Nothing in scripts/ prompts today — every pacman and yay call already passes
+# --noconfirm — but a stage that grows a prompt should read this rather than
+# invent a flag of its own.
+export HASHIRU_ASSUME_YES="${HASHIRU_ASSUME_YES:-0}"
+
+# Skip the synchronous mirror ranking in stage 10 (--no-reflector). Worth
+# setting in hashiru.conf on a machine whose mirrors are already fine: the
+# ranking is an argument about first install, and reflector.timer has been
+# keeping the list fresh weekly ever since.
+export HASHIRU_NO_REFLECTOR="${HASHIRU_NO_REFLECTOR:-0}"
+
 # fd 3 is "the console", wherever that was when the run started.
 #
 # Quiet mode redirects each stage's stdout and stderr into the log, which would
