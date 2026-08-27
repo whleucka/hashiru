@@ -4,9 +4,16 @@
     "height": 28,
     "spacing": 0,
 
-    "modules-left": ["custom/ws1", "custom/ws2", "custom/ws3", "custom/ws4", "custom/ws5", "custom/ws6", "custom/ws7", "custom/ws8", "custom/ws9", "custom/ws10"],
+    "modules-left": ["custom/hashiru", "custom/ws1", "custom/ws2", "custom/ws3", "custom/ws4", "custom/ws5", "custom/ws6", "custom/ws7", "custom/ws8", "custom/ws9", "custom/ws10"],
     "modules-center": ["clock"],
     "modules-right": ["group/tray-drawer", "custom/weather", "cpu", "memory", "pulseaudio", "custom/battery"],
+
+    // Arch logo — nf-linux-archlinux (U+F303) from the font-logos range, which
+    // CaskaydiaMono Nerd Font already carries, so it needs no fallback face.
+    "custom/hashiru": {
+        "format": "\uf303",
+        "tooltip": false
+    },
 
     "custom/ws1": {
         "exec": "~/.config/waybar/scripts/ws-button 1",

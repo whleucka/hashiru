@@ -32,8 +32,12 @@ window#waybar {
     margin-right: 4px;
 }
 
-#custom-ws1:first-child {
-    margin-left: 8px;
+#custom-hashiru {
+    /* Inherits the bar's Nerd Font — the glyph lives in that font, no pin
+       needed. Sized up a little; the logo reads small next to the digits. */
+    font-size: 17px;
+    padding: 0 10px 0 12px;
+    color: #7aa2f7;
 }
 
 #custom-ws1:hover,
