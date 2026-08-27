@@ -53,6 +53,7 @@ Expect a long first run, a pile of packages, and a reboot at the end.
 ```bash
 hashiru update          # pull, then replay every stage
 hashiru update 45       # config only, the common case
+hashiru update --no-confirm --no-reboot   # unattended, machine stays up
 hashiru status          # commit, install date, how far behind origin
 hashiru doctor          # read-only health check, fixes nothing
 hashiru help            # the rest of it

@@ -2,6 +2,7 @@
 # hashiru — manage an installed Hashiru system.
 #
 #   hashiru update [stage ...]   pull latest, then replay the install stages
+#   hashiru update --no-confirm  ... without stopping to ask anything
 #   hashiru doctor               read-only health check
 #   hashiru status               where this install came from, and how stale
 #   hashiru log                  the install log
@@ -42,6 +43,19 @@ Commands:
 
 Stage selectors match install.sh: N, N+, --from N, or several at once.
 See 'install.sh --list'.
+
+Flags (accepted by both 'update' and 'install', passed to install.sh):
+  --no-confirm         Answer every prompt with yes. The only prompt a run has
+                       left is the reboot at the end, so on a full run this
+                       does reboot — pair it with --no-reboot if you'd rather
+                       it didn't. Package transactions were already
+                       non-interactive (pacman and yay run --noconfirm).
+  --no-reboot          Never reboot and never ask. Wins over --no-confirm.
+
+Neither flag touches the dirty-checkout refusal or the sudo password prompt:
+the first is a hard error rather than a question, and the second can't be
+answered with a "y". For a genuinely unattended update, warm the sudo
+timestamp first ('sudo -v') or give the user NOPASSWD.
 
 Repo: ${HASHIRU_ROOT}
 EOF

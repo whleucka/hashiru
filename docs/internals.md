@@ -67,6 +67,38 @@ Stage selectors work the same on `install.sh` and `hashiru update`:
 ./install.sh --list     # what stages exist
 ```
 
+Two flags ride alongside them, on `install.sh` and `hashiru update` both:
+
+```
+./install.sh --no-confirm              # answer every prompt yes
+./install.sh --no-reboot               # never reboot, never ask
+./install.sh --no-confirm --no-reboot  # unattended, machine stays up
+```
+
+`--no-confirm` sounds broader than it is. Package transactions were never
+interactive — every `pacman` and `yay` call in `lib/common.sh` and the stages
+already passes `--noconfirm` — so the reboot at the end of `install.sh` is the
+only prompt a run still has, and answering it yes means rebooting. That is why
+`--no-reboot` exists and why it is tested *first*: the combination anyone
+actually wants from a script is both flags at once, and if "yes to everything"
+won that tie the flag pair would be useless.
+
+The parser peels both flags out before deciding `FULL_RUN`, which is the whole
+reason they are handled there rather than left to the selector matcher. A bare
+`./install.sh --no-confirm` is still a full run; leaving the flag among the
+selectors would have set `FULL_RUN=0` and then failed with "no stages matching
+'--no-confirm'". Unrecognised `-*` arguments are now rejected by name for the
+same reason — as a selector, a typo'd flag could only ever be reported as a
+missing stage.
+
+Neither flag reaches the two things people expect them to. The dirty-checkout
+refusal in `hashiru update` is a hard error rather than a question, and is meant
+to stay one. The `sudo -v` at the top of a run wants a password, which no amount
+of `y` will satisfy — an unattended update needs a warm sudo timestamp or
+NOPASSWD. `HASHIRU_ASSUME_YES` is exported for stages, though nothing in
+`scripts/` reads it yet; a stage that grows a prompt should use it instead of
+adding a second flag.
+
 ## Layout
 
 ```

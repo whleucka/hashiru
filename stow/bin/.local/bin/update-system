@@ -1,21 +1,10 @@
 #!/usr/bin/env bash
 
-# This is really, really dumb lol
-echo "╔══════════════════════════════════════════╗"
-echo "║                                          ║"
-echo "║          ⚡  SYSTEM UPDATE  ⚡           ║"
-echo "║                                          ║"
-echo "║         Updating system. Stand by.       ║"
-echo "║                                          ║"
-echo "╚══════════════════════════════════════════╝"
-echo
-yay -Syu --noconfirm
+set -e
 
-# The fanfare is optional. sherlock-confetti builds from source on the AUR, and
-# install_aur_packages demotes a failed build to a warning on purpose — so a
-# machine can legitimately be finished and still have no `confetti` on it. Guard
-# both so an update doesn't end on a command-not-found for the sake of an
-# animation.
+hashiru update --no-confirm --no-reboot
+
+# This is really, really dumb lol
 if command -v paplay &>/dev/null; then
     paplay "$HOME/.local/share/hashiru/assets/wow.mp3" &
 fi

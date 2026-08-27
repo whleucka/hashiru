@@ -7,6 +7,9 @@
 #   30 35       run the listed stages
 #   --from 30   same as 30+
 #   --list      show available stages and exit
+# Flags:
+#   --no-confirm  answer every prompt with yes (implies rebooting at the end)
+#   --no-reboot   never reboot, and don't ask — wins over --no-confirm
 
 set -euo pipefail
 
@@ -40,23 +43,47 @@ if [[ "${1:-}" == "--list" ]]; then
     exit 0
 fi
 
-# Parse stage selectors up front so a typo fails fast, before any requires.
+# Parse arguments up front so a typo fails fast, before any requires.
 # Selectors: N (exact stage), N+ (stage N and everything after), --from N.
+# Flags: --no-confirm answers every prompt yes, --no-reboot never reboots.
+#
+# Flags are peeled out of the argument list here rather than left among the
+# selectors, because a bare `./install.sh --no-confirm` is still a *full* run —
+# leaving it in would set FULL_RUN=0 and then fail with "no stages matching
+# '--no-confirm'". For the same reason unrecognised flags are rejected by name
+# instead of falling through to the selector matcher, which could only ever
+# report them as a missing stage.
 FULL_RUN=1
-if [[ $# -gt 0 ]]; then
+ASSUME_YES=0
+NO_REBOOT=0
+SELECTORS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --no-confirm|--noconfirm)
+            ASSUME_YES=1; shift ;;
+        --no-reboot|--noreboot)
+            NO_REBOOT=1; shift ;;
+        --from)
+            [[ $# -ge 2 ]] || { log_error "--from needs a stage number"; exit 1; }
+            SELECTORS+=("$2+"); shift 2 ;;
+        --from=*)
+            SELECTORS+=("${1#--from=}+"); shift ;;
+        -*)
+            log_error "Unknown flag: $1"
+            log_error "Flags: --no-confirm, --no-reboot, --from N, --list"
+            exit 1 ;;
+        *)
+            SELECTORS+=("$1"); shift ;;
+    esac
+done
+
+# Exported so stages inherit the answer. Nothing in scripts/ prompts today —
+# every pacman and yay call already passes --noconfirm — but a stage that grows
+# a prompt should read this rather than invent a second flag for it.
+export HASHIRU_ASSUME_YES="${ASSUME_YES}"
+
+if [[ ${#SELECTORS[@]} -gt 0 ]]; then
     FULL_RUN=0
-    SELECTORS=()
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --from)
-                [[ $# -ge 2 ]] || { log_error "--from needs a stage number"; exit 1; }
-                SELECTORS+=("$2+"); shift 2 ;;
-            --from=*)
-                SELECTORS+=("${1#--from=}+"); shift ;;
-            *)
-                SELECTORS+=("$1"); shift ;;
-        esac
-    done
 
     FILTERED=()
     for script in "${SCRIPTS[@]}"; do
@@ -301,7 +328,16 @@ if [[ "${HASHIRU_UNATTENDED}" == "1" ]]; then
     log_info "Unattended mode — firstboot will reboot"
 elif [[ " ${STAGE_NAMES[*]} " == *" ${FINAL_STAGE} "* ]]; then
     log_info "Reboot to start Hyprland."
-    if [[ -t 0 ]]; then
+    # --no-reboot is checked before --no-confirm on purpose. "Answer yes to
+    # everything" and "never reboot" only look contradictory: the useful
+    # combination is both at once — a fully unattended run that leaves the
+    # machine up — so the narrower, non-destructive flag has to win.
+    if [[ "${NO_REBOOT}" -eq 1 ]]; then
+        log_info "--no-reboot — run 'sudo reboot' when ready"
+    elif [[ "${ASSUME_YES}" -eq 1 ]]; then
+        log_info "--no-confirm — rebooting..."
+        sudo reboot
+    elif [[ -t 0 ]]; then
         read -rp "Reboot now? [y/N] " response
         if [[ "${response}" =~ ^[Yy]$ ]]; then
             log_info "Rebooting..."
