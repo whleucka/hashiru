@@ -114,7 +114,7 @@
         "exec": "~/.config/waybar/scripts/weather",
         "interval": 600,
         "tooltip": true,
-        "on-click": "xdg-open 'https://weather.gc.ca/en/location/index.html?coords=49.693,-112.835'",
+        "on-click": "~/.config/waybar/scripts/weather-click",
         "return-type": "json"
     },
 

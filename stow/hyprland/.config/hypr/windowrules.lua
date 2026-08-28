@@ -42,6 +42,13 @@ hl.window_rule({ match = { class = "btop" }, float = true, center = true, size =
 -- floats without dragging every other chromium app window along with it.
 hl.window_rule({ match = { class = "^chrome-calendar\\.google\\.com__-Default$" }, float = true, center = true, size = { 1400, 900 } })
 
+-- The forecast page as a chromium app window; waybar's weather module launches
+-- it. Two hosts because scripts/weather-click picks a provider by where the
+-- machine actually is, and chromium bakes the host into the app id. A pinned
+-- WEATHER_URL on some third host needs its own rule in
+-- ~/.config/hashiru/hypr/windowrules.extra.lua.
+hl.window_rule({ match = { class = "^chrome-(weather\\.gc\\.ca|wttr\\.in)__.*-Default$" }, float = true, center = true, size = { 1400, 900 } })
+
 -- File dialogs (matches Open/Save/Export across GTK apps, GIMP, Inkscape, browsers)
 hl.window_rule({ match = { title = "^(Open|Save|Export|Import)( As)?( File| Image| Folder| Document)?\\.?\\.?\\.?$" }, float = true })
 hl.window_rule({ match = { title = "^(Select|Choose) (File|Folder|Image|Directory).*" }, float = true })

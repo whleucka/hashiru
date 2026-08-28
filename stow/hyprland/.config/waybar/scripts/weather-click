@@ -1,0 +1,54 @@
+#!/bin/bash
+# Opens the forecast page for wherever this machine actually is.
+#
+# The coordinates used to be hardcoded into config.jsonc, which is the same bug
+# monitors.lua was built to kill: a value true of exactly one machine, shipped to
+# every machine. Location is resolved at click time instead, from the same
+# wttr.in the bar's text already comes from — no extra service, no extra package.
+
+CACHE_FILE="/tmp/waybar-weather-url-cache"
+CACHE_MAX_AGE=86400  # a day; a laptop can move, but not often
+FALLBACK_URL="https://wttr.in"
+
+# Per-machine override. Set WEATHER_URL here to pin a provider outright:
+#   echo 'WEATHER_URL="https://weather.gc.ca/en/location/index.html?coords=49.693,-112.835"' \
+#     > ~/.config/hashiru/waybar/weather.conf
+# A provider on some other host needs its own float rule — see windowrules.lua.
+CONF="${XDG_CONFIG_HOME:-${HOME}/.config}/hashiru/waybar/weather.conf"
+# shellcheck source=/dev/null
+[[ -f "$CONF" ]] && source "$CONF"
+
+open_url() {
+    exec chromium --app="$1"
+}
+
+[[ -n "$WEATHER_URL" ]] && open_url "$WEATHER_URL"
+
+# Cached resolution: the click should not wait on the network.
+if [[ -f "$CACHE_FILE" ]]; then
+    cache_age=$(($(date +%s) - $(stat -c %Y "$CACHE_FILE" 2>/dev/null || echo 0)))
+    if [[ $cache_age -lt $CACHE_MAX_AGE ]]; then
+        open_url "$(cat "$CACHE_FILE")"
+    fi
+fi
+
+area=$(curl -s --max-time 10 'https://wttr.in/?format=j1' \
+       | jq -r '.nearest_area[0] | "\(.latitude),\(.longitude)\t\(.country[0].value)"' 2>/dev/null)
+coords=${area%%$'\t'*}
+country=${area##*$'\t'}
+
+if [[ -n "$coords" && "$coords" != "null,null" ]]; then
+    # Environment Canada has the better forecast page but only covers Canada;
+    # everywhere else falls back to the source we already geolocated against.
+    if [[ "$country" == "Canada" ]]; then
+        url="https://weather.gc.ca/en/location/index.html?coords=${coords}"
+    else
+        url="https://wttr.in/${coords}"
+    fi
+    echo "$url" > "$CACHE_FILE"
+    open_url "$url"
+fi
+
+# Offline: a stale cache still beats nothing.
+[[ -f "$CACHE_FILE" ]] && open_url "$(cat "$CACHE_FILE")"
+open_url "$FALLBACK_URL"
