@@ -42,8 +42,9 @@ Which is where the milestone dissolved entirely. Once the package repo was out,
 what remained was four items: a version in the release stamp, a `changelog`
 subcommand, AUR failures reaching the banner, and an `aur.txt` audit. Four
 patches. Naming that collection v1.8 would have been version-number theatre, so
-it shipped as v1.7.2 instead, and there is no v1.8. A minor gets earned; it
-doesn't get scheduled.
+it shipped as v1.7.2 instead. A minor gets earned; it doesn't get scheduled —
+v1.8.0 exists now, but it arrived later and on the strength of different
+changes, which is the point rather than a contradiction of it.
 
 It was planned as two patches and shipped as one, for the same reason: the code
 never separated. Quiet mode and the version stamp are both in `install.sh`, the
@@ -202,6 +203,39 @@ is the category the rest of this document had no place to put, which is what
 `docs/keybinds.md` landed alongside it, and the personal site shortcuts moved out
 of the repo into `keybinds.extra.lua` — the override system doing exactly the job
 v1.6 built it for.
+
+## v1.8.0 — Guard rails *(done)*
+
+Replay is the update mechanism, and everything up to here protected the replay
+itself: stages are idempotent, `update` refuses a dirty checkout, the network
+probe is per-stage, warnings survive to the banner. Nothing covered the two cases
+where a replay is not what happens.
+
+The first is skipping it. A bare `pacman -Syu` does the package half and leaves
+services, `/etc` and the stow tree where they were, so the machine drifts from
+its own definition and says nothing about it. That is a pacman hook now, and the
+interesting part is the suppression rather than the warning: a full run upgrades
+six manifests, so without a sentinel in `/run` the hook would recommend `hashiru
+update` six times during `hashiru update`.
+
+The second is a replay that cannot finish. A transaction that runs the disk out
+leaves the package set half-applied, and running the stage again hits the same
+wall in the same place — the one failure mode replay does not repair. That earns
+a pre-flight instead of a post-mortem, and it is gated on the network signal
+because on this tree the stages that reach the network are exactly the stages
+that fetch packages.
+
+Neither is a feature, and four patches did not earn a minor back at v1.7.2, so
+the difference is worth naming. It is the test this document already uses:
+v1.8.0 earns an `## Upgrading` section with something in it. The hook is
+installed by stage 10, so `hashiru update 45` will not place it — an existing
+machine has to do something specific, which is precisely what two doc commits
+could not have claimed. The three new run flags ride along rather than justify
+it.
+
+[`releases/v1.8.0.md`](releases/v1.8.0.md) lists what shipped. `hashiru doctor`
+reports whether the hook arrived and still matches the repo, which is the durable
+form of having tested it once.
 
 ## What's left
 
