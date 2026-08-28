@@ -1,0 +1,26 @@
+# Warn when packages were upgraded without replaying the Hashiru stages.
+#
+# Hashiru's update mechanism is replay: `hashiru update` pulls, then re-runs every
+# stage, and that second half is what reconciles services, /etc and the stow tree
+# with the packages that just changed. A bare `pacman -Syu` does the package half
+# and nothing else, so the machine drifts from its own definition quietly — which
+# is the failure mode this hook exists to make loud.
+#
+# Upgrade only, deliberately. Installing a new package by hand is not drift;
+# Hashiru does not claim to own everything on the machine, only what its manifests
+# and stages put there. An upgrade of something a stage configured is the case
+# where replay has something to say.
+#
+# install.sh drops /run/hashiru-replay for the length of a run, so this stays
+# quiet when the upgrade *is* a replay. Without it a full run would fire the
+# warning once per manifest — six times, during the very operation it recommends.
+
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = *
+
+[Action]
+Description = Checking whether Hashiru stages need replaying...
+When = PostTransaction
+Exec = /bin/sh -c "test -e /run/hashiru-replay || printf '\n\033[1;33m::\033[0m Packages were upgraded without replaying Hashiru stages.\n   Services, /etc and the stow tree may now be out of step with them.\n   Reconcile with: \033[1mhashiru update\033[0m\n\n'"

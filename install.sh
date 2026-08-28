@@ -142,6 +142,12 @@ for script in "${SCRIPTS[@]}"; do
 done
 if [[ "${NEEDS_NETWORK}" -eq 1 ]]; then
     require_network
+    # Reusing the network gate as the disk gate, because on this tree they are
+    # the same set: every stage that reaches the network does so to fetch
+    # packages, and the three marked offline (15, 45, 50) install nothing. If a
+    # stage ever needs the network for something other than packages, this needs
+    # its own signal rather than a proxy.
+    require_disk_space
 else
     log_info "Selected stages need no network — skipping connectivity check"
 fi
@@ -154,6 +160,10 @@ PROGRESS_TICKER_PID=""
 _cleanup() {
     [[ -n "${SUDO_KEEPALIVE_PID}" ]] && kill "${SUDO_KEEPALIVE_PID}" 2>/dev/null
     [[ -n "${PROGRESS_TICKER_PID}" ]] && kill "${PROGRESS_TICKER_PID}" 2>/dev/null
+    # -n so a run whose sudo timestamp has expired exits instead of stopping on a
+    # password prompt nobody is watching. Leaving the sentinel behind is harmless:
+    # /run is tmpfs, so the next boot clears it either way.
+    sudo -n rm -f /run/hashiru-replay 2>/dev/null || true
     # A run killed with Ctrl-C would otherwise leave the state file behind, and
     # a stale one makes _progress_active true for every later command on a
     # machine whose hashiru.conf sets HASHIRU_QUIET=1.
@@ -175,6 +185,16 @@ if [[ "${HASHIRU_UNATTENDED}" != "1" ]]; then
     ( while true; do sleep 60; sudo -n true || exit; kill -0 "$$" || exit; done ) >/dev/null 2>&1 &
     SUDO_KEEPALIVE_PID=$!
 fi
+
+# Tell the pacman replay-warning hook to stand down for this run. The hook fires
+# on any upgrade that isn't a replay; a replay is precisely what this is, and a
+# full run upgrades six manifests, so without the sentinel the hook would print
+# its "run hashiru update" advice six times during hashiru update.
+#
+# Placed after the sudo block so a manual run has a warm timestamp to spend here.
+# A failure is not worth stopping for — the cost is a spurious warning, not a
+# broken install — so it is swallowed rather than checked.
+sudo touch /run/hashiru-replay 2>/dev/null || true
 
 # Run scripts
 TOTAL=${#SCRIPTS[@]}

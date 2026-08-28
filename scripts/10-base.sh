@@ -99,6 +99,15 @@ if [[ -f "${SCRIPT_DIR}/config/udev/99-hashiru.rules" ]]; then
     sudo udevadm trigger
 fi
 
+# The replay-warning hook. /etc/pacman.d/hooks was created above, and the hook
+# itself is inert during a Hashiru run — install.sh drops a sentinel in /run that
+# the hook tests for — so installing it here cannot make this stage noisy.
+if [[ -f "${SCRIPT_DIR}/config/pacman.d/hooks/95-hashiru-replay.hook" ]]; then
+    log_info "Installing pacman replay-warning hook"
+    sudo install -Dm644 "${SCRIPT_DIR}/config/pacman.d/hooks/95-hashiru-replay.hook" \
+        /etc/pacman.d/hooks/95-hashiru-replay.hook
+fi
+
 if [[ -f "${SCRIPT_DIR}/config/systemd/zram-generator.conf" ]]; then
     log_info "Installing zram-generator configuration"
     sudo cp "${SCRIPT_DIR}/config/systemd/zram-generator.conf" /etc/systemd/zram-generator.conf

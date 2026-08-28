@@ -442,6 +442,64 @@ require_network() {
     exit 1
 }
 
+# Free space, checked before the stage loop rather than discovered part-way into
+# a transaction. This is the one failure mode replay does not repair: a pacman
+# transaction that runs the disk out leaves the package set half-applied, and the
+# next run hits the same wall in the same place. Everything else a stage gets
+# wrong is fixed by running the stage again.
+#
+# Two paths are measured because the ISO's layout puts the package cache on its
+# own subvolume (@pkg): downloads land there, the install lands on /. On btrfs
+# both draw from one pool so the numbers agree, but a machine that split them
+# across real partitions is bounded by the smaller of the two.
+#
+# `df` is the deliberate source even though `btrfs filesystem usage` is more
+# accurate, because that wants root and this runs before the sudo timestamp is
+# warmed. The tradeoff is worth stating: df counts unallocated btrfs chunks as
+# free, so it errs optimistic. A failure here is therefore real; a pass is not a
+# guarantee.
+#
+# Thresholds are overridable for the machine with a genuinely small disk, but are
+# deliberately not in hashiru.conf.example — a knob that only ever gets turned to
+# silence a true warning is not worth documenting.
+require_disk_space() {
+    local min_gib="${HASHIRU_MIN_DISK_GIB:-2}"
+    local warn_gib="${HASHIRU_WARN_DISK_GIB:-5}"
+    local path avail_kib smallest="" smallest_path="/"
+
+    for path in / /var/cache/pacman/pkg; do
+        [[ -d "${path}" ]] || continue
+        avail_kib="$(df -Pk "${path}" 2>/dev/null | awk 'NR == 2 { print $4 }')" || continue
+        [[ "${avail_kib}" =~ ^[0-9]+$ ]] || continue
+        if [[ -z "${smallest}" ]] || (( avail_kib < smallest )); then
+            smallest="${avail_kib}"
+            smallest_path="${path}"
+        fi
+    done
+
+    # No usable reading is not grounds for refusing to install. Say so and move on.
+    if [[ -z "${smallest}" ]]; then
+        log_warn "Could not determine free disk space — continuing"
+        return 0
+    fi
+
+    local avail_gib=$(( smallest / 1024 / 1024 ))
+
+    if (( smallest < min_gib * 1024 * 1024 )); then
+        log_error "Only ${avail_gib} GiB free on ${smallest_path} — need at least ${min_gib} GiB"
+        log_error "A pacman transaction that runs out of space leaves packages half-applied,"
+        log_error "which re-running this script will not repair. Free some space first:"
+        log_error "  paccache -rk1              # keep one old version of each package"
+        log_error "  sudo pacman -Sc            # drop uninstalled packages from the cache"
+        log_error "  sudo snapper -c root list  # old snapshots, on btrfs"
+        exit 1
+    fi
+
+    if (( smallest < warn_gib * 1024 * 1024 )); then
+        log_warn "Only ${avail_gib} GiB free on ${smallest_path} — a full run may not fit"
+    fi
+}
+
 # -----------------------------------------------------------------------------
 # Formatting
 # -----------------------------------------------------------------------------

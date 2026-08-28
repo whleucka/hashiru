@@ -205,26 +205,9 @@ v1.6 built it for.
 
 ## What's left
 
-Two pieces of writing and three patches. None of it is a release, and the
+One patch, and the observation behind it: replay is the update mechanism, and
+nothing in the CLI helps when a replay goes wrong. It is not a release, and the
 sections after this one say why there may not be another.
-
-**The writing:**
-
-- Write up the Hyprland Lua config. The old justification for this was that
-  almost nobody had adopted 0.55+ Lua yet, which is going stale — other projects
-  are converting, so being early is not the argument. The durable one is that the
-  override system and the Lua config are *the same feature*: `hl.config` re-parses
-  into a flat map on every call, so a later call wins per leaf, which is why
-  `local.lua` can change `gaps_in` without restating the block it came from. A
-  static `.conf` could not do this. The mechanism is already written down in
-  [`internals.md`](internals.md#hyprland); what is missing is the part that says
-  why it matters.
-- State the one-user policy in the README. "Even if I'm the only user, that's
-  fine" is the correct framing for a project like this, and writing it down sets
-  expectations instead of implying a support obligation.
-
-**The patches**, all three of which are the same observation: replay is the
-update mechanism, and nothing in the CLI helps when a replay goes wrong.
 
 - `hashiru rollback`. The mechanism already exists and is undiscoverable:
   `snap-pac`, `snapper` and `grub-btrfs` are all in `base.txt`, so every pacman
@@ -239,27 +222,24 @@ update mechanism, and nothing in the CLI helps when a replay goes wrong.
   override tree, which is nothing's source of truth and which no stage writes.
   Whether that is worth a second snapper config or a line in the docs is the
   actual question, and the answer is probably the docs.
-- A pacman hook guarding a direct `-Syu`. One file in `config/pacman.d/hooks/`,
-  warning that stages have not been replayed. The real drift mode on this machine
-  is a package upgrade that never replays a stage, and `config/` has no
-  `pacman.d/hooks/` at all today.
-- A disk-space pre-flight before an update. btrfs plus snapper plus a full `-Syu`
-  is precisely the combination that fills a disk mid-transaction, and a
-  half-applied transaction is the one failure mode replay does not fix.
 
-**And one maybe:** a `hashiru` menu — a fuzzel-driven action list (update,
-doctor, wifi, bluetooth, display, screenshot, power) in `stow/bin/.local/bin/`.
-No new dependency, since fuzzel is already the launcher and `Super+/` already
-proves the pattern with keybinds. For a system where every choice has already
-been made for you, discoverability is worth something. It stays a maybe rather
-than a patch because nothing is currently hard to reach, and a menu that exists
-to look like a distro is theatre of the same family as a version number.
+  **Moving the override tree somewhere snapshotted is rejected**, since it is the
+  obvious next thought. `/usr/local/etc` or anywhere else under `@` would put it
+  inside snap-pac's brackets, and it cannot go there: kitty's `globinclude
+  ../hashiru/kitty/*.conf` resolves relative to `~/.config/kitty`, and kitty
+  rejects absolute glob patterns outright, so that override can only ever reach a
+  path relative to `~/.config`. waybar's `@import` has the same shape. Only the
+  hypr loader, being Lua, could follow. A root-owned tree would also mean
+  `sudoedit` for `monitors.lua`, which is the file v1.6 existed to make easy to
+  edit.
 
-A theme generator was considered here and dropped. Counting the tree: about
-twenty files carry hex colors, and most are vendored upstream theme files — bat
-`.tmTheme`s, yazi flavors — that are never hand-edited. The hand-maintained set
-is roughly six files. Six files restating one palette is not a generator's worth
-of duplication.
+  The deciding argument is that the coverage would be pointless anyway. Stage 45
+  creates those directories and never touches what is in them — the one file it
+  writes is guarded by `[[ ! -e ]]` precisely so an update cannot eat it — so a
+  replay cannot destroy the override tree. Rollback undoes an update that broke
+  the machine, and an update cannot reach this by construction. What the tree is
+  actually exposed to is disk loss and `rm`, which is backup rather than
+  rollback, and is not this project's job.
 
 ## Hardware
 
