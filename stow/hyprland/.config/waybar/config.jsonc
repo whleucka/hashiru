@@ -91,7 +91,7 @@
         // mis-parses the America/Edmonton zone and drops its DST rule, losing an
         // hour. Denver has identical Mountain-time rules and parses correctly.
         "timezone": "America/Denver",
-        "on-click": "kitty --class calcurse calcurse",
+        "on-click": "chromium --app=https://calendar.google.com",
         "tooltip-format": "<tt>{calendar}</tt>"
     },
 

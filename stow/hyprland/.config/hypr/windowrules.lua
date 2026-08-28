@@ -35,8 +35,6 @@ hl.window_rule({ match = { title = "^(Preferences|Properties|Settings)$" }, floa
 hl.window_rule({ match = { title = pip }, float = true, pin = true, size = { 480, 270 } })
 hl.window_rule({ match = { title = pip }, keep_aspect_ratio = true, border_size = 0 })
 
--- TUI in a dedicated kitty instance; waybar launches it with --class calcurse
-hl.window_rule({ match = { class = "calcurse" }, float = true, center = true, size = { 1000, 700 } })
 hl.window_rule({ match = { class = "btop" }, float = true, center = true, size = { 1400, 900 } })
 
 -- File dialogs (matches Open/Save/Export across GTK apps, GIMP, Inkscape, browsers)
