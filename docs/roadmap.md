@@ -186,23 +186,113 @@ Dropping a package from `aur.txt` does not uninstall it. Machines that already
 have `sherlock-confetti` keep it, and keep the animation; it just stops being
 part of what a new machine is.
 
+## v1.7.3 — Clamshell *(done)*
+
+A patch on paper, and the hardest release so far. Lid state turned out to be
+unreadable from the switch event — libinput synthesises a lid-open out of typing
+on this class of machine — so docking had to be rewritten around
+`/proc/acpi/button/lid/LID/state`, a modeset wait, and a DPMS force with a layout
+reload behind it. [`releases/v1.7.3.md`](releases/v1.7.3.md) has the detail.
+
+None of that is a feature, and it is worth naming why it took the most work of
+any release: it was hardware behaving differently from its documentation. That
+is the category the rest of this document had no place to put, which is what
+[Hardware](#hardware) now exists for.
+
+`docs/keybinds.md` landed alongside it, and the personal site shortcuts moved out
+of the repo into `keybinds.extra.lua` — the override system doing exactly the job
+v1.6 built it for.
+
 ## What's left
 
-Two pieces of writing. Neither is a release; both ship as commits on `main`.
+Two pieces of writing and three patches. None of it is a release, and the
+sections after this one say why there may not be another.
 
-- Write up the Hyprland Lua config. It is the real differentiator: almost nobody
-  has adopted 0.55+ Lua yet, and it is the same feature as the override system —
-  `hl.config` re-parsing per key is *why* `local.lua` can work at all. A static
-  `.conf` could not do this. The mechanism is already written down in
+**The writing:**
+
+- Write up the Hyprland Lua config. The old justification for this was that
+  almost nobody had adopted 0.55+ Lua yet, which is going stale — other projects
+  are converting, so being early is not the argument. The durable one is that the
+  override system and the Lua config are *the same feature*: `hl.config` re-parses
+  into a flat map on every call, so a later call wins per leaf, which is why
+  `local.lua` can change `gaps_in` without restating the block it came from. A
+  static `.conf` could not do this. The mechanism is already written down in
   [`internals.md`](internals.md#hyprland); what is missing is the part that says
   why it matters.
 - State the one-user policy in the README. "Even if I'm the only user, that's
   fine" is the correct framing for a project like this, and writing it down sets
   expectations instead of implying a support obligation.
 
-Those two are the whole of it, and the second says why: a project that states out
-loud that it has one user is a project under no obligation to keep having a next
-milestone. Nothing follows this section but the deferred list.
+**The patches**, all three of which are the same observation: replay is the
+update mechanism, and nothing in the CLI helps when a replay goes wrong.
+
+- `hashiru rollback`. The mechanism already exists and is undiscoverable:
+  `snap-pac`, `snapper` and `grub-btrfs` are all in `base.txt`, so every pacman
+  transaction is already bracketed by snapshots and they already appear in the
+  GRUB menu. What is missing is a name for the pre-update one and a command that
+  finds it, which is CLI surface rather than a subsystem.
+
+  Two honest limits, because the entry is smaller than it first looks. The config
+  half needs no snapshot — the checkout *is* the snapshot, and `hashiru install
+  45` restores it. And `@home` has no snapper config at all, only `root`, which
+  means the one thing genuinely unprotected is `~/.config/hashiru/` — the
+  override tree, which is nothing's source of truth and which no stage writes.
+  Whether that is worth a second snapper config or a line in the docs is the
+  actual question, and the answer is probably the docs.
+- A pacman hook guarding a direct `-Syu`. One file in `config/pacman.d/hooks/`,
+  warning that stages have not been replayed. The real drift mode on this machine
+  is a package upgrade that never replays a stage, and `config/` has no
+  `pacman.d/hooks/` at all today.
+- A disk-space pre-flight before an update. btrfs plus snapper plus a full `-Syu`
+  is precisely the combination that fills a disk mid-transaction, and a
+  half-applied transaction is the one failure mode replay does not fix.
+
+**And one maybe:** a `hashiru` menu — a fuzzel-driven action list (update,
+doctor, wifi, bluetooth, display, screenshot, power) in `stow/bin/.local/bin/`.
+No new dependency, since fuzzel is already the launcher and `Super+/` already
+proves the pattern with keybinds. For a system where every choice has already
+been made for you, discoverability is worth something. It stays a maybe rather
+than a patch because nothing is currently hard to reach, and a menu that exists
+to look like a distro is theatre of the same family as a version number.
+
+A theme generator was considered here and dropped. Counting the tree: about
+twenty files carry hex colors, and most are vendored upstream theme files — bat
+`.tmTheme`s, yazi flavors — that are never hand-edited. The hand-maintained set
+is roughly six files. Six files restating one palette is not a generator's worth
+of duplication.
+
+## Hardware
+
+Not a milestone and not ordered — a standing list, because this is the work that
+does not stop when the features do. v1.7.3 spent its entire budget here.
+
+A system definition's real claim is the set of machines it boots correctly on.
+That claim only ever grows by hitting a machine that behaves differently from its
+documentation, so nothing in this section can be scheduled.
+
+Known-good today: the ThinkPad this was built for, plus whatever the
+`output = ""` monitor catch-all and the clamshell rewrite generalise to. The
+catch-all is deliberate — `eDP-1` is the internal panel on every laptop, so a
+hardcoded mode silently misconfigures every machine that isn't the one it was
+written on.
+
+Where the edges are known to be, in no order:
+
+- **NVIDIA and hybrid graphics.** Untested. `wayland.txt` carries the mesa and
+  vulkan side; the proprietary path, the KMS hook question and hybrid-mode
+  handling are all unexercised.
+- **Non-btrfs roots.** Stage 50 already skips itself, which is correct, but that
+  means a non-btrfs machine silently has no snapshots and nothing says so. That
+  interacts directly with `hashiru rollback` above.
+- **systemd-boot.** Stage 15 skips itself. Same shape as the above: handled, but
+  handled by absence.
+- **External display brightness.** DDC/CI is the standard answer and nothing here
+  does it; the brightness keys reach the internal panel only.
+- **Multi-monitor beyond a dock.** The clamshell path is now well-tested. Three
+  displays, mixed DPI and rotation are not.
+
+The way this section grows is by a machine failing, not by planning. Entries get
+added when something is found, and removed when it is fixed and released.
 
 ## Deferred
 
