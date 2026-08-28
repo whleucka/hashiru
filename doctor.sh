@@ -114,6 +114,26 @@ else
     bad "multilib repo not enabled in /etc/pacman.conf"
 fi
 
+# The replay-warning hook. Checked rather than assumed because it is the one
+# piece of Hashiru that only arrives via the package stage: a `hashiru update 45`
+# restows every config file on the machine and still leaves this missing, so
+# "I updated recently" is not evidence that it is there.
+#
+# Compared against the repo, not merely tested for existence — an /etc copy that
+# has drifted from the tracked one is a stage 10 that has not been replayed since
+# the hook last changed, which is the same failure wearing a different hat.
+REPLAY_HOOK="/etc/pacman.d/hooks/95-hashiru-replay.hook"
+REPLAY_HOOK_SRC="${HASHIRU_ROOT}/config/pacman.d/hooks/95-hashiru-replay.hook"
+if [[ ! -f "${REPLAY_HOOK_SRC}" ]]; then
+    skip "replay-warning hook: not in this checkout"
+elif [[ ! -f "${REPLAY_HOOK}" ]]; then
+    bad "replay-warning hook not installed (./install.sh 10)"
+elif cmp -s "${REPLAY_HOOK}" "${REPLAY_HOOK_SRC}"; then
+    ok "replay-warning hook installed"
+else
+    meh "replay-warning hook differs from the repo (./install.sh 10)"
+fi
+
 # --- System services -----------------------------------------------------------
 
 section "System services"
