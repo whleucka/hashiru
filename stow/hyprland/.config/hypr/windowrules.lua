@@ -37,6 +37,11 @@ hl.window_rule({ match = { title = pip }, keep_aspect_ratio = true, border_size 
 
 hl.window_rule({ match = { class = "btop" }, float = true, center = true, size = { 1400, 900 } })
 
+-- Google Calendar as a chromium app window; waybar's clock launches it. Matched
+-- by its exact class, not the ^chrome-.*-Default$ PWA pattern below, so it
+-- floats without dragging every other chromium app window along with it.
+hl.window_rule({ match = { class = "^chrome-calendar\\.google\\.com__-Default$" }, float = true, center = true, size = { 1400, 900 } })
+
 -- File dialogs (matches Open/Save/Export across GTK apps, GIMP, Inkscape, browsers)
 hl.window_rule({ match = { title = "^(Open|Save|Export|Import)( As)?( File| Image| Folder| Document)?\\.?\\.?\\.?$" }, float = true })
 hl.window_rule({ match = { title = "^(Select|Choose) (File|Folder|Image|Directory).*" }, float = true })
