@@ -75,6 +75,27 @@ echo "    ref: ${HASHIRU_REF}"
 sed -i "s|__HASHIRU_REF__|${HASHIRU_REF}|g" \
   "${PROFILE}/airootfs/root/archinstall/user_config.json"
 
+echo "==> Dropping packages releng lists that the repos no longer carry"
+# pacstrap resolves the list as one transaction, so a single package that has
+# been dropped from the repos since this archiso release fails the whole build.
+# See overlay/packages.x86_64.drop for what is on the list and why.
+while read -r pkg || [[ -n "${pkg}" ]]; do
+  pkg="${pkg%%#*}"
+  pkg="${pkg//[[:space:]]/}"
+  [[ -z "${pkg}" ]] && continue
+  if grep -qxF "${pkg}" "${PROFILE}/packages.x86_64"; then
+    # grep -vxF, not sed: package names carry regex metacharacters (memtest86+),
+    # and a whole-line fixed-string match cannot catch a substring by accident.
+    filtered="$(mktemp)"
+    grep -vxF "${pkg}" "${PROFILE}/packages.x86_64" > "${filtered}"
+    mv "${filtered}" "${PROFILE}/packages.x86_64"
+    echo "    dropped: ${pkg}"
+  else
+    echo "    NOTE: ${pkg} is no longer in releng's list — delete that line from"
+    echo "          overlay/packages.x86_64.drop; upstream has caught up."
+  fi
+done < "${HERE}/overlay/packages.x86_64.drop"
+
 echo "==> Adding extra packages to the live image"
 # git + archinstall already ship in releng; jq is what stage0 needs for creds.
 cat "${HERE}/overlay/packages.x86_64.extra" >> "${PROFILE}/packages.x86_64"

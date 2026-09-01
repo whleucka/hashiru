@@ -1,0 +1,17 @@
+# Packages releng still lists that the repos no longer carry.
+#
+# build.sh copies upstream's packages.x86_64 verbatim, which is how this ISO
+# tracks archiso for free — and how it inherits archiso's lag behind the repos.
+# pacstrap resolves the whole list at once, so one dropped package fails the
+# build with `error: target not found` and nothing else.
+#
+# One name per line, exact match, with why. build.sh says so when a line here
+# is no longer in releng's list, which is the signal to delete the line.
+
+# broadcom-wl: dropped from extra some time after 2026-08-28 (the v1.8.0 ISO
+# built fine), leaving only broadcom-wl-dkms. dkms is not a substitute in a live
+# image: nothing builds the module against the ISO's kernel at mkarchiso time,
+# so it would not load in the live environment either way. Cost of dropping it
+# is a machine whose *only* network is old Broadcom wifi, which then needs a
+# cable to reach the installer. archiso 89-1.
+broadcom-wl
