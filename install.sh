@@ -126,6 +126,20 @@ fi
 require_arch
 require_user
 
+# Run-start bookkeeping, before the first line of this run reaches the log.
+#
+# The digest is started here rather than beside the banner so that
+# require_disk_space's warning lands in *this* run's digest: truncating down
+# there used to append it to the *previous* run's file and then wipe it.
+#
+# But not above require_arch/require_user either — those two refuse before a run
+# exists, and wiping the last install's warnings is not what "you are root"
+# should cost.
+rotate_log
+log_run_marker
+: > "${HASHIRU_REPORT}"
+export HASHIRU_DIGEST=1
+
 # Check connectivity once up front, but only when a selected stage actually
 # needs it. A stage opts out with `# hashiru: offline` in its header; unmarked
 # stages are assumed to need the network, so a new stage is fail-safe.
@@ -219,10 +233,6 @@ log_info "        Arch + Hyprland Bootstrap"
 log_info "        Created by: Will Hleucka "
 log_info " "
 log_info "=========================================="
-
-# Start a fresh warnings digest for this run; log_warn/log_error append to it
-# only while the file exists (see lib/common.sh).
-: > "${HASHIRU_REPORT}"
 
 # Animate the elapsed clock, so a four-minute cargo build doesn't read as a hung
 # machine. It re-reads the state file rather than inheriting variables, which is
@@ -335,19 +345,19 @@ else
     rm -f "${HASHIRU_REPORT}"
 fi
 
-# Stamp the system with the commit that bootstrapped it (full runs only — a
-# single re-run stage doesn't represent the whole bootstrap). Answers "which
-# Hashiru is this machine actually running?" months later: cat /etc/hashiru-release
-if [[ "${FULL_RUN}" -eq 1 ]]; then
-    HASHIRU_COMMIT="$(git -C "${SCRIPT_DIR}" rev-parse HEAD 2>/dev/null || echo unknown)"
-    # A tag reads; twelve hex characters do not. `v1.7.1-3-gd89829e` says which
-    # release this machine is on and how far past it — the commit is still
-    # recorded beside it. The ISO clones with full history, so the tags needed
-    # for this are present; anything else degrades to "unknown".
-    HASHIRU_VERSION="$(git -C "${SCRIPT_DIR}" describe --tags 2>/dev/null || echo unknown)"
-    printf 'HASHIRU_VERSION=%s\nHASHIRU_COMMIT=%s\nHASHIRU_INSTALL_DATE=%s\n' \
-        "${HASHIRU_VERSION}" "${HASHIRU_COMMIT}" "$(date -Is)" | sudo tee /etc/hashiru-release > /dev/null
-    log_info "Stamped /etc/hashiru-release (${HASHIRU_VERSION})"
+# Stamp the system with the commit that bootstrapped it. Answers "which Hashiru
+# is this machine actually running?" months later: cat /etc/hashiru-release
+#
+# Full runs qualify because they represent the whole bootstrap; a single re-run
+# stage does not. `hashiru update` qualifies either way — a stage-selected
+# update still leaves the machine running this commit, which is exactly what the
+# stamp is supposed to answer — and says so by setting HASHIRU_STAMP_UPDATED.
+#
+# This has to stay above the reboot block: it is the last thing that must
+# survive the run.
+if [[ "${FULL_RUN}" -eq 1 || "${HASHIRU_STAMP_UPDATED}" == "1" ]]; then
+    STAMPED_VERSION="$(write_release_stamp)"
+    log_info "Stamped /etc/hashiru-release (${STAMPED_VERSION})"
 fi
 
 # Reboot last, after the stamp above — stage 99 used to do this itself, which

@@ -82,6 +82,19 @@ export HASHIRU_QUIET="${HASHIRU_QUIET:-${HASHIRU_UNATTENDED}}"
 # invent a flag of its own.
 export HASHIRU_ASSUME_YES="${HASHIRU_ASSUME_YES:-0}"
 
+# Only a real install run writes the end-of-run warnings digest.
+#
+# The `-f` test below is not enough on its own. The digest deliberately outlives
+# the run that produced it, so `hashiru report` can still find it — which meant
+# every log_warn/log_error from the *CLI* appended to it too, and a dirty-tree
+# refusal or a bad `changelog` tag came back quoted as an install warning. Only
+# install.sh sets this, and it exports it so stages inherit it.
+export HASHIRU_DIGEST="${HASHIRU_DIGEST:-0}"
+
+# Set by `hashiru update` so the stamp written at the end of the run records
+# HASHIRU_UPDATED. See write_release_stamp below.
+export HASHIRU_STAMP_UPDATED="${HASHIRU_STAMP_UPDATED:-0}"
+
 # Skip the synchronous mirror ranking in stage 10 (--no-reflector). Worth
 # setting in hashiru.conf on a machine whose mirrors are already fine: the
 # ranking is an argument about first install, and reflector.timer has been
@@ -135,7 +148,8 @@ _log() {
 
     # Warnings/errors also feed the end-of-run digest (printed by install.sh
     # and shown once on first login), tagged with the stage they came from.
-    if [[ ("${level}" == "WARN" || "${level}" == "ERROR") && -f "${HASHIRU_REPORT}" ]]; then
+    if [[ ("${level}" == "WARN" || "${level}" == "ERROR") \
+        && "${HASHIRU_DIGEST}" == "1" && -f "${HASHIRU_REPORT}" ]]; then
         echo "[${HASHIRU_STAGE:-install}] ${message}" >> "${HASHIRU_REPORT}"
     fi
 }
@@ -498,6 +512,77 @@ require_disk_space() {
     if (( smallest < warn_gib * 1024 * 1024 )); then
         log_warn "Only ${avail_gib} GiB free on ${smallest_path} — a full run may not fit"
     fi
+}
+
+# -----------------------------------------------------------------------------
+# Release stamp
+# -----------------------------------------------------------------------------
+
+# Preserve the original install date across updates; fall back to now the first
+# time an un-stamped machine is written.
+_install_date() {
+    if [[ -f /etc/hashiru-release ]]; then
+        local existing
+        existing="$(grep -m1 '^HASHIRU_INSTALL_DATE=' /etc/hashiru-release 2>/dev/null || true)"
+        if [[ -n "${existing}" ]]; then
+            echo "${existing#HASHIRU_INSTALL_DATE=}"
+            return
+        fi
+    fi
+    date -Is
+}
+
+# Record which Hashiru this machine is running, in /etc/hashiru-release.
+#
+# One writer, called from install.sh *before* the reboot prompt. `hashiru
+# update` used to stamp on its own after install.sh returned, which put the
+# write after a `sudo reboot` that install.sh may already have enqueued — a race
+# the update had no reason to run. It sets HASHIRU_STAMP_UPDATED instead and
+# lets the stamp happen here.
+#
+# Echoes the version so the caller can name it in the completion line.
+write_release_stamp() {
+    local commit version install_date
+    commit="$(git -C "${HASHIRU_ROOT}" rev-parse HEAD 2>/dev/null || echo unknown)"
+    # A tag reads; twelve hex characters do not. `v1.7.1-3-gd89829e` says which
+    # release this machine is on and how far past it — the commit is still
+    # recorded beside it. The ISO clones with full history, so the tags needed
+    # for this are present; anything else degrades to "unknown".
+    version="$(git -C "${HASHIRU_ROOT}" describe --tags 2>/dev/null || echo unknown)"
+    install_date="$(_install_date)"
+
+    {
+        printf 'HASHIRU_VERSION=%s\n' "${version}"
+        printf 'HASHIRU_COMMIT=%s\n' "${commit}"
+        printf 'HASHIRU_INSTALL_DATE=%s\n' "${install_date}"
+        if [[ "${HASHIRU_STAMP_UPDATED}" == "1" ]]; then
+            printf 'HASHIRU_UPDATED=%s\n' "$(date -Is)"
+        fi
+    } | sudo tee /etc/hashiru-release > /dev/null
+
+    printf '%s' "${version}"
+}
+
+# Keep the install log bounded. Quiet mode puts every pacman transaction and
+# makepkg build in here, so a machine that has been updated for a year is
+# reading megabytes of history to reach the run it cares about. One previous
+# log is kept — enough to compare against the run before, which is the only
+# comparison anyone makes.
+rotate_log() {
+    local max=$(( 5 * 1024 * 1024 )) size
+    [[ -f "${HASHIRU_LOG}" ]] || return 0
+    size="$(stat -c %s "${HASHIRU_LOG}" 2>/dev/null || echo 0)"
+    [[ "${size}" =~ ^[0-9]+$ ]] || return 0
+    (( size > max )) || return 0
+    mv -f "${HASHIRU_LOG}" "${HASHIRU_LOG}.1"
+}
+
+# A marker `hashiru log --last` can seek back to. Written straight to the file
+# rather than through log_info, which would put a line on the console that the
+# banner below already covers.
+log_run_marker() {
+    printf '[%s] [INFO] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" \
+        "===== HASHIRU RUN START =====" >> "${HASHIRU_LOG}"
 }
 
 # -----------------------------------------------------------------------------

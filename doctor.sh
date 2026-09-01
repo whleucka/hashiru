@@ -389,8 +389,11 @@ fi
 
 # --- Summary -------------------------------------------------------------------
 
-# Plain echo, not log_*: log_error would append into a pending report.txt and
-# pollute the first-login warnings digest.
+# Plain echo, not log_*: doctor's summary is not an install log line, and its
+# own colour scheme is the one the checks above have been using. (The digest
+# hazard this used to be guarding against is gone — log_* only writes report.txt
+# when HASHIRU_DIGEST is set, which only install.sh does — but the formatting
+# reason stands on its own.)
 echo
 if [[ ${FAIL} -eq 0 ]]; then
     echo -e "${GREEN}doctor: ${PASS} ok, ${WARN} warnings, 0 failures${NC}"

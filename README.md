@@ -54,14 +54,16 @@ Expect a long first run, a pile of packages, and a reboot at the end.
 hashiru update          # pull, then replay every stage
 hashiru update 45       # config only, the common case
 hashiru update --no-confirm --no-reboot   # unattended, machine stays up
-hashiru status          # commit, install date, how far behind origin
+hashiru status          # commit, install date, checkout state, how far behind
+hashiru log --last      # what the last run actually did
 hashiru doctor          # read-only health check, fixes nothing
 hashiru help            # the rest of it
 ```
 
 Every stage is idempotent, so replaying the install *is* the update. There is no
 diffing engine and no migration system. `hashiru update` refuses to run on a
-dirty checkout.
+checkout with uncommitted changes to *tracked* files; untracked ones are left
+alone and reported.
 
 ## Keybinds
 

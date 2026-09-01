@@ -35,14 +35,16 @@ Commands:
   install [stage ...]  Run install.sh WITHOUT pulling. For iterating on local
                        changes — 'update' refuses on a dirty checkout.
   doctor               Read-only health check (never modifies the system).
-  status               Show install provenance and whether a pull is available.
-  log [-f]             Page the install log; -f follows it live.
+  status               Show install provenance, checkout state, and whether a
+                       pull is available.
+  log [-f|--last]      Page the install log; -f follows it live, --last shows
+                       only the most recent run.
   report               Warnings from the last install, if there were any.
   changelog [tag]      Release notes, newest first, or just one tag's.
   help                 This message.
 
 Stage selectors match install.sh: N, N+, --from N, or several at once.
-See 'install.sh --list'.
+Run 'hashiru install --list' to see them.
 
 Flags (accepted by both 'update' and 'install', passed to install.sh):
   --no-confirm         Answer every prompt with yes. The only prompt a run has
@@ -68,12 +70,29 @@ EOF
 
 # Fetch and report how far behind origin this checkout is. Echoes the number of
 # commits behind; empty if that can't be determined (no remote, no network).
+#
+# Bounded, because this is `hashiru status` — the fast "where am I" command. A
+# bare `git fetch` on a captive portal or a half-up network sits on TCP timeouts
+# for minutes, and the honest answer after ten seconds is "unknown", which is
+# already a state this prints. Only the upstream's own remote is fetched, so a
+# checkout with a second remote configured doesn't pay for it here.
 _behind_count() {
-    local branch upstream
+    local branch upstream remote
     branch="$(git -C "${HASHIRU_ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 0
     upstream="$(git -C "${HASHIRU_ROOT}" rev-parse --abbrev-ref "${branch}@{upstream}" 2>/dev/null)" || return 0
-    git -C "${HASHIRU_ROOT}" fetch --quiet 2>/dev/null || return 0
+    remote="$(git -C "${HASHIRU_ROOT}" config --get "branch.${branch}.remote" 2>/dev/null)" || remote=""
+    [[ -n "${remote}" ]] || remote="${upstream%%/*}"
+    timeout 10 git -C "${HASHIRU_ROOT}" fetch --quiet "${remote}" 2>/dev/null || return 0
     git -C "${HASHIRU_ROOT}" rev-list --count "HEAD..${upstream}" 2>/dev/null || return 0
+}
+
+# Tracked changes only — the condition that actually blocks a fast-forward.
+_tracked_dirty() {
+    [[ -n "$(git -C "${HASHIRU_ROOT}" status --porcelain --untracked-files=no)" ]]
+}
+
+_untracked_count() {
+    git -C "${HASHIRU_ROOT}" ls-files --others --exclude-standard 2>/dev/null | wc -l
 }
 
 cmd_update() {
@@ -86,10 +105,22 @@ cmd_update() {
     # A dirty tree means local edits that a pull would either clobber or
     # conflict with. Local changes to a system's own config are legitimate —
     # they just need to be committed or stashed deliberately, not by this tool.
-    if [[ -n "$(git -C "${HASHIRU_ROOT}" status --porcelain)" ]]; then
+    #
+    # Tracked files only. `git pull --ff-only` does not care about untracked
+    # ones, so refusing over them blocked every update on a stray scratch file
+    # in the checkout — and made a .gitignore entry the price of every runtime
+    # file any stowed program happens to write. They are worth a line, not a
+    # refusal.
+    if _tracked_dirty; then
         log_error "${HASHIRU_ROOT} has uncommitted changes — commit or stash them first."
-        git -C "${HASHIRU_ROOT}" status --short
+        git -C "${HASHIRU_ROOT}" status --short --untracked-files=no
         exit 1
+    fi
+
+    local untracked
+    untracked="$(_untracked_count)"
+    if (( untracked > 0 )); then
+        log_info "${untracked} untracked file(s) in the checkout — left alone by this update"
     fi
 
     local before after
@@ -109,30 +140,23 @@ cmd_update() {
         git -C "${HASHIRU_ROOT}" --no-pager log --oneline "${before}..${after}" | head -20
     fi
 
+    # install.sh stamps /etc/hashiru-release, and does it before the reboot
+    # prompt. Stamping from out here instead used to race a `sudo reboot` that
+    # install.sh had already enqueued; this just tells it that the run it is
+    # about to do is an update, and that a stage-selected one still counts.
+    export HASHIRU_STAMP_UPDATED=1
     "${HASHIRU_ROOT}/install.sh" "$@"
 
-    # install.sh only stamps on a full run, and an update with stage selectors
-    # is not one — but the machine is still now running this commit, which is
-    # exactly what the stamp is supposed to answer. Record it either way.
-    local version
-    version="$(git -C "${HASHIRU_ROOT}" describe --tags 2>/dev/null || echo unknown)"
-    printf 'HASHIRU_VERSION=%s\nHASHIRU_COMMIT=%s\nHASHIRU_INSTALL_DATE=%s\nHASHIRU_UPDATED=%s\n' \
-        "${version}" "${after}" "$(_install_date)" "$(date -Is)" | sudo tee /etc/hashiru-release > /dev/null
-    log_success "Update complete (${version})"
-}
-
-# Preserve the original install date across updates; fall back to now the first
-# time an un-stamped machine is updated.
-_install_date() {
+    # Read the version back out of the stamp install.sh just wrote, rather than
+    # describing HEAD again: the stamp is what `hashiru status` will report, so
+    # this line and that one cannot disagree.
+    local version="unknown"
     if [[ -f /etc/hashiru-release ]]; then
-        local existing
-        existing="$(grep -m1 '^HASHIRU_INSTALL_DATE=' /etc/hashiru-release 2>/dev/null || true)"
-        if [[ -n "${existing}" ]]; then
-            echo "${existing#HASHIRU_INSTALL_DATE=}"
-            return
-        fi
+        version="$(grep -m1 '^HASHIRU_VERSION=' /etc/hashiru-release 2>/dev/null || true)"
+        version="${version#HASHIRU_VERSION=}"
+        [[ -n "${version}" ]] || version="unknown"
     fi
-    date -Is
+    log_success "Update complete (${version})"
 }
 
 # The install log is the whole record of a run, and quiet mode (the default on
@@ -144,9 +168,26 @@ cmd_log() {
         exit 1
     fi
 
-    if [[ "${1:-}" == "-f" || "${1:-}" == "--follow" ]]; then
-        exec tail -f "${HASHIRU_LOG}"
-    fi
+    case "${1:-}" in
+        -f|--follow)
+            exec tail -f "${HASHIRU_LOG}"
+            ;;
+        --last)
+            # Just the most recent run. The log is appended to across every
+            # install and update, and quiet mode puts whole pacman transactions
+            # in it, so "what happened last time" is otherwise a scroll through
+            # history. Logs written before the marker existed have none, and
+            # awk's buffer is then the whole file — the old behaviour.
+            local pager=(cat)
+            if [[ -t 1 ]] && command -v less &>/dev/null; then
+                pager=(less +G)
+            fi
+            awk '/^\[.*\] \[INFO\] ===== HASHIRU RUN START =====$/ { buf = "" }
+                 { buf = buf $0 ORS }
+                 END { printf "%s", buf }' "${HASHIRU_LOG}" | "${pager[@]}"
+            return
+            ;;
+    esac
 
     # Open at the end — the interesting part of an install log is always the
     # bottom. Fall back to cat where there is no pager or no terminal.
@@ -233,14 +274,28 @@ cmd_status() {
     if [[ -f /etc/hashiru-release ]]; then
         # shellcheck source=/dev/null
         source /etc/hashiru-release
+        local commit="${HASHIRU_COMMIT:-unknown}"
         echo "version:   ${HASHIRU_VERSION:-unknown}"
-        echo "commit:    ${HASHIRU_COMMIT:0:12}"
+        echo "commit:    ${commit:0:12}"
         echo "installed: ${HASHIRU_INSTALL_DATE:-unknown}"
         [[ -n "${HASHIRU_UPDATED:-}" ]] && echo "updated:   ${HASHIRU_UPDATED}"
     else
         echo "commit:    unknown (/etc/hashiru-release missing)"
     fi
     echo "repo:      ${HASHIRU_ROOT}"
+
+    # The one condition that makes `update` refuse, reported by the command you
+    # would run to find out where you stand.
+    local untracked
+    untracked="$(_untracked_count)"
+    if _tracked_dirty; then
+        echo "checkout:  dirty — 'hashiru update' will refuse until this is committed or stashed"
+        git -C "${HASHIRU_ROOT}" status --short --untracked-files=no | sed 's/^/           /'
+    elif (( untracked > 0 )); then
+        echo "checkout:  clean (${untracked} untracked file(s), which update ignores)"
+    else
+        echo "checkout:  clean"
+    fi
 
     local behind
     behind="$(_behind_count)"
