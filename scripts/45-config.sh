@@ -91,6 +91,41 @@ mkdir -p "${HOME}/.local/bin"
 # a machine that has never run Claude Code.
 mkdir -p "${HOME}/.claude/skills"
 
+# Same reasoning for ~/.config/herdr, for a different reason: nothing else
+# installs into it, but herdr itself writes its logs, session state, plugin
+# cache and API sockets *into its own config directory*. Folded, every one of
+# those lands in this checkout, and the tree is dirty again the moment herdr
+# runs. .gitignore had been chasing them one path at a time (*.log,
+# session.json, .plugins.lock, plugins/) until a named session invented
+# sessions/<name>/ and got committed. Unfolding fixes the class instead of the
+# instance; the ignore rules stay as a second line of defence.
+herdr_cfg="${HOME}/.config/herdr"
+if [[ -L "${herdr_cfg}" ]] \
+    && [[ "$(readlink -f "${herdr_cfg}")" == "${STOW_DIR}"/* ]]; then
+    folded="$(readlink -f "${herdr_cfg}")"
+    rm "${herdr_cfg}"
+    mkdir -p "${herdr_cfg}"
+    log_info "Unfolded stow-linked ~/.config/herdr so herdr's runtime state stays out of the checkout"
+
+    # Rescue what herdr already wrote through the old link. This cannot reuse
+    # the `ls-files --others --exclude-standard` filter ~/.local/bin uses:
+    # herdr's runtime files are precisely the ones .gitignore lists, so
+    # --exclude-standard would skip exactly what needs moving. Invert the test
+    # instead — anything git does not track is herdr's, which also covers the
+    # live sockets, that ls-files never reports at all. Moving a unix socket
+    # keeps the listening server reachable: connect() resolves the new path to
+    # the same inode the server is still bound to.
+    for leaked in "${folded}"/* "${folded}"/.*; do
+        rel="${leaked##*/}"
+        [[ "${rel}" == "." || "${rel}" == ".." || "${rel}" == "*" ]] && continue
+        [[ -e "${leaked}" ]] || continue
+        [[ -n "$(git -C "${folded}" ls-files -- "${rel}" 2>/dev/null)" ]] && continue
+        mv "${leaked}" "${herdr_cfg}/${rel}"
+        log_warn "Moved ${rel} out of the checkout into ~/.config/herdr (herdr had written it through the old stow link)"
+    done
+fi
+mkdir -p "${herdr_cfg}"
+
 # Clear real files sitting where stowed config needs to go. These come from
 # older installs where the stage scripts wrote config directly — ~/.zprofile and
 # ~/.config/environment.d/10-hashiru.conf were both plain files written by an
@@ -124,16 +159,19 @@ for dir in */; do
     dir="${dir%/}"
     [[ "${dir}" == .* ]] && continue
 
-    # --no-folding for `bin` and `claude`, because ~/.local/bin and
-    # ~/.claude/skills are shared namespaces: pipx, npm and third-party install
-    # scripts all drop binaries in the first, and Claude Code writes its own
-    # skills into the second. Stow must own the individual links and never the
-    # directory, or their writes land in this checkout. The mkdirs above already
-    # guarantee that by making the directories exist first; this states the
-    # invariant at the call site too, so it holds even if those guards are ever
-    # reordered or a directory is missing.
+    # --no-folding for `bin`, `claude` and `herdr`, because ~/.local/bin,
+    # ~/.claude/skills and ~/.config/herdr are all written into by something
+    # other than stow: pipx, npm and third-party install scripts drop binaries
+    # in the first, Claude Code writes its own skills into the second, and herdr
+    # keeps its logs, session state and sockets in the third. Stow must own the
+    # individual links and never the directory, or those writes land in this
+    # checkout. The mkdirs above already guarantee that by making the
+    # directories exist first; this states the invariant at the call site too,
+    # so it holds even if those guards are ever reordered or a directory is
+    # missing.
     stow_args=(--restow --target="${HOME}")
-    [[ "${dir}" == "bin" || "${dir}" == "claude" ]] && stow_args+=(--no-folding)
+    [[ "${dir}" == "bin" || "${dir}" == "claude" || "${dir}" == "herdr" ]] \
+        && stow_args+=(--no-folding)
 
     log_info "Stowing: ${dir}"
     if stow "${stow_args[@]}" "${dir}"; then

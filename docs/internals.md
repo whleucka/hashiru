@@ -164,8 +164,23 @@ Scripts live with whatever invokes them, which is not always the desktop:
   those writes would land inside this checkout and leave it permanently dirty,
   which makes `hashiru update` refuse to run.
 - `~/.claude/skills` is kept real for the same reason: Claude Code writes skills
-  there itself, so the directory has to be a shared namespace. Both packages —
-  `bin` and `claude` — are the only two stowed with `--no-folding`.
+  there itself, so the directory has to be a shared namespace.
+- `~/.config/herdr` is kept real for a *different* reason: nothing else installs
+  into it, but herdr writes its own logs, session state, plugin cache and API
+  sockets into its config directory. Folded, all of that lands in the checkout,
+  and `.gitignore` ends up chasing runtime paths one at a time — which it did
+  (`*.log`, `session.json`, `.plugins.lock`, `plugins/`) until a *named* session
+  invented `sessions/<name>/` and the logs got committed and pushed. The lesson
+  generalised: the trigger for `--no-folding` is not "an installer writes here",
+  it is "anything other than stow writes here", and a tool writing into its own
+  config directory counts.
+- Those three packages — `bin`, `claude` and `herdr` — are the only ones stowed
+  with `--no-folding`. The guard in `45-config.sh` also *unfolds* a directory an
+  earlier run already linked, so this is a fix on existing machines and not only
+  on fresh installs. The herdr rescue has to invert `~/.local/bin`'s filter:
+  `ls-files --others --exclude-standard` would skip precisely the runtime files
+  worth moving, since `.gitignore` already lists them, so it moves everything
+  git does **not** track instead.
 
 None carry a `.sh` extension: they are commands, and the extension leaked an
 implementation detail into every call site.

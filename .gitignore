@@ -17,7 +17,12 @@
 /stow/hyprland/.config/gtk-3.0/bookmarks
 
 # herdr writes runtime state into its own config dir. Untracked on purpose.
+# Stage 45 stows `herdr` with --no-folding so ~/.config/herdr is a real
+# directory and these never appear in the checkout at all; the rules stay as a
+# second line of defence for a machine stowed before that fix landed.
 /stow/herdr/.config/herdr/*.log
+/stow/herdr/.config/herdr/*.sock
 /stow/herdr/.config/herdr/session.json
 /stow/herdr/.config/herdr/.plugins.lock
 /stow/herdr/.config/herdr/plugins/
+/stow/herdr/.config/herdr/sessions/

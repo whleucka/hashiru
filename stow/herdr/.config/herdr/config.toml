@@ -196,6 +196,13 @@ command = "$HOME/.config/herdr/scripts/herdr-route resize l right"
 pane_borders = true
 pane_gaps = true
 
+# Zoom marker. herdr always appends a dim "Z" to the zoomed pane's tab label,
+# which is easy to miss on a wide tab row — this adds herdr's built-in `zoom`
+# status entry, a bold accent-highlighted ZOOM badge at the right edge of the
+# tab bar. It only renders while a pane is zoomed, and it updates instantly
+# (unlike a `command` entry, which is polled on an interval of >= 1s).
+tab_bar_right = [{ type = "zoom" }]
+
 [ui.toast]
 # Route agent state-change notifications to the OS service (mako).
 # Set to "off" if these get noisy, "herdr" for in-app toasts only.
