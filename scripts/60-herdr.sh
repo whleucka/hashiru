@@ -2,7 +2,7 @@
 # 60-herdr.sh — Install the herdr binary
 #
 # Hashiru owns herdr: it is the multiplexer the terminal launches, five scripts
-# in stow/herdr/.config/herdr/scripts drive it (herdr-flip, -nav, -route,
+# in stow/herdr/.config/herdr/scripts drive it (herdr-relayout, -nav, -route,
 # -split-run, -swap), and its config is a Hashiru stow package placed by
 # 45-config.sh. Only the binary is installed here — this stage is where
 # third-party user binaries land.

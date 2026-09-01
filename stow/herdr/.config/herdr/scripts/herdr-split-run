@@ -23,7 +23,7 @@ set -u
 # The herdr server is a lazy daemon spawned by the first client under Hyprland,
 # so it inherits a PATH without ~/.local/bin where the herdr binary lives. Shell
 # keybinds inherit that PATH — keep this script PATH-independent, same as
-# herdr-swap / herdr-flip and the alt+hjkl resize binds in config.toml.
+# herdr-swap / herdr-relayout and the alt+hjkl resize binds in config.toml.
 export PATH="$HOME/.local/bin:$PATH"
 
 # Terminal cells are taller than they are wide, so raw cols-vs-rows is the wrong

@@ -140,18 +140,26 @@ key = "ctrl+shift+b"
 type = "shell"
 command = "$HOME/.config/herdr/scripts/herdr-swap b"
 
-# Flip the orientation of the split holding the focused pane (stacked <->
-# side-by-side) — tmux's `break-pane` + `join-pane -h`. herdr has no native
-# re-layout: the socket API's layout.apply CAN set an arbitrary tree but
-# respawns every pane in the tab (it ignores each node's pane_id), so it kills
-# running processes. herdr-flip instead bounces one pane through a scratch tab,
-# which preserves the pty. Direct chord, so kitty must not eat it first — see
-# the `map ctrl+shift+o` unbind in ~/.config/kitty/kitty.conf.
+# Cycle the focused tab through layout presets — tmux's next-layout
+# (prefix+space): columns -> rows -> main-vertical -> main-horizontal -> grid,
+# and back. Presets that look identical at the current pane count are skipped,
+# so a two-pane tab just toggles side-by-side <-> stacked (what the old
+# ctrl+shift+o flip did) while three or more panes get the arrangement you
+# actually wanted. Pass a preset name to herdr-relayout to jump straight to it.
+#
+# herdr has no native re-layout: the socket API's layout.apply CAN set an
+# arbitrary tree but respawns every pane in the tab (it ignores each node's
+# pane_id), so it kills running processes. herdr-relayout instead bounces panes
+# through scratch tabs with `pane move`, which re-parents the real pty.
+# Replaces herdr-flip, which could only flip the one split above the focused
+# pane and gave up when that pane's sibling was itself a split. Direct chord, so
+# kitty must not eat it first — see the `map ctrl+shift+o` unbind in
+# ~/.config/kitty/kitty.conf.
 [[keys.command]]
 key = "ctrl+shift+o"
 type = "shell"
-command = "$HOME/.config/herdr/scripts/herdr-flip"
-description = "flip split orientation"
+command = "$HOME/.config/herdr/scripts/herdr-relayout next"
+description = "cycle tab layout"
 
 # Resize the focused pane's split (no resize_mode): alt+h/j/k/l move the divider
 # left/down/up/right by 5%. Direct chords, so they win over the pane program's

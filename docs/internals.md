@@ -144,7 +144,7 @@ Scripts live with whatever invokes them, which is not always the desktop:
   `hypridle-battery`, `tahoe-wallpaper`, and waybar's module scripts. Every one
   is invoked from `keybinds.lua`, `autostart.lua`, `hyprlock.conf` or
   `config.jsonc`, and none means anything without Hyprland running.
-- `stow/herdr/.config/herdr/scripts/` — `herdr-flip`, `-nav`, `-route`,
+- `stow/herdr/.config/herdr/scripts/` — `herdr-relayout`, `-nav`, `-route`,
   `-split-run`, `-swap`, alongside `scrollback`. These are driven by
   `herdr/config.toml`, not by any hypr binding, so they belong to herdr. They
   reach back to `hypr/scripts/focus` to escalate out of herdr into the

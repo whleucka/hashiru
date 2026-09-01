@@ -1,0 +1,302 @@
+#!/usr/bin/env bash
+# herdr-relayout: tmux-style layout presets for the focused herdr tab —
+# `select-layout` / `next-layout` (tmux prefix+space), which herdr has no
+# equivalent for.
+#
+#   herdr-relayout                  cycle to the next preset (default)
+#   herdr-relayout next|prev        cycle
+#   herdr-relayout columns          panes side by side, even widths
+#   herdr-relayout rows             panes stacked, even heights
+#   herdr-relayout main-vertical    first pane left, the rest stacked right
+#   herdr-relayout main-horizontal  first pane on top, the rest in a row below
+#   herdr-relayout grid             even grid, ceil(sqrt(n)) columns
+#
+# Any of those take an optional `--pane <id>` to act on the tab holding that
+# pane instead of the focused one. Whatever was focused stays focused either
+# way, so this is also how you re-arrange a background tab.
+#
+# Env: HERDR_MAIN_RATIO  share the main pane takes in main-* (default 0.5)
+#
+# This replaced herdr-flip, which flipped the split *immediately above* the
+# focused pane. That only matches intent when a tab holds exactly two panes: in
+# any nested tree "flip this node" is a statement about a data structure, not
+# about the screen, and it had to bail outright when the focused pane's sibling
+# was itself a split. Whole-tab presets are what you actually reach for, and at
+# two panes the cycle degenerates to exactly the old flip (columns <-> rows).
+#
+# --- why the moves ---------------------------------------------------------
+# herdr has no re-layout call that preserves running processes. The socket API's
+# `layout.apply` accepts a `pane_id` on every leaf of the tree it is handed, but
+# ignores it: applying a tree returns a BRAND NEW tab with fresh panes and
+# SIGKILLs the originals (re-verified on 0.8.2 — applying to tab wB:t2 handed
+# back wB:t3 with new pane ids and both old shells dead). It is only usable for
+# building a tab from scratch.
+#
+# `pane move`, by contrast, re-parents the real pty: pid, terminal_id and
+# scrollback all survive. Its one restriction is that it refuses a move whose
+# destination tab is the source tab (changed=false, reason="same_tab"), so a
+# pane cannot be re-slotted within its own tab directly. Hence the bounce: park
+# every pane but the first in scratch tabs, then move them back one at a time,
+# each into the slot a `--target-pane` + `--split` + `--ratio` opens for it.
+# Scratch tabs auto-close when their last pane leaves, so there is nothing to
+# clean up. `ratio` is the share of the FIRST child, which is what the plan
+# below assumes.
+#
+# Any binary split tree is reachable that way as long as slots are cut
+# top-down, and every preset here is the same shape — an OUTER chain over
+# groups, each group an INNER chain over its panes:
+#
+#   columns  outer right, n groups of 1      grid  outer down, rows of
+#   rows     outer down,  n groups of 1            ceil(sqrt(n)) panes,
+#   main-*   two groups: [first], [rest]           inner right
+#
+# Cost is 2(n-1) moves; a 4-pane rebuild measured ~35ms end to end.
+#
+# Panes are ordered by in-order walk of the split tree, not by screen position
+# (which is what herdr-swap uses). Tree order is what makes the cycle stable:
+# the tree this script builds walks back in the same order it was given, so
+# cycling round the presets returns every pane to where it started rather than
+# slowly shuffling them.
+
+set -u
+
+# The herdr server is a lazy daemon spawned by the first client under Hyprland,
+# so it inherits a PATH without ~/.local/bin where the herdr binary lives. Shell
+# keybinds inherit that PATH — keep this script PATH-independent, same as
+# herdr-swap, herdr-split-run and the alt+hjkl resize binds in config.toml.
+export PATH="$HOME/.local/bin:$PATH"
+
+sock="${HERDR_SOCKET_PATH:-$HOME/.config/herdr/herdr.sock}"
+main_ratio="${HERDR_MAIN_RATIO:-0.5}"
+
+# Preset cycle order. Presets that collapse into an earlier one for the current
+# pane count are dropped from the cycle below, so a two-pane tab toggles
+# columns <-> rows instead of stopping four times on the same arrangement.
+presets=(columns rows main-vertical main-horizontal grid)
+
+note() { notify-send -a herdr "herdr-relayout" "$1" 2>/dev/null || true; }
+
+# layout.export, layout.set_split_ratio and pane.focus-by-id have no CLI
+# subcommand (`herdr pane focus` always wants a --direction), so talk to the
+# socket directly.
+api() { printf '%s\n' "$1" | timeout 5 socat -t2 - "UNIX-CONNECT:$sock" 2>/dev/null; }
+
+for bin in jq socat; do
+  command -v "$bin" >/dev/null || { note "missing dependency: $bin"; exit 1; }
+done
+
+frac() { awk -v d="$1" 'BEGIN{printf "%.4f", 1/d}'; }
+
+usage() {
+  printf 'usage: herdr-relayout [next|prev|%s] [--pane ID]\n' \
+    "$(IFS='|'; echo "${presets[*]}")" >&2
+  exit 2
+}
+
+want=next
+pane_arg=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    next|prev|columns|rows|main-vertical|main-horizontal|grid) want=$1; shift ;;
+    --pane) pane_arg="${2:-}"; [ -n "$pane_arg" ] || usage; shift 2 ;;
+    -h|--help) usage ;;
+    *) note "unknown argument: $1"; usage ;;
+  esac
+done
+
+# --- read the tab ----------------------------------------------------------
+# `pane list` is session-scoped and reports exactly one focused pane, unlike
+# `pane layout`, whose tab_id filter is not honoured and which answers for *a*
+# tab that is not necessarily the visible one.
+focused=$(herdr pane list 2>/dev/null | jq -r '.result.panes[] | select(.focused).pane_id' | head -1)
+anchor=${pane_arg:-$focused}
+[ -n "$anchor" ] || exit 0
+
+export_json=$(api "$(jq -cn --arg p "$anchor" \
+  '{id:"relayout-export", method:"layout.export", params:{pane_id:$p}}')")
+[ -n "$export_json" ] || { note "no response from herdr socket"; exit 1; }
+
+tab=$(jq -r '.result.layout.tab_id // empty' <<<"$export_json")
+[ -n "$tab" ] || { note "could not read layout"; exit 1; }
+
+# A zoomed pane is a view state layered over the tree; re-slotting panes
+# underneath it is not something this handles.
+if [ "$(jq -r '.result.layout.zoomed' <<<"$export_json")" = "true" ]; then
+  note "unzoom first (ctrl+shift+m)"
+  exit 0
+fi
+
+mapfile -t panes < <(jq -r '
+  def walk: if .type == "pane" then .pane_id else (.first|walk), (.second|walk) end;
+  .result.layout.root | walk' <<<"$export_json")
+
+n=${#panes[@]}
+[ "$n" -ge 2 ] || exit 0   # one pane: every preset is the same picture
+
+# Structural signature of the live tree: the shape only, with ratios and pane
+# ids dropped, so a hand-resized columns layout still reads as columns.
+current=$(jq -r '
+  def sig: if .type == "pane" then "P"
+           else "(" + .direction + " " + (.first|sig) + " " + (.second|sig) + ")" end;
+  .result.layout.root | sig' <<<"$export_json")
+
+# --- describe a preset for this pane count ---------------------------------
+# Sets: outer, inner (split directions) and groups (pane counts per group).
+# A group is one INNER chain; the groups themselves form the OUTER chain.
+describe() {
+  local preset=$1 cols rows_ i left
+  case "$preset" in
+    columns)        outer=right; inner=down;  groups=(); for ((i=0;i<n;i++)); do groups+=(1); done ;;
+    rows)           outer=down;  inner=right; groups=(); for ((i=0;i<n;i++)); do groups+=(1); done ;;
+    main-vertical)  outer=right; inner=down;  groups=(1 $((n-1))) ;;
+    main-horizontal) outer=down; inner=right; groups=(1 $((n-1))) ;;
+    grid)
+      outer=down; inner=right
+      cols=$(awk -v n="$n" 'BEGIN{c=int(sqrt(n)); if (c*c < n) c++; print c}')
+      rows_=$(( (n + cols - 1) / cols ))
+      groups=(); left=$n
+      for ((i=0;i<rows_;i++)); do
+        if [ "$left" -ge "$cols" ]; then groups+=("$cols"); left=$((left-cols))
+        else groups+=("$left"); left=0; fi
+      done
+      ;;
+  esac
+}
+
+# Signature of the tree `describe` just set up — same string shape as $current.
+signature() {
+  local i k s gsig=() out
+  for k in "${groups[@]}"; do
+    s="P"
+    while [ "$k" -gt 1 ]; do s="($inner P $s)"; k=$((k-1)); done
+    gsig+=("$s")
+  done
+  out=${gsig[${#gsig[@]}-1]}
+  for ((i=${#gsig[@]}-2;i>=0;i--)); do out="($outer ${gsig[i]} $out)"; done
+  printf '%s' "$out"
+}
+
+# --- pick the target preset ------------------------------------------------
+if [ "$want" = next ] || [ "$want" = prev ]; then
+  # Cycle over presets that are actually distinct at this pane count: at n=2
+  # main-* and grid all collapse into columns or rows.
+  cycle=(); cycle_sig=()
+  for preset in "${presets[@]}"; do
+    describe "$preset"; sig=$(signature)
+    seen=0
+    for s in "${cycle_sig[@]}"; do [ "$s" = "$sig" ] && { seen=1; break; }; done
+    [ "$seen" = 1 ] || { cycle+=("$preset"); cycle_sig+=("$sig"); }
+  done
+
+  # Where are we now? An arrangement that is no preset (a hand-built tree)
+  # falls through to index -1, so `next` starts the cycle at its first entry.
+  idx=-1
+  for i in "${!cycle_sig[@]}"; do
+    [ "${cycle_sig[$i]}" = "$current" ] && { idx=$i; break; }
+  done
+  count=${#cycle[@]}
+  if [ "$want" = next ]; then
+    target=${cycle[$(( (idx + 1) % count ))]}
+  else
+    [ "$idx" -lt 0 ] && idx=0
+    target=${cycle[$(( (idx - 1 + count) % count ))]}
+  fi
+else
+  target=$want
+fi
+
+describe "$target"
+target_sig=$(signature)
+
+# Per-node ratios, addressed the way layout.set_split_ratio wants them: a path
+# of booleans from the root, false = first child, true = second. Both branches
+# below need the same numbers — moves carry them inline, the shortcut sets them
+# in place.
+G=${#groups[@]}
+
+# $1 = outer node index (0-based, counting "second child" steps from the root).
+# main-* is the one preset whose outer split is not an even share: its two
+# groups are [main] and [everything else], and the main pane's width is a
+# preference, not a function of how many panes are stacked beside it.
+outer_ratio() {
+  case "$target" in
+    main-vertical|main-horizontal)
+      [ "$1" = 0 ] && { printf '%s' "$main_ratio"; return; } ;;
+  esac
+  frac $((G - $1))
+}
+
+# Booleans (root-first) -> the JSON path layout.set_split_ratio wants.
+jpath() { local IFS=,; printf '[%s]' "$*"; }
+
+# --- already the right shape: even the ratios, move nothing ----------------
+# Only reachable for an explicit preset request (a cycle step always changes
+# shape). set_split_ratio touches no pty, so this costs nothing visible.
+if [ "$target_sig" = "$current" ]; then
+  set_ratio() { # path-as-json, ratio
+    api "$(jq -cn --arg t "$tab" --argjson p "$1" --argjson r "$2" \
+      '{id:"relayout-ratio", method:"layout.set_split_ratio",
+        params:{tab_id:$t, path:$p, ratio:$r}}')" >/dev/null
+  }
+  for ((g=0; g<G; g++)); do
+    # Outer node g: g "second" steps down the outer chain. The last group has
+    # no node of its own — it is the final second child.
+    op=(); for ((t=0; t<g; t++)); do op+=(true); done
+    [ "$g" -lt $((G-1)) ] && set_ratio "$(jpath "${op[@]}")" "$(outer_ratio "$g")"
+
+    # This group's subtree root, then its inner chain hanging off it.
+    gp=("${op[@]}"); [ "$g" -lt $((G-1)) ] && gp+=(false)
+    k=${groups[$g]}
+    for ((j=0; j<k-1; j++)); do
+      set_ratio "$(jpath "${gp[@]}")" "$(frac $((k - j)))"
+      gp+=(true)
+    done
+  done
+  exit 0
+fi
+
+# --- park every pane but the anchor ----------------------------------------
+# One scratch tab each: a shared scratch tab would stack n-1 panes into one
+# screen and a later pane could be refused for want of room.
+parked=()
+for ((i=1; i<n; i++)); do
+  tid=$(herdr pane move "${panes[$i]}" --new-tab --no-focus 2>/dev/null \
+    | jq -r '.result.move_result.pane.tab_id // empty')
+  if [ -z "$tid" ]; then
+    note "could not park pane ${panes[$i]}; layout unchanged in $tab"
+    exit 1
+  fi
+  parked+=("$tid")
+done
+
+# --- move them back, cutting slots top-down --------------------------------
+place() { # pane, target pane, split direction, ratio
+  if ! herdr pane move "$1" --tab "$tab" --target-pane "$2" \
+         --split "$3" --ratio "$4" --no-focus >/dev/null 2>&1; then
+    # Everything is still live, just scattered across the scratch tabs.
+    note "move failed at pane $1 — panes left in: ${parked[*]}"
+    exit 1
+  fi
+}
+
+# Group anchors first: each is placed against the previous anchor while that
+# one is still a leaf, which is what makes the nested groups reachable.
+start=0; starts=()
+for ((g=0; g<G; g++)); do starts+=("$start"); start=$((start + groups[g])); done
+
+for ((g=1; g<G; g++)); do
+  place "${panes[${starts[$g]}]}" "${panes[${starts[$((g-1))]}]}" "$outer" "$(outer_ratio $((g-1)))"
+done
+
+# Then fill each group along the inner axis.
+for ((g=0; g<G; g++)); do
+  k=${groups[$g]}
+  for ((j=1; j<k; j++)); do
+    place "${panes[$(( starts[g] + j ))]}" "${panes[$(( starts[g] + j - 1 ))]}" \
+      "$inner" "$(frac $((k - j + 1)))"
+  done
+done
+
+# Moves are --no-focus, but parking the focused pane still shifts focus.
+[ -n "$focused" ] && api "$(jq -cn --arg p "$focused" \
+  '{id:"relayout-focus", method:"pane.focus", params:{pane_id:$p}}')" >/dev/null
