@@ -14,8 +14,7 @@ cannot move after install.
 
 ## Before changing anything
 
-Read `docs/internals.md`, or the same page on the site
-(<https://hashiru.williamhleucka.com/docs/internals.html>). It is the design
+Read [internals](https://hashiru.williamhleucka.com/docs/internals.html) on the site. It is the design
 record, not a tutorial — most "obvious" improvements were already tried and are
 documented as rejected there (per-file adopt/skip, layering inside `stow/`, a
 `zsh-fallback` package, stage 40). Check before proposing one.
@@ -113,8 +112,8 @@ Everything else a *user* reads lives on the website, not here:
 | Live | <https://hashiru.williamhleucka.com> |
 
 It is the source of truth for install, CLI, keybinds, configuration, internals
-and roadmap. `docs/keybinds.md`, `docs/internals.md` and `docs/roadmap.md` are
-the old copies and are on their way out — read them, but don't grow them.
+and roadmap. The repo has no markdown copies of any of it — a doc change is a
+change to `public/`, not to a file here.
 
 ### Cutting a release means updating the site
 

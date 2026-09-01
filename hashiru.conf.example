@@ -8,7 +8,7 @@
 #
 # Machine-local *config* — monitors, keybinds, kitty, waybar — is not here. It
 # goes in the sibling directories: ~/.config/hashiru/{hypr,kitty,waybar}/.
-# See docs/internals.md, "Machine-local overrides".
+# See https://hashiru.williamhleucka.com/docs/configuration.html.
 
 # Never prompt. Also turns on HASHIRU_QUIET below.
 #: "${HASHIRU_UNATTENDED=1}"

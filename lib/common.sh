@@ -34,7 +34,8 @@ readonly HASHIRU_ROOT
 # for the `: "${VAR=value}"` idiom, which leaves environment overrides working.
 #
 # ~/.config/hashiru/ is also where per-machine *config* overrides live (hypr
-# modules, kitty snippets, waybar CSS) — see docs/internals.md. Same reasoning:
+# modules, kitty snippets, waybar CSS) — the table is on the site, under
+# configuration: https://hashiru.williamhleucka.com/docs/configuration.html. Same reasoning:
 # outside the repo means outside anything `hashiru update` can revert.
 #
 # This must stay ABOVE the defaults: the `: "${VAR=value}"` idiom only assigns

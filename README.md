@@ -10,6 +10,8 @@ This is a personal project. It builds my laptops, every choice in it is a choice
 I made for myself, and it is public because there is no reason for it not to be.
 Use it, fork it, or steal the bits you like.
 
+Documentation lives at **[hashiru.williamhleucka.com](https://hashiru.williamhleucka.com)**.
+
 ## Install from the ISO
 
 **[Download the latest ISO](https://github.com/whleucka/hashiru/releases/latest)**
@@ -76,7 +78,7 @@ the fastest way to learn them.
 Two things worth knowing first: `SUPER` is the modifier for almost everything,
 and **Caps Lock is a second Super**, so the whole set is reachable from home row.
 
-Full list: **[`docs/keybinds.md`](docs/keybinds.md)**.
+Full list: **[keybinds](https://hashiru.williamhleucka.com/docs/keybinds.html)**.
 
 ## Changing things
 
@@ -92,18 +94,28 @@ cp /opt/hashiru/examples/hypr/monitors.thinkpad-t14s.lua \
 hyprctl monitors all                        # names, descriptions, modes
 ```
 
-Hyprland modules, kitty, waybar CSS and zsh all have override hooks. The table
-is in [machine-local overrides](docs/internals.md#machine-local-overrides), and
-`hashiru doctor` tells you what you have overridden.
+Hyprland modules, kitty, waybar CSS and zsh all have override hooks. The full
+table is in [configuration](https://hashiru.williamhleucka.com/docs/configuration.html#table),
+and `hashiru doctor` tells you what you have overridden.
 
 ## Docs
 
+Everything a user reads lives on the site:
+
 | | |
 |---|---|
-| [Keybinds](docs/keybinds.md) | every bind, and how to rebind them |
-| [Internals](docs/internals.md) | stages, layout, config ownership, overrides |
-| [Roadmap](docs/roadmap.md) | where this is going, and why |
-| [Releases](docs/releases/) | what changed, per tag |
+| [Install](https://hashiru.williamhleucka.com/docs/install.html) | both paths, and what each stage does |
+| [Keybinds](https://hashiru.williamhleucka.com/docs/keybinds.html) | every bind, and how to rebind them |
+| [CLI](https://hashiru.williamhleucka.com/docs/cli.html) | every `hashiru` subcommand and flag |
+| [Configuration](https://hashiru.williamhleucka.com/docs/configuration.html) | overrides, monitors, `hashiru.conf` |
+| [Internals](https://hashiru.williamhleucka.com/docs/internals.html) | stages, layout, config ownership |
+| [Roadmap](https://hashiru.williamhleucka.com/docs/roadmap.html) | where this is going, and why |
+
+Two things stay in the repo, because something reads them here:
+
+| | |
+|---|---|
+| [Releases](docs/releases/) | what changed, per tag — `hashiru changelog` reads these |
 | [ISO](iso/README.md) | building and testing the installer image |
 
 ## Notes
@@ -111,4 +123,4 @@ is in [machine-local overrides](docs/internals.md#machine-local-overrides), and
 * Arch only. Hyprland only.
 * Breaking changes are expected.
 * Bug reports and patches are welcome. Read
-  [contributing](docs/internals.md#contributing) first, it is short.
+  [contributing](https://hashiru.williamhleucka.com/docs/internals.html#contributing) first, it is short.

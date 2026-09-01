@@ -46,8 +46,9 @@ hl.bind(key(mod, "SHIFT", "Y"), hl.dsp.exec_cmd(terminal .. " yazi"), { descript
 -- Websites
 --
 -- Personal shortcuts (bank, own hosts) are deliberately absent: they fail the
--- "would you want this on a machine Hashiru did not build?" test in
--- docs/internals.md. They live in ~/.config/hashiru/hypr/keybinds.extra.lua,
+-- "would you want this on a machine Hashiru did not build?" test on the site,
+-- under internals (https://hashiru.williamhleucka.com/docs/internals.html). They
+-- live in ~/.config/hashiru/hypr/keybinds.extra.lua,
 hl.bind(key(mod, "ALT", "A"), hl.dsp.exec_cmd(browser .. " --app=https://amazon.ca"), { description = "Amazon" })
 hl.bind(key(mod, "ALT", "B"), hl.dsp.exec_cmd(browser .. " --app=https://bsky.app"), { description = "Bluesky" })
 hl.bind(key(mod, "ALT", "E"), hl.dsp.exec_cmd(browser .. " --app=https://mail.google.com"), { description = "Email" })

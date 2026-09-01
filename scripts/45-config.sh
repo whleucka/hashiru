@@ -14,7 +14,7 @@
 #
 # What Hashiru owns, it owns completely: there is no layering *inside* stow/.
 # The seam is one level out, in ~/.config/hashiru/, which this stage creates and
-# then leaves alone — see docs/internals.md, "Machine-local overrides".
+# then leaves alone — see https://hashiru.williamhleucka.com/docs/configuration.html.
 # hashiru: offline
 #
 # Declares that this stage touches no network, so install.sh skips its up-front
@@ -251,7 +251,8 @@ ensure_dir "${HOME}/Pictures/Screenshots"
 # never touches what is in them.
 #
 # Created empty rather than left to the user, because an override mechanism
-# nobody can find is not a feature. See docs/internals.md for what each accepts.
+# nobody can find is not a feature. What each accepts is on the site, under
+# configuration: https://hashiru.williamhleucka.com/docs/configuration.html
 for _dir in hypr kitty waybar; do
     ensure_dir "${HASHIRU_CONFIG_DIR}/${_dir}"
 done
