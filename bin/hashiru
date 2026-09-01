@@ -4,6 +4,8 @@
 #   hashiru update [stage ...]   pull latest, then replay the install stages
 #   hashiru update --no-confirm  ... without stopping to ask anything
 #   hashiru doctor               read-only health check
+#   hashiru config               edit this machine's overrides
+#   hashiru version              what this machine is running
 #   hashiru status               where this install came from, and how stale
 #   hashiru log                  the install log
 #   hashiru report               warnings from the last install
@@ -35,8 +37,13 @@ Commands:
   install [stage ...]  Run install.sh WITHOUT pulling. For iterating on local
                        changes — 'update' refuses on a dirty checkout.
   doctor               Read-only health check (never modifies the system).
+  config               Edit this machine's hashiru.conf in \$EDITOR, seeding it
+                       from hashiru.conf.example the first time. Aliased as
+                       'edit'. Machine-local *config* — monitors, kitty, waybar
+                       — lives beside it in ~/.config/hashiru/.
   status               Show install provenance, checkout state, and whether a
                        pull is available.
+  version              One line: the version this machine is running.
   log [-f|--last]      Page the install log; -f follows it live, --last shows
                        only the most recent run.
   report               Warnings from the last install, if there were any.
@@ -44,7 +51,8 @@ Commands:
   help                 This message.
 
 Stage selectors match install.sh: N, N+, --from N, or several at once.
-Run 'hashiru install --list' to see them.
+'hashiru install --list' names every stage; anything else install.sh accepts
+works through 'install' too, since that is a straight passthrough.
 
 Flags (accepted by both 'update' and 'install', passed to install.sh):
   --no-confirm         Answer every prompt with yes. The only prompt a run has
@@ -270,6 +278,80 @@ cmd_changelog() {
     } | "${pager}"
 }
 
+# One line, for the people who type `--version` before they type `status`.
+#
+# The stamp is the answer, not `git describe`: the checkout is what the machine
+# *would* be after a replay, and those differ precisely when someone pulled
+# without running the stages. That gap is worth naming rather than papering
+# over, so the two are compared and the difference is reported.
+cmd_version() {
+    local stamped="" checkout
+    if [[ -f /etc/hashiru-release ]]; then
+        stamped="$(grep -m1 '^HASHIRU_VERSION=' /etc/hashiru-release 2>/dev/null || true)"
+        stamped="${stamped#HASHIRU_VERSION=}"
+    fi
+    checkout="$(git -C "${HASHIRU_ROOT}" describe --tags 2>/dev/null || echo unknown)"
+
+    if [[ -z "${stamped}" || "${stamped}" == "unknown" ]]; then
+        echo "hashiru ${checkout} (checkout — /etc/hashiru-release not stamped)"
+    elif [[ "${stamped}" == "${checkout}" ]]; then
+        echo "hashiru ${stamped}"
+    else
+        echo "hashiru ${stamped} (checkout is at ${checkout} — run 'hashiru update')"
+    fi
+}
+
+# Open this machine's hashiru.conf. The override tree is the seam that lets a
+# machine differ from the repo without forking it, and until now the only way to
+# reach it was to remember the path and that an example file existed.
+cmd_config() {
+    local canonical="${HASHIRU_CONFIG_DIR}/hashiru.conf"
+    local legacy="${HASHIRU_ROOT}/hashiru.conf"
+    local example="${HASHIRU_ROOT}/hashiru.conf.example"
+    local target="${canonical}"
+
+    # A machine predating the move keeps its in-repo file, and common.sh still
+    # reads it — so edit the one actually in use rather than creating a second.
+    # Seeding the canonical path here would be worse than useless: the example
+    # is entirely commented out, so the new file would win the lookup and set
+    # nothing, leaving the real settings live but no longer where you edited.
+    if [[ ! -f "${canonical}" && -f "${legacy}" ]]; then
+        target="${legacy}"
+        log_info "Editing the in-repo hashiru.conf; ~/.config/hashiru/ is the current home for it"
+    elif [[ ! -f "${target}" ]]; then
+        if [[ ! -f "${example}" ]]; then
+            log_error "No ${example} to seed from"
+            exit 1
+        fi
+        ensure_dir "${HASHIRU_CONFIG_DIR}"
+        cp "${example}" "${target}"
+        log_info "Seeded ${target} from hashiru.conf.example"
+    fi
+
+    # $VISUAL first: .zshrc sets both, and VISUAL is the one that means "a real
+    # editor on a real terminal", which is what this is.
+    local editor="${VISUAL:-${EDITOR:-}}"
+    if [[ -z "${editor}" ]]; then
+        local candidate
+        for candidate in nvim vim vi nano; do
+            if command -v "${candidate}" &>/dev/null; then
+                editor="${candidate}"
+                break
+            fi
+        done
+    fi
+    if [[ -z "${editor}" ]]; then
+        log_error "No editor found — set \$EDITOR, or edit ${target} directly."
+        exit 1
+    fi
+
+    # Word-split on purpose: EDITOR is conventionally a command line, not a
+    # path, and "code --wait" has to survive being one.
+    local cmd=()
+    read -r -a cmd <<< "${editor}"
+    exec "${cmd[@]}" "${target}"
+}
+
 cmd_status() {
     if [[ -f /etc/hashiru-release ]]; then
         # shellcheck source=/dev/null
@@ -313,6 +395,8 @@ case "${1:-help}" in
     install) shift; exec "${HASHIRU_ROOT}/install.sh" "$@" ;;
     doctor) shift; exec "${HASHIRU_ROOT}/doctor.sh" "$@" ;;
     status) cmd_status ;;
+    config|edit) cmd_config ;;
+    version|--version|-V) cmd_version ;;
     log) shift; cmd_log "$@" ;;
     report) cmd_report ;;
     changelog) shift; cmd_changelog "${1:-}" ;;

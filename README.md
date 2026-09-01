@@ -55,6 +55,8 @@ hashiru update          # pull, then replay every stage
 hashiru update 45       # config only, the common case
 hashiru update --no-confirm --no-reboot   # unattended, machine stays up
 hashiru status          # commit, install date, checkout state, how far behind
+hashiru version         # one line: what this machine is running
+hashiru config          # edit this machine's overrides in $EDITOR
 hashiru log --last      # what the last run actually did
 hashiru doctor          # read-only health check, fixes nothing
 hashiru help            # the rest of it
