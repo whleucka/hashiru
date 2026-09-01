@@ -64,10 +64,15 @@ Flags (accepted by both 'update' and 'install', passed to install.sh):
   --no-reflector       Skip stage 10's mirror ranking, worth about a minute.
                        reflector.timer has been re-ranking weekly since this
                        machine was built, so on an update the ranking buys
-                       nothing; the timer stays enabled either way. Settable
-                       for good via HASHIRU_NO_REFLECTOR=1 in hashiru.conf.
+                       nothing; the timer stays enabled either way.
 
-Neither flag touches the dirty-checkout refusal or the sudo password prompt:
+All three are per-machine settings too — HASHIRU_ASSUME_YES, HASHIRU_NO_REBOOT
+and HASHIRU_NO_REFLECTOR in hashiru.conf ('hashiru config'). A flag raises its
+knob for one run; leaving the flag off does not lower a configured one. To drop
+one for a single run, set it in the environment: HASHIRU_NO_REBOOT=0 hashiru
+update.
+
+No flag touches the dirty-checkout refusal or the sudo password prompt:
 the first is a hard error rather than a question, and the second can't be
 answered with a "y". For a genuinely unattended update, warm the sudo
 timestamp first ('sudo -v') or give the user NOPASSWD.

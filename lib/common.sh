@@ -70,17 +70,26 @@ export HASHIRU_UNATTENDED="${HASHIRU_UNATTENDED:-0}"
 # gets debugged against. Force either way from hashiru.conf or the environment.
 export HASHIRU_QUIET="${HASHIRU_QUIET:-${HASHIRU_UNATTENDED}}"
 
-# Answer every prompt with yes. install.sh sets this from --no-confirm and owns
-# its value; the default here is only so a stage run on its own doesn't trip
-# `set -u`. Deliberately not a hashiru.conf knob — its partner --no-reboot isn't
-# one either, so a machine that turned it on in config would have no way to
-# turn the auto-reboot back off in config. HASHIRU_UNATTENDED is the setting for
-# "never ask me anything on this machine".
+# Answer every prompt with yes (--no-confirm), and never reboot (--no-reboot).
+#
+# Both are hashiru.conf knobs, and they have to be a pair. ASSUME_YES used to be
+# excluded on the grounds that a machine turning it on in config would have no
+# way to turn the resulting auto-reboot back off in config — which was an
+# argument about the asymmetry, not about the knob. Giving NO_REBOOT an
+# environment form removes the asymmetry: "never ask, never reboot" is the
+# combination the flags already call the useful one, and it is a property of a
+# machine (a box you only ever reach over ssh) rather than of a single run.
+#
+# install.sh raises these from its flags but never lowers them, so a configured
+# 1 survives a run that didn't pass the flag. To drop one for a single run, set
+# it in the environment — hashiru.conf's `: "${VAR=value}"` idiom only assigns
+# when unset, so `HASHIRU_NO_REBOOT=0 hashiru update` wins over the config.
 #
 # Nothing in scripts/ prompts today — every pacman and yay call already passes
-# --noconfirm — but a stage that grows a prompt should read this rather than
-# invent a flag of its own.
+# --noconfirm — but a stage that grows a prompt should read ASSUME_YES rather
+# than invent a flag of its own.
 export HASHIRU_ASSUME_YES="${HASHIRU_ASSUME_YES:-0}"
+export HASHIRU_NO_REBOOT="${HASHIRU_NO_REBOOT:-0}"
 
 # Only a real install run writes the end-of-run warnings digest.
 #
@@ -93,6 +102,10 @@ export HASHIRU_DIGEST="${HASHIRU_DIGEST:-0}"
 
 # Set by `hashiru update` so the stamp written at the end of the run records
 # HASHIRU_UPDATED. See write_release_stamp below.
+#
+# This and HASHIRU_DIGEST above are internal wiring, not hashiru.conf knobs:
+# they are how one process tells the next what kind of run this is. They read
+# an inherited value because that is the whole mechanism.
 export HASHIRU_STAMP_UPDATED="${HASHIRU_STAMP_UPDATED:-0}"
 
 # Skip the synchronous mirror ranking in stage 10 (--no-reflector). Worth

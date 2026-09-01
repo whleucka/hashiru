@@ -1,45 +1,31 @@
-# hashiru.conf — per-machine shell/install variables.
+# hashiru.conf — per-machine install settings.
 #
-# Copy to ~/.config/hashiru/hashiru.conf. The old location — hashiru.conf beside
-# this file, inside the checkout — is still read, but loses to ~/.config when
-# both exist. Nothing per-machine belongs inside the checkout.
+# Lives at ~/.config/hashiru/hashiru.conf ('hashiru config' opens it).
+# Uncomment what you want. Use the `: "${VAR=value}"` form as written: it
+# assigns only when unset, so a one-off override still wins —
 #
-# Sourced by lib/common.sh before any default is applied, so use the
-# `: "${VAR=value}"` form: it sets the variable only when unset, which keeps
-# one-off environment overrides working:
+#   HASHIRU_NO_REBOOT=0 hashiru update
 #
-#   HASHIRU_UNATTENDED=1 ./install.sh
+# Machine-local *config* — monitors, keybinds, kitty, waybar — is not here. It
+# goes in the sibling directories: ~/.config/hashiru/{hypr,kitty,waybar}/.
+# See docs/internals.md, "Machine-local overrides".
 
-# Skip every interactive prompt. Set automatically on the ISO's firstboot run;
-# set it here if you want manual installs to be non-interactive too.
+# Never prompt. Also turns on HASHIRU_QUIET below.
 #: "${HASHIRU_UNATTENDED=1}"
 
-# Keep child-process output (pacman transactions, makepkg builds, git clones)
-# off the console and in the log, behind a single progress line. Defaults to
-# whatever HASHIRU_UNATTENDED is: on for the ISO's first boot, where the flood
-# is the problem and nobody is reading it, and off for manual runs, where that
-# output is what you debug against.
-#
-# Set it to 1 to quiet a manual install, or to 0 to make first boot verbose
-# again. `hashiru log` reads the full stream either way.
+# Child output (pacman, makepkg, git) to the log, progress line on the console.
+# Defaults to HASHIRU_UNATTENDED. `hashiru log` reads the full stream either way.
 #: "${HASHIRU_QUIET=1}"
 
-# Skip the mirror ranking at the top of stage 10 — reflector, and about a
-# minute of it. That ranking is an argument about *first install*: it happens
-# before the heaviest download of the machine's life, on whatever mirrorlist
-# archinstall left behind. By the time you are running updates, reflector.timer
-# has been re-ranking weekly for months and the foreground run buys nothing.
-# Setting this does not disable reflector — the timer is still enabled.
-#
-# `hashiru update --no-reflector` does the same thing for one run.
+# Answer every prompt with yes — the run's only prompt is the reboot at the end.
+# Same as --no-confirm.
+#: "${HASHIRU_ASSUME_YES=1}"
+
+# Never reboot, and never ask. Wins over HASHIRU_ASSUME_YES. Same as
+# --no-reboot. The pair is worth setting on a machine you only reach over ssh.
+#: "${HASHIRU_NO_REBOOT=1}"
+
+# Skip stage 10's mirror ranking, ~1 min. reflector.timer keeps re-ranking
+# weekly regardless, so this only ever costs you on a first install.
+# Same as --no-reflector.
 #: "${HASHIRU_NO_REFLECTOR=1}"
-
-# This file is only for variables the install scripts read. Machine-local
-# *config* — monitors, keybinds, terminal and bar tweaks — goes in the sibling
-# directories instead: ~/.config/hashiru/{hypr,kitty,waybar}/. See
-# docs/internals.md, "Machine-local overrides".
-
-# There is deliberately nothing here about dotfiles. Hashiru ships the whole
-# machine — desktop, terminal, shell, prompt, aliases — and does not clone,
-# stow, or read a personal config repo. Keep an editor config of your own if
-# you want one on other people's machines; Hashiru has no opinion about it.

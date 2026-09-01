@@ -82,13 +82,19 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Hand the flags to the stages. Both are declared with defaults in
-# lib/common.sh; see there for why only one of them is a hashiru.conf knob.
-export HASHIRU_ASSUME_YES="${ASSUME_YES}"
-
-# Raise only: hashiru.conf has already had its say by the time we get here, so
-# --no-reflector can turn the skip on, but its absence must not turn a
-# configured 1 back off.
+# Hand the flags to the stages, raise-only.
+#
+# hashiru.conf has already had its say by the time we get here, so a flag can
+# turn its knob on, but the flag's *absence* must not turn a configured 1 back
+# off. `export HASHIRU_ASSUME_YES="${ASSUME_YES}"` used to do exactly that,
+# which is the mechanical reason it could not be a config knob. All three are
+# declared with defaults in lib/common.sh.
+if [[ "${ASSUME_YES}" -eq 1 ]]; then
+    export HASHIRU_ASSUME_YES=1
+fi
+if [[ "${NO_REBOOT}" -eq 1 ]]; then
+    export HASHIRU_NO_REBOOT=1
+fi
 if [[ "${NO_REFLECTOR}" -eq 1 ]]; then
     export HASHIRU_NO_REFLECTOR=1
 fi
@@ -369,14 +375,18 @@ if [[ "${HASHIRU_UNATTENDED}" == "1" ]]; then
     log_info "Unattended mode — firstboot will reboot"
 elif [[ " ${STAGE_NAMES[*]} " == *" ${FINAL_STAGE} "* ]]; then
     log_info "Reboot to start Hyprland."
-    # --no-reboot is checked before --no-confirm on purpose. "Answer yes to
+    # no-reboot is checked before no-confirm on purpose. "Answer yes to
     # everything" and "never reboot" only look contradictory: the useful
     # combination is both at once — a fully unattended run that leaves the
-    # machine up — so the narrower, non-destructive flag has to win.
-    if [[ "${NO_REBOOT}" -eq 1 ]]; then
-        log_info "--no-reboot — run 'sudo reboot' when ready"
-    elif [[ "${ASSUME_YES}" -eq 1 ]]; then
-        log_info "--no-confirm — rebooting..."
+    # machine up — so the narrower, non-destructive one has to win.
+    #
+    # Read from the exported knobs rather than the local flag variables, so a
+    # machine that set either in hashiru.conf gets the same behaviour without
+    # passing the flag every time.
+    if [[ "${HASHIRU_NO_REBOOT}" == "1" ]]; then
+        log_info "Not rebooting (no-reboot) — run 'sudo reboot' when ready"
+    elif [[ "${HASHIRU_ASSUME_YES}" == "1" ]]; then
+        log_info "Rebooting (no-confirm)..."
         sudo reboot
     elif [[ -t 0 ]]; then
         read -rp "Reboot now? [y/N] " response
