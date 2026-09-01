@@ -1,6 +1,7 @@
 # Hashiru
 
-<img width="1920" height="2280" alt="image" src="https://github.com/user-attachments/assets/27264507-1656-4104-ae9a-bc2cae46af9c" />
+<img width="1920" height="1200" alt="image" src="https://github.com/user-attachments/assets/1ca9dccb-0e34-4998-9c63-8e4531aba1b6" />
+
 
 Hashiru (走る, "to run") is an opinionated Arch + Hyprland bootstrap. One repo
 installs the machine, then keeps owning its config.
