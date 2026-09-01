@@ -1,6 +1,6 @@
 ---
 name: hashiru
-description: Working on the Hashiru repo (/opt/hashiru) — the Arch + Hyprland bootstrap that owns this machine. Use when editing stages in scripts/, config under stow/ or config/, package manifests in pacman/, the hashiru CLI, doctor.sh, the ISO, or docs/ — and whenever a change to this machine's desktop, shell, or system config is asked for, since Hashiru owns those files and editing them in $HOME is reverted on the next update.
+description: Working on the Hashiru repo (/opt/hashiru) — the Arch + Hyprland bootstrap that owns this machine. Use when editing stages in scripts/, config under stow/ or config/, package manifests in pacman/, the hashiru CLI, doctor.sh, the ISO, or release notes — whenever a change to this machine's desktop, shell, or system config is asked for, since Hashiru owns those files and editing them in $HOME is reverted on the next update — and whenever a release is cut, since the docs site in ~/.mount/hashiru has to be checked and updated in the same pass.
 ---
 
 # Hashiru
@@ -14,10 +14,11 @@ cannot move after install.
 
 ## Before changing anything
 
-Read `docs/internals.md`. It is the design record, not a tutorial — most
-"obvious" improvements were already tried and are documented as rejected there
-(per-file adopt/skip, layering inside `stow/`, a `zsh-fallback` package, stage
-40). Check before proposing one.
+Read `docs/internals.md`, or the same page on the site
+(<https://hashiru.williamhleucka.com/docs/internals.html>). It is the design
+record, not a tutorial — most "obvious" improvements were already tried and are
+documented as rejected there (per-file adopt/skip, layering inside `stow/`, a
+`zsh-fallback` package, stage 40). Check before proposing one.
 
 ## Where a change goes
 
@@ -98,7 +99,39 @@ on local changes. `hashiru update` pulls first and refuses on a dirty checkout.
 
 ## Docs
 
-Release notes go in `docs/releases/`, one file per tag, short point form — the
-release workflow uses the file as the body. `docs/keybinds.md` is the bind
-reference, `docs/internals.md` the design record, `docs/roadmap.md` the
-direction. `iso/README.md` covers the ISO build.
+Release notes go in `docs/releases/`, one file per tag, short point form. That
+directory is load-bearing twice over — the release workflow uses the file as the
+body, and `hashiru changelog` reads it at runtime on every installed machine —
+so it stays in the repo. `iso/README.md` covers the ISO build.
+
+Everything else a *user* reads lives on the website, not here:
+
+| | |
+|---|---|
+| Source | `~/.mount/hashiru/public/` |
+| Deploy | `msync` → `williamhleucka.com:/opt/hashiru` |
+| Live | <https://hashiru.williamhleucka.com> |
+
+It is the source of truth for install, CLI, keybinds, configuration, internals
+and roadmap. `docs/keybinds.md`, `docs/internals.md` and `docs/roadmap.md` are
+the old copies and are on their way out — read them, but don't grow them.
+
+### Cutting a release means updating the site
+
+The repo and the site are one change, not two. Before tagging, read the diff
+back and ask what the site would now tell someone wrongly:
+
+- a bind added, moved or dropped → `docs/keybinds.html`
+- a new `hashiru` subcommand or flag → `docs/cli.html`
+- a new `hashiru.conf` key or override path → `docs/configuration.html`
+- a stage added, renumbered or retired → `docs/internals.html`, and the stage
+  rail on the landing page (`public/index.html`)
+- anything shipped → a row in `docs/changelog.html`
+- the install one-liner changed → the `data-copy` on the landing page hero
+
+Then `msync` it up. A release that changes behaviour without touching the site
+ships stale docs, and the site is now the only place a user looks.
+
+Adding a whole page means three things stay in sync: the sidebar nav (repeated
+in every page), the `INDEX` array in `assets/js/search.js`, and `sitemap.xml`.
+`~/.mount/hashiru/README.md` has the rest.
