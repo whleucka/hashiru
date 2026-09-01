@@ -116,7 +116,7 @@ if [[ -L "${herdr_cfg}" ]] \
         # folded for one more run costs nothing: everything herdr writes there
         # is already in .gitignore.
         herdr_nofold=0
-        log_warn "~/.config/herdr is a stow tree-fold, so herdr writes its runtime state into this checkout"
+        log_warn "Stow tree-fold at ~/.config/herdr, so herdr writes its runtime state into this checkout"
         log_warn "Unfolding needs herdr stopped: exit every herdr client, then \`herdr server stop\`, then re-run this stage"
     else
         rm "${herdr_cfg}"

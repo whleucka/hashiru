@@ -267,9 +267,9 @@ cmd_changelog() {
 
     # Pick the pager before the pipe, not inside it: past a `|` stdout is the
     # pipe, so a `-t 1` test in there would always say "not a terminal".
-    local pager=cat
+    local pager=(cat)
     if [[ -t 1 ]] && command -v less &>/dev/null; then
-        pager=less
+        pager=(less)
     fi
 
     {
@@ -280,7 +280,7 @@ cmd_changelog() {
             cat "${f}"
             echo
         done
-    } | "${pager}"
+    } | "${pager[@]}"
 }
 
 # One line, for the people who type `--version` before they type `status`.
