@@ -181,6 +181,23 @@ Scripts live with whatever invokes them, which is not always the desktop:
   `ls-files --others --exclude-standard` would skip precisely the runtime files
   worth moving, since `.gitignore` already lists them, so it moves everything
   git does **not** track instead.
+- **Unfolding is never done underneath a running herdr.** The server binds its
+  API socket *through* the folded path, so the instant `~/.config/herdr` becomes
+  a real directory that path stops resolving to the socket it is listening on:
+  the server keeps running but every `connect()` gets `ECONNREFUSED` and reports
+  "no herdr server is running" while one plainly is, and its open log fd points
+  at an inode nothing links to any more. Only a restart recovers it. Since this
+  stage runs unattended during `hashiru update` — plausibly from a pane inside
+  that very server — the guard defers instead, warns, and leaves the fold (and
+  herdr's `--no-folding`) alone until a run with herdr stopped.
+- The rescue **deletes** sockets rather than moving them. On the layout the ISO
+  installs, `/opt` and `$HOME` are separate btrfs subvolumes, so they report
+  different `st_dev` and `rename(2)` fails `EXDEV`; `mv` then quietly falls back
+  to copy-and-unlink. A *copied* unix socket is a fresh inode with no listener,
+  so moving one manufactures a file that looks live and refuses every
+  connection. Worth remembering more generally: nothing about a move inside this
+  checkout is a cheap rename, and a file held open by a running process is
+  orphaned by it, not followed.
 
 None carry a `.sh` extension: they are commands, and the extension leaked an
 implementation detail into every call site.

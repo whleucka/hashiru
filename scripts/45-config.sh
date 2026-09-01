@@ -100,31 +100,61 @@ mkdir -p "${HOME}/.claude/skills"
 # sessions/<name>/ and got committed. Unfolding fixes the class instead of the
 # instance; the ignore rules stay as a second line of defence.
 herdr_cfg="${HOME}/.config/herdr"
+herdr_nofold=1
 if [[ -L "${herdr_cfg}" ]] \
     && [[ "$(readlink -f "${herdr_cfg}")" == "${STOW_DIR}"/* ]]; then
     folded="$(readlink -f "${herdr_cfg}")"
-    rm "${herdr_cfg}"
-    mkdir -p "${herdr_cfg}"
-    log_info "Unfolded stow-linked ~/.config/herdr so herdr's runtime state stays out of the checkout"
 
-    # Rescue what herdr already wrote through the old link. This cannot reuse
-    # the `ls-files --others --exclude-standard` filter ~/.local/bin uses:
-    # herdr's runtime files are precisely the ones .gitignore lists, so
-    # --exclude-standard would skip exactly what needs moving. Invert the test
-    # instead — anything git does not track is herdr's, which also covers the
-    # live sockets, that ls-files never reports at all. Moving a unix socket
-    # keeps the listening server reachable: connect() resolves the new path to
-    # the same inode the server is still bound to.
-    for leaked in "${folded}"/* "${folded}"/.*; do
-        rel="${leaked##*/}"
-        [[ "${rel}" == "." || "${rel}" == ".." || "${rel}" == "*" ]] && continue
-        [[ -e "${leaked}" ]] || continue
-        [[ -n "$(git -C "${folded}" ls-files -- "${rel}" 2>/dev/null)" ]] && continue
-        mv "${leaked}" "${herdr_cfg}/${rel}"
-        log_warn "Moved ${rel} out of the checkout into ~/.config/herdr (herdr had written it through the old stow link)"
-    done
+    if pgrep -x herdr &>/dev/null; then
+        # Never unfold underneath a running server. It bound its API socket
+        # through this folded path, and the moment ~/.config/herdr becomes a
+        # real directory that path stops resolving to the socket it is
+        # listening on — the server keeps running, unreachable, and its open
+        # log fd points at an inode no longer linked anywhere. This stage runs
+        # unattended during `hashiru update`, quite possibly from a pane inside
+        # that very server, so skipping is the only safe default. Staying
+        # folded for one more run costs nothing: everything herdr writes there
+        # is already in .gitignore.
+        herdr_nofold=0
+        log_warn "~/.config/herdr is a stow tree-fold, so herdr writes its runtime state into this checkout"
+        log_warn "Unfolding needs herdr stopped: exit every herdr client, then \`herdr server stop\`, then re-run this stage"
+    else
+        rm "${herdr_cfg}"
+        mkdir -p "${herdr_cfg}"
+        log_info "Unfolded stow-linked ~/.config/herdr so herdr's runtime state stays out of the checkout"
+
+        # Rescue what herdr already wrote through the old link. This cannot
+        # reuse the `ls-files --others --exclude-standard` filter ~/.local/bin
+        # uses: herdr's runtime files are precisely the ones .gitignore lists,
+        # so --exclude-standard would skip exactly what needs moving. Invert
+        # the test instead — anything git does not track is herdr's.
+        for leaked in "${folded}"/* "${folded}"/.*; do
+            rel="${leaked##*/}"
+            [[ "${rel}" == "." || "${rel}" == ".." || "${rel}" == "*" ]] && continue
+            [[ -e "${leaked}" ]] || continue
+            [[ -n "$(git -C "${folded}" ls-files -- "${rel}" 2>/dev/null)" ]] && continue
+
+            # Sockets are dropped, not carried across. On the layout the ISO
+            # installs, /opt and $HOME are separate btrfs subvolumes, so they
+            # report different st_dev and rename(2) fails EXDEV; `mv` then
+            # falls back to copying, and a copied unix socket is a fresh inode
+            # with nothing listening on it — every connect() gets
+            # ECONNREFUSED, which reads as "no herdr server is running" even
+            # while one is. No server is running here (the guard above), so
+            # the next one binds its own.
+            if [[ -S "${leaked}" ]]; then
+                rm -f "${leaked}"
+                continue
+            fi
+
+            mv "${leaked}" "${herdr_cfg}/${rel}"
+            log_warn "Moved ${rel} out of the checkout into ~/.config/herdr (herdr had written it through the old stow link)"
+        done
+    fi
 fi
-mkdir -p "${herdr_cfg}"
+if [[ "${herdr_nofold}" == 1 ]]; then
+    mkdir -p "${herdr_cfg}"
+fi
 
 # Clear real files sitting where stowed config needs to go. These come from
 # older installs where the stage scripts wrote config directly — ~/.zprofile and
@@ -169,9 +199,16 @@ for dir in */; do
     # directories exist first; this states the invariant at the call site too,
     # so it holds even if those guards are ever reordered or a directory is
     # missing.
+    #
+    # herdr is the exception that can be deferred: if the guard above found a
+    # running server it left the fold in place, and passing --no-folding here
+    # would make stow do the unfold anyway — orphaning that server, and without
+    # the rescue that moves its files out first. So it follows the same flag.
     stow_args=(--restow --target="${HOME}")
-    [[ "${dir}" == "bin" || "${dir}" == "claude" || "${dir}" == "herdr" ]] \
-        && stow_args+=(--no-folding)
+    if [[ "${dir}" == "bin" || "${dir}" == "claude" ]] \
+        || [[ "${dir}" == "herdr" && "${herdr_nofold}" == 1 ]]; then
+        stow_args+=(--no-folding)
+    fi
 
     log_info "Stowing: ${dir}"
     if stow "${stow_args[@]}" "${dir}"; then
