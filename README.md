@@ -6,8 +6,8 @@
 Hashiru (走る, "to run") is an opinionated Arch + Hyprland bootstrap. One repo
 installs the machine, then keeps owning its config.
 
-This is a personal project. It builds my laptops, every choice in it is a choice
-I made for myself, and it is public because there is no reason for it not to be.
+This is a personal project.
+An Omarchy alternative.
 Use it, fork it, or steal the bits you like.
 
 Documentation lives at **[hashiru.williamhleucka.com](https://hashiru.williamhleucka.com)**.
