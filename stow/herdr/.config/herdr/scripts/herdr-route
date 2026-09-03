@@ -51,8 +51,24 @@ focus_letter() { case "$1" in h) echo l;; j) echo d;; k) echo u;; l) echo r;; es
 #
 # A headless herdr server (elitedesk, driven by --remote-keybindings server) has
 # no compositor and no ~/.config/hypr/scripts/focus, so exec'ing it there fails
-# with "no such file" and eats the keypress. Stop at the edge instead, which is
-# the only sensible thing to do where there are no windows to escalate to.
+# with "no such file" and eats the keypress. Stop at the edge instead.
+#
+# Stopping there is a DELIBERATE choice, not a gap to be filled later. In a
+# remote session the edge question and the compositor sit on opposite sides of
+# an ssh link, and every way across was measured or ruled out:
+#   - no reverse path: the laptop's sshd is inactive, so elitedesk cannot call
+#     back to run scripts/focus;
+#   - `herdr pane focus` takes only --pane/--current against the LOCAL socket,
+#     so keeping keybindings local and driving remote panes is not possible;
+#   - herdr has no native at-edge hook (focus_pane_* just stops).
+# That leaves asking the remote before each move, which costs ~63ms per
+# keypress on a LAN - and it is all ssh RTT (a bare `ssh true` is ~62ms), so it
+# will not get faster. It cannot be deferred to edges only: knowing you are at
+# an edge requires the same round trip, and caching the previous pane id goes
+# stale on any focus change from elsewhere (prefix+hjkl, an agent, the mouse),
+# which fires spurious window switches on a navigation key.
+# Decided 2026-09-03: remote nav stops at the edge; leave the window by other
+# means. Revisit only if herdr gains an at-edge command hook.
 escalate() {
   [ -x "$hypr_scripts/focus" ] || exit 0
   exec "$hypr_scripts/focus" "$(focus_letter "$1")"
