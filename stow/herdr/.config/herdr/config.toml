@@ -47,7 +47,8 @@ detach = "prefix+shift+q"      # detach
 
 # Workspaces
 workspace_picker = "prefix+w"     # session/workspace navigator (herdr default;
-                                  # ctrl+shift+w went to the browser split)
+                                  # ctrl+shift+w is free again since the browser
+                                  # split was removed, but kitty still unbinds it)
 close_workspace = "prefix+q"       # close workspace (default was prefix+shift+d)
 new_workspace = "prefix+shift+n"   # herdr default (shift+n pairs with next_workspace on prefix+n)
 rename_workspace = "prefix+shift+w"  # herdr default
@@ -88,16 +89,6 @@ command = "$HOME/.config/herdr/scripts/herdr-route nav k up"
 key = "ctrl+alt+l"
 type = "shell"
 command = "$HOME/.config/herdr/scripts/herdr-route nav l right"
-
-# Browser. Moved off ctrl+shift+b, which it silently stole from herdr-swap b —
-# herdr keeps the first binding for a duplicated key and disables the later one,
-# so "move pane backward" had been dead. workspace_picker gave up ctrl+shift+w
-# for this and went back to its prefix+w default.
-[[keys.command]]
-key = "ctrl+shift+w"
-type = "shell"
-command = '"${HERDR_BIN_PATH}" plugin pane open --plugin official.browser --entrypoint browser --placement split --direction down --focus'
-description = "open browser split"
 
 # Yazi in a split, opened along the focused pane's longer axis so both halves
 # stay usable. The built-in `type = "pane"` would also give a self-closing

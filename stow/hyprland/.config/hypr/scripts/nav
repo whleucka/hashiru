@@ -29,9 +29,22 @@ key="$2"
 # in the focused window first, and only inject for the programs in the nav chain.
 # Anything else falls through to a normal Hyprland focus move.
 #
-# Caveat: an ssh session is judged by the local `ssh` process, so a remote herdr
-# or nvim is not detected — add ssh to NAV_APPS if that becomes the common case.
-NAV_APPS='(^|/)(herdr|nvim|vim)( |$)'
+# ssh is in the list because remote herdr on elitedesk is a common case. It has
+# to be, and it is a blunt instrument: an ssh session is judged by the LOCAL
+# `ssh` process, so there is no way to tell `ssh elitedesk` running herdr from
+# `ssh elitedesk` running a plain shell. Both get the injection.
+#
+# The trade that buys: super+hjkl now drives panes inside a remote herdr, but in
+# a plain remote shell the chord is swallowed by the far end and focus does not
+# move at all (no fall-through to a Hyprland focus move — that decision is made
+# here, before the key is sent). Drop ssh from NAV_APPS to get the old behaviour
+# back.
+#
+# Note that with `herdr --remote <host>` the local process is `herdr`, which
+# already matched before ssh was added — but keybindings then default to
+# `local`, so the chord runs herdr-route against the LOCAL socket. Use
+# `--remote-keybindings server` for that path so the remote herdr interprets it.
+NAV_APPS='(^|/)(herdr|nvim|vim|ssh)( |$)'
 
 info=$(hyprctl activewindow)
 class=$(awk '/^[[:space:]]*class:/{print $2; exit}' <<<"$info")
