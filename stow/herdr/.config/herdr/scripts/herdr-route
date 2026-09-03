@@ -47,6 +47,17 @@ hd() { herdr pane "$@" 2>/dev/null; }
 # Letter (h|j|k|l) -> the l|r|u|d that scripts/focus expects for Hyprland.
 focus_letter() { case "$1" in h) echo l;; j) echo d;; k) echo u;; l) echo r;; esac; }
 
+# Hand off to the compositor at herdr's outer edge.
+#
+# A headless herdr server (elitedesk, driven by --remote-keybindings server) has
+# no compositor and no ~/.config/hypr/scripts/focus, so exec'ing it there fails
+# with "no such file" and eats the keypress. Stop at the edge instead, which is
+# the only sensible thing to do where there are no windows to escalate to.
+escalate() {
+  [ -x "$hypr_scripts/focus" ] || exit 0
+  exec "$hypr_scripts/focus" "$(focus_letter "$1")"
+}
+
 # The truly-focused pane in the current tab (authoritative).
 focused_pane() {
   hd layout | jq -r '.result.layout.panes[] | select(.focused).pane_id' | head -1
@@ -76,7 +87,7 @@ cur=$(focused_pane)
 # No pane resolved: for nav, fail toward the Hyprland hop rather than a dead
 # key; for resize there is nothing sensible to do.
 if [ -z "$cur" ]; then
-  [ "$mode" = nav ] && exec "$hypr_scripts/focus" "$(focus_letter "$key")"
+  [ "$mode" = nav ] && escalate "$key"
   exit 0
 fi
 
@@ -114,11 +125,11 @@ at_edge=$(printf '%s' "$edges" | jq -r --arg d "$word" '.result.edges[$d]')
 if [ "$at_edge" = "true" ]; then
   # herdr's outer edge — hand off to the Hyprland window. This is the branch
   # the plugin's shipped script cannot express.
-  exec "$hypr_scripts/focus" "$(focus_letter "$key")"
+  escalate "$key"
 fi
 
 # A herdr pane exists that way; if the move unexpectedly fails, escalate rather
 # than eat the keypress.
 changed=$(hd focus --direction "$word" --pane "$cur" | jq -r '.result.focus.changed')
 [ "$changed" = "true" ] && exit 0
-exec "$hypr_scripts/focus" "$(focus_letter "$key")"
+escalate "$key"
