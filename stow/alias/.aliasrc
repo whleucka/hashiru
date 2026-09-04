@@ -134,15 +134,10 @@ alias gs='git status'
 alias gd='git diff'
 
 # yay
-if command -v yay >/dev/null; then
+if command -v hashiru >/dev/null; then
+  alias upg='hashiru update --no-reboot'
+elif command -v yay >/dev/null; then
   alias upg='yay -Syu -y'
-elif command -v apt >/dev/null; then
-  alias upg='sudo apt update && sudo apt upgrade -y'
-fi
-if command -v yay >/dev/null; then
-  alias upd='yay -Sy'
-elif command -v apt >/dev/null; then
-  alias upd='sudo apt update'
 fi
 
 # nvim
