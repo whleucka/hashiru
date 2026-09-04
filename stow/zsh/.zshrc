@@ -165,3 +165,11 @@ if command -v bat &>/dev/null; then
     # argument nowhere, so it has no such failure mode.
     alias -g -- --help='--help 2>&1 | bat --language=help --style=plain'
 fi
+
+
+# ----------------------------------------------------------------------------
+# Local override
+# ----------------------------------------------------------------------------
+# Source local environment
+[[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
+
