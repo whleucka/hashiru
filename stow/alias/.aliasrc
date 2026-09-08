@@ -108,7 +108,6 @@ alias s="ssh "
 alias icat="kitty +kitten icat"
 
 # git
-alias g="git"
 alias ga='git add'
 alias gb='git branch'
 alias gbD='git branch -D'
@@ -123,15 +122,16 @@ alias gcb="git checkout -b"
 alias gcm="git commit -m"
 alias gco='git checkout'
 alias gcp='git cherry-pick'
+alias gd='git diff'
 alias gf='git fetch'
 alias gl="git log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)'"
 alias gm='git merge'
 alias gpl='git pull'
-alias gpu='git push'
 alias gpsu='git push --set-upstream'
+alias gpu='git push'
 alias grb='git rebase'
 alias gs='git status'
-alias gd='git diff'
+alias gt='git tag'
 
 # yay
 if command -v hashiru >/dev/null; then
