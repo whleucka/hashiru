@@ -194,6 +194,7 @@ pane_gaps = true
 # (unlike a `command` entry, which is polled on an interval of >= 1s).
 tab_bar_right = [{ type = "zoom" }]
 
+status_indicators = "symbols"
 [ui.toast]
 # Route agent state-change notifications to the OS service (mako).
 # Set to "off" if these get noisy, "herdr" for in-app toasts only.

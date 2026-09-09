@@ -96,7 +96,10 @@ hl.config({
 
     group = {
         col = {
-            border_active   = "rgba(4a7fcfee)",
+            -- Was a hand-mixed 4a7fcf that matched nothing. A focused group is
+            -- still a focused window, so it takes the same accent and alpha as
+            -- general:col.active_border's first stop.
+            border_active   = "rgba(7aa2f7ee)",
             border_inactive = "rgba(0d1f3caa)",
         },
         groupbar = {
@@ -110,11 +113,16 @@ hl.config({
             height               = 22,
             gaps_in              = 5,
             gaps_out             = 0,
+            -- The active tab is the accent, not a shade of the inactive one.
+            -- Both states used to be the same translucent black, which read as
+            -- one featureless stripe above a grouped window with no way to tell
+            -- which tab had focus. blue0 rather than the brighter blue: a tab
+            -- strip sits under the eyeline all day and should not glare.
             text_color           = "rgb(c0caf5)",
-            text_color_inactive  = "rgba(c0caf570)",
+            text_color_inactive  = "rgba(c0caf5aa)",
             col = {
-                active   = "rgba(00000090)",
-                inactive = "rgba(00000090)",
+                active   = "rgba(3d59a1cc)",
+                inactive = "rgba(1e2130cc)",
             },
             gradients                 = true,
             gradient_rounding         = 0,
