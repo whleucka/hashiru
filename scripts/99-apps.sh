@@ -28,6 +28,30 @@ fi
 install_packages "dev.txt"
 install_packages "apps.txt"
 
+# Arch ships php.ini with every extension= line commented out, so php-sqlite
+# installs its .so and nothing loads it — `php -m` has no pdo_sqlite and any
+# project testing against sqlite::memory: dies with "could not find driver".
+# The drop-in goes in /etc/php/conf.d rather than uncommenting php.ini, which
+# pacman owns and replaces with a .pacnew on the next php upgrade.
+php_ini="${SCRIPT_DIR}/config/php/conf.d/99-hashiru.ini"
+if is_pkg_installed "php" && [[ -f "${php_ini}" ]]; then
+    log_info "Enabling PHP extensions: $(sed -n 's/^extension=//p' "${php_ini}" | tr '\n' ' ')"
+    sudo install -Dm644 "${php_ini}" /etc/php/conf.d/99-hashiru.ini
+
+    # Re-comment anything in php.ini the drop-in now enables. Loading a module
+    # twice is not additive — PHP prints `Module "curl" is already loaded` on
+    # every invocation — and these lines are hand-edits from before Hashiru
+    # owned this, so commenting them moves php.ini back toward pristine rather
+    # than away from it. No-op on a machine that never had them.
+    while IFS= read -r ext; do
+        [[ -n "${ext}" ]] || continue
+        grep -q "^extension=${ext}\$" /etc/php/php.ini || continue
+        sudo sed -i "s/^extension=${ext}\$/;extension=${ext}/" /etc/php/php.ini
+        log_warn "Commented extension=${ext} in php.ini; conf.d/99-hashiru.ini enables it now"
+    done < <(sed -n 's/^extension=//p' "${php_ini}")
+fi
+unset php_ini
+
 # Ensure a default Rust toolchain is set up. The rustup package alone installs
 # no toolchain, so cargo is unusable until a default is chosen. Needed because
 # blink.cmp (neovim) builds its Rust fuzzy-matching library from source on first
