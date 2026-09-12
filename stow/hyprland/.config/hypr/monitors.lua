@@ -24,8 +24,12 @@
 --
 -- Match by description instead, so the rule follows the physical display
 -- between ports and machines rather than firing on whatever is plugged into
--- DP-1 today:
--- hl.monitor({ output = "desc:BNQ BenQ GL2780 ETN7L07855SL0", mode = "1920x1080@74.97", position = "0x0", scale = 1 })
+-- DP-1 today. A prefix of the description is enough, so the vendor id alone
+-- catches any monitor from that vendor; append the serial only to tell two
+-- identical displays apart. Keep `preferred` unless you have confirmed the mode
+-- exists — a display reached through a dock often advertises fewer modes than
+-- its spec sheet does, and asking for one it does not offer is a black screen:
+-- hl.monitor({ output = "desc:BNQ BenQ GL2780", mode = "preferred", position = "0x0", scale = 1 })
 --
 -- Rotate a quarter turn (transform 1 = 90°, 2 = 180°, 3 = 270°):
 -- hl.monitor({ output = "DP-1", mode = "2560x1080@60", position = "2560x0", scale = 1, transform = 1 })
