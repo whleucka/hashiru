@@ -36,7 +36,11 @@ GRUB_TUNE="1750 523 1 392 1 523 1 659 1 784 1 1047 1 784 1 415 1 523 1 622 1 831
 log_info "Setting GRUB_INIT_TUNE"
 grub_opt "GRUB_INIT_TUNE" "${GRUB_TUNE}"
 
+# Two seconds on a fresh machine, but grub-btrfs and a few dozen snapper
+# snapshots turn this into the second-longest step in a run, and it is the only
+# other unlabelled one.
 log_info "Regenerating grub.cfg"
+progress_set "regenerating grub.cfg"
 sudo grub-mkconfig -o /boot/grub/grub.cfg
 
 script_end "15-grub.sh"

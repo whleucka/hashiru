@@ -50,6 +50,7 @@ else
     fi
     if command -v reflector &>/dev/null; then
         log_info "Ranking pacman mirrors (reflector, ~1 min)"
+        progress_set "ranking mirrors (reflector, ~1 min)"
         if sudo reflector --protocol https --latest 10 --sort rate \
             --save /etc/pacman.d/mirrorlist; then
             log_success "Mirrorlist updated with fastest mirrors"
@@ -59,8 +60,17 @@ else
     fi
 fi
 
-# Update system first
+# Update system first.
+#
+# This is the longest single thing a routine update does — on a week's worth of
+# Arch it is the whole run, the other eight stages landing in a couple of
+# seconds between them. _log() drops INFO from the console in quiet mode on the
+# grounds that "the bar's own label describes it", so without the progress_set
+# the bar sits at [1/9] 0% with an empty label for the duration and reads as a
+# hang. Label it before the transaction, not after: install_packages only gets
+# to speak once this has already returned.
 log_info "Updating system packages"
+progress_set "system upgrade (pacman -Syu)"
 sudo pacman -Syu --noconfirm
 
 # Install base packages
