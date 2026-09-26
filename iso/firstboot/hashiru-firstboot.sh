@@ -66,6 +66,10 @@ BANNER
   } > /dev/tty1
 fi
 
+# archinstall copies its log onto the target world-readable, and it records the
+# install, so it goes root-only whether or not this archinstall redacts it.
+chmod -R go-rwx /var/log/archinstall 2>/dev/null || true
+
 printf '%s ALL=(ALL) NOPASSWD: ALL\n' "${HASHIRU_USER}" > "${SUDOERS}"
 chmod 440 "${SUDOERS}"
 

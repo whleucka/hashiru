@@ -271,12 +271,14 @@ jq --argjson sz "${BTRFS_SIZE}" '
 # (plaintext) and "users" (each user takes a plaintext password under the
 # "!password" key). root_enc_password is omitted, leaving root locked — the
 # user has sudo. See iso/README.md if the archinstall version changes.
-HUSER="${HUSER}" HPASS="${HPASS}" HLUKS="${HLUKS}" jq -n \
-  '{
-     "encryption_password": $ENV.HLUKS,
-     "users": [ { "username": $ENV.HUSER, "!password": $ENV.HPASS, "sudo": true, "groups": [] } ]
-   }' > "${CREDS_RUN}"
-chmod 600 "${CREDS_RUN}"
+# umask in a subshell so the file is born 600 rather than chmod'ed after; a
+# script-wide umask would reach archinstall and every file it installs.
+( umask 077
+  HUSER="${HUSER}" HPASS="${HPASS}" HLUKS="${HLUKS}" jq -n \
+    '{
+       "encryption_password": $ENV.HLUKS,
+       "users": [ { "username": $ENV.HUSER, "!password": $ENV.HPASS, "sudo": true, "groups": [] } ]
+     }' > "${CREDS_RUN}" )
 
 # --- hand off to archinstall --------------------------------------------------
 say "Launching archinstall — this installs the base system (several minutes)…"
@@ -306,7 +308,7 @@ if [[ -n "${WIFI_SSID}" ]]; then
   # Sanitise only the filename; id/ssid keep the exact SSID.
   NMFILE="${NMDIR}/$(printf '%s' "${WIFI_SSID}" | tr -c 'A-Za-z0-9._-' '_').nmconnection"
   mkdir -p "${NMDIR}"
-  cat > "${NMFILE}" <<EOF
+  ( umask 077; cat > "${NMFILE}" ) <<EOF
 [connection]
 id=${WIFI_SSID}
 type=wifi
