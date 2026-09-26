@@ -51,11 +51,12 @@ class=$(awk '/^[[:space:]]*class:/{print $2; exit}' <<<"$info")
 pid=$(awk '/^[[:space:]]*pid:/{print $2; exit}'   <<<"$info")
 
 inject=0
-if [ "$class" = "kitty" ] && [ -S "/tmp/mykitty-$pid" ]; then
+sock="${XDG_RUNTIME_DIR}/mykitty-$pid"   # kitty.conf listen_on, plus the pid kitty appends
+if [ "$class" = "kitty" ] && [ -S "$sock" ]; then
   # Prefer the focused kitty window; fall back to any window of this instance.
   # (is_focused goes false everywhere the moment kitty is not the active OS
   # window, so the fallback keeps a focus race from breaking the herdr case.)
-  fg=$(timeout 1 kitty @ --to "unix:/tmp/mykitty-$pid" ls 2>/dev/null |
+  fg=$(timeout 1 kitty @ --to "unix:$sock" ls 2>/dev/null |
        jq -r '[..|objects|select(has("foreground_processes"))] as $w
               | (first($w[]|select(.is_focused == true)) // $w[0])
               | [.foreground_processes[]?.cmdline|join(" ")]|join(" ")' 2>/dev/null)
@@ -65,7 +66,7 @@ if [ "$class" = "kitty" ] && [ -S "/tmp/mykitty-$pid" ]; then
 fi
 
 if [ "$inject" = 1 ]; then
-  kitty @ --to "unix:/tmp/mykitty-$pid" send-key "ctrl+alt+$key"
+  kitty @ --to "unix:$sock" send-key "ctrl+alt+$key"
 else
   hyprctl dispatch "hl.dsp.focus({ direction = \"$dir\" })"
 fi

@@ -6,7 +6,9 @@
 # every machine. Location is resolved at click time instead, from the same
 # wttr.in the bar's text already comes from — no extra service, no extra package.
 
-CACHE_FILE="/tmp/waybar-weather-url-cache"
+# Runtime dir, not /tmp: whatever this file says gets opened in the browser, so
+# another account must not be able to write it first.
+CACHE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/waybar-weather-url-cache"
 CACHE_MAX_AGE=86400  # a day; a laptop can move, but not often
 FALLBACK_URL="https://wttr.in"
 

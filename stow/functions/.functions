@@ -315,7 +315,8 @@ cc() {
   fi
 
   # Temporary tarball
-  local tmp="/tmp/$(basename "$source")_$(date +%Y%m%d_%H%M%S).tar.gz"
+  local tmp
+  tmp="$(mktemp --suffix=.tar.gz)" || return 1
 
   # Progress bars need pv and an interactive terminal
   local progress=0
