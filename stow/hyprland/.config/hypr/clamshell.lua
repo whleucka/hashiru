@@ -20,14 +20,30 @@
 
 local PANEL = "eDP-1"
 
--- Must match the panel's rule in monitors.lua.
-local PANEL_RULE = {
-    output   = PANEL,
-    mode     = "1920x1200@60",
-    position = "0x1080",
-    scale    = 1,
-    disabled = false, -- explicit: omitting it leaves the panel disabled
-}
+-- The rule that brings the panel back: the panel as it was the last time we saw
+-- it lit. Its mode, position and scale belong to monitors.lua -- Hashiru's
+-- catch-all, or a machine-local ~/.config/hashiru/hypr/monitors.lua -- never to
+-- this file; hardcoding them here put every laptop's panel where one ThinkPad's
+-- goes. remember_panel() captures it from the live monitor just before every
+-- disable, which is the one moment it is about to be lost.
+--
+-- nil until then. That state is lost on a config reload, but a reload re-runs
+-- monitors.lua, which lights the panel again, so the next disable re-captures
+-- it before anything needs it.
+local panel_rule = nil
+
+local function remember_panel()
+    local m = hl.get_monitor(PANEL)
+    if not m then return end
+    panel_rule = {
+        output    = PANEL,
+        mode      = string.format("%dx%d@%.3f", m.width, m.height, m.refresh_rate),
+        position  = string.format("%dx%d", m.x, m.y),
+        scale     = m.scale,
+        transform = m.transform,
+        disabled  = false,
+    }
+end
 
 -- How long to let a lid event settle before trusting /proc (see lid_closed),
 -- and how long to let a modeset finish before suspending on an undock.
@@ -99,7 +115,11 @@ end
 
 -- Bring the panel back, and make sure it is actually lit.
 --
--- Re-applying PANEL_RULE is not sufficient on its own for two separate reasons,
+-- A panel that is already lit is left exactly as it is: its geometry is
+-- monitors.lua's to decide, and a reload lands here with the layout just
+-- applied. Overriding it is what dragged the panel off to "auto" position.
+--
+-- Re-applying panel_rule is not sufficient on its own for two separate reasons,
 -- and both produce the same symptom -- a black panel that Hyprland insists is
 -- fine. One: a rule identical to what is already in the config can be accepted
 -- and do nothing, so the panel stays out of the layout. Two: a monitor can be
@@ -111,13 +131,18 @@ end
 -- appearing or vanishing, or a config reload -- all of them a person doing
 -- something -- so waking the screen is the wanted answer even when hypridle
 -- has just blanked it.
+--
+-- With nothing remembered, the layout is the only source of truth: reload it,
+-- then flip just `disabled` back, which leaves the layout's geometry in place.
 local function enable_panel()
-    hl.monitor(PANEL_RULE)
+    if not panel_on() and panel_rule then
+        hl.monitor(panel_rule)
+    end
 
     if not panel_on() then
         log("panel did not return from its rule; reloading the monitor layout")
         reload_monitors()
-        hl.monitor(PANEL_RULE)
+        hl.monitor(panel_rule or { output = PANEL, disabled = false })
     end
 
     if panel_on() then
@@ -136,6 +161,7 @@ end
 local function sync(skip)
     if lid_closed() and external_present(skip) then
         if panel_on() then
+            remember_panel()
             hl.monitor({ output = PANEL, disabled = true })
         end
     else
