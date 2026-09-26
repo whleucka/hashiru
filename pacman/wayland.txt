@@ -30,6 +30,16 @@ lib32-vulkan-nouveau
 # GTK theming (Adwaita-dark variant for GTK3 apps)
 gnome-themes-extra
 
+# GPG passphrase prompts. /usr/bin/pinentry tries gnome3, then gtk, then qt,
+# then curses, and skips a backend only when ldd reports a missing library.
+# pinentry-gnome3 needs gcr (the GTK3 one, not gcr-4), and nothing else pulls it
+# in. Without it, signing a commit or decrypting a file falls through to a
+# backend that cannot draw on this desktop and fails with "No such file or
+# directory".
+gnupg
+pinentry
+gcr
+
 # Audio (PipeWire)
 pipewire
 pipewire-alsa

@@ -17,7 +17,7 @@ fi
 # Environment
 # ----------------------------------------------------------------------------
 export TMPDIR="/tmp"
-export GPG_TTY=$(tty)
+export GPG_TTY=$TTY  # not $(tty): instant prompt has stdin redirected here, so tty says "not a tty"
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 export PKGEXT='.pkg.tar'
