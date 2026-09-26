@@ -22,7 +22,7 @@ fetch_weather() {
 
 # Function to fetch weather tooltip (more detailed)
 fetch_tooltip() {
-    curl -s --max-time 10 'https://wttr.in/?format=%l:+%C,+feels+like+%f\n%w+wind\n%h+humidity\n%p+pressure' | head -4
+    curl -s --max-time 10 'https://wttr.in/?format=%l:+%C,+feels+like+%f\n%w+wind\n%h+humidity\n%P+pressure' | head -4
 }
 
 # Check if cache exists and is recent
