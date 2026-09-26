@@ -108,6 +108,34 @@ _untracked_count() {
     git -C "${HASHIRU_ROOT}" ls-files --others --exclude-standard 2>/dev/null | wc -l
 }
 
+# The keys an update must be signed by. Read from the commit already checked
+# out, never from the one being pulled: a key taken from the new tree would let
+# whoever pushed it vouch for themselves. Rotating a key is therefore a commit
+# that adds the new key to this file, signed with the old one.
+readonly SIGNING_KEYS="keys/hashiru.asc"
+
+# Succeeds if <candidate> is signed by a key in <trusted>:SIGNING_KEYS. Only the
+# tip is checked; each commit hash covers its parents, so that vouches for the
+# history under it. The keyring is a throwaway holding nothing but those keys,
+# so a good signature (G, or U for "valid but not ownertrusted") can only have
+# come from one of them, whatever the user's own keyring trusts.
+_verify_signed() {
+    local trusted="$1" candidate="$2" gnupghome status
+    if ! git -C "${HASHIRU_ROOT}" cat-file -e "${trusted}:${SIGNING_KEYS}" 2>/dev/null; then
+        # Checkouts older than the key file have nothing to check against. They
+        # take this one pull on trust, and it brings the key with it.
+        log_warn "No ${SIGNING_KEYS} in ${trusted:0:12}; this update is unverified, the next one will not be"
+        return 0
+    fi
+    gnupghome="$(mktemp -d)" || return 1
+    git -C "${HASHIRU_ROOT}" show "${trusted}:${SIGNING_KEYS}" |
+        GNUPGHOME="${gnupghome}" gpg --batch --quiet --import 2>/dev/null
+    status="$(GNUPGHOME="${gnupghome}" git -C "${HASHIRU_ROOT}" log -1 --format=%G? "${candidate}" 2>/dev/null)"
+    GNUPGHOME="${gnupghome}" gpgconf --kill all 2>/dev/null
+    rm -rf "${gnupghome}"
+    [[ "${status}" == G || "${status}" == U ]]
+}
+
 cmd_update() {
     if [[ ! -d "${HASHIRU_ROOT}/.git" ]]; then
         log_error "${HASHIRU_ROOT} is not a git checkout — cannot update."
@@ -136,13 +164,30 @@ cmd_update() {
         log_info "${untracked} untracked file(s) in the checkout — left alone by this update"
     fi
 
-    local before after
+    local before after upstream
     before="$(git -C "${HASHIRU_ROOT}" rev-parse HEAD)"
 
+    # Fetch, verify, then fast-forward, rather than `git pull`: whatever lands
+    # here runs through sudo on the next line, so pushing to the repo must not
+    # be enough on its own to run code on this machine.
     log_info "Pulling latest Hashiru into ${HASHIRU_ROOT}"
-    if ! git -C "${HASHIRU_ROOT}" pull --ff-only; then
-        log_error "Pull failed — resolve it manually, then re-run 'hashiru update'."
+    if ! git -C "${HASHIRU_ROOT}" fetch --quiet ||
+       ! upstream="$(git -C "${HASHIRU_ROOT}" rev-parse --verify --quiet '@{upstream}')"; then
+        log_error "Fetch failed — resolve it manually, then re-run 'hashiru update'."
         exit 1
+    fi
+
+    if ! git -C "${HASHIRU_ROOT}" merge-base --is-ancestor "${upstream}" HEAD; then
+        if ! _verify_signed "${before}" "${upstream}"; then
+            log_error "${upstream:0:12} is not signed by a key in ${SIGNING_KEYS} — not updating."
+            log_error "Inspect: git -C ${HASHIRU_ROOT} log --show-signature HEAD..@{upstream}"
+            log_error "To take it anyway: git -C ${HASHIRU_ROOT} merge --ff-only @{upstream} && hashiru install"
+            exit 1
+        fi
+        if ! git -C "${HASHIRU_ROOT}" merge --ff-only --quiet "${upstream}"; then
+            log_error "Fast-forward failed — resolve it manually, then re-run 'hashiru update'."
+            exit 1
+        fi
     fi
 
     after="$(git -C "${HASHIRU_ROOT}" rev-parse HEAD)"
