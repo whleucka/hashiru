@@ -41,9 +41,18 @@ else
     log_info "Shell already set to zsh"
 fi
 
-# Set up TTY1 auto-login
+# Set up TTY1 auto-login, but only when / is on LUKS: then the disk passphrase
+# at boot is the login. On a plain disk it would hand the desktop to anyone who
+# powers the machine on. hyprlock still guards suspend and idle either way.
 AUTOLOGIN_DIR="/etc/systemd/system/getty@tty1.service.d"
-if [[ ! -f "${AUTOLOGIN_DIR}/autologin.conf" ]]; then
+if ! lsblk -nso TYPE "$(findmnt -nvo SOURCE /)" 2>/dev/null | grep -qx crypt; then
+    if [[ -f "${AUTOLOGIN_DIR}/autologin.conf" ]]; then
+        sudo rm -f "${AUTOLOGIN_DIR}/autologin.conf"
+        log_warn "Root is not on LUKS: removed TTY1 auto-login (log in on tty1 from next boot)"
+    else
+        log_info "Root is not on LUKS: skipping TTY1 auto-login"
+    fi
+elif [[ ! -f "${AUTOLOGIN_DIR}/autologin.conf" ]]; then
     log_info "Configuring TTY1 auto-login for ${USER}"
     sudo mkdir -p "${AUTOLOGIN_DIR}"
     sudo tee "${AUTOLOGIN_DIR}/autologin.conf" > /dev/null << EOF
