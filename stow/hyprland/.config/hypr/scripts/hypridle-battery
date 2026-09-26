@@ -1,25 +1,30 @@
 #!/usr/bin/env bash
-# Start/stop hypridle based on AC power state.
-# On battery: start hypridle. On AC: stop hypridle.
+# Keep hypridle running with the config for the current power source:
+# hypridle-battery.conf on battery, hypridle-ac.conf on AC.
+#
+# hypridle always runs. It used to be stopped on AC, and it is also what locks
+# the screen before sleep, so a lid closed on AC resumed straight to the desktop.
+# A machine with no AC supply (a desktop) counts as AC.
 
 AC_PATH="/sys/class/power_supply/AC/online"
+CONF_DIR="${HOME}/.config/hypr"
+mode=""
 
-start_idle() {
-    if ! pidof hypridle > /dev/null; then
-        hypridle &
-        disown
-    fi
-}
-
-stop_idle() {
-    pkill hypridle 2>/dev/null
+run_idle() {
+    [[ "$1" == "${mode}" ]] && pidof hypridle > /dev/null && return
+    # -x: without it the pattern also matches this script's own process name.
+    pkill -x hypridle 2>/dev/null
+    while pidof hypridle > /dev/null; do sleep 0.1; done
+    hypridle -c "${CONF_DIR}/hypridle-$1.conf" &
+    disown
+    mode="$1"
 }
 
 update() {
-    if [[ "$(cat "$AC_PATH")" == "0" ]]; then
-        start_idle
+    if [[ -r "${AC_PATH}" && "$(cat "${AC_PATH}")" == "0" ]]; then
+        run_idle battery
     else
-        stop_idle
+        run_idle ac
     fi
 }
 
