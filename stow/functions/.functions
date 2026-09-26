@@ -121,7 +121,7 @@ portal() {
 }
 
 what() {
-    curl cheat.sh/$1;
+    curl "https://cheat.sh/$1"
 }
 
 killer() {
@@ -261,6 +261,11 @@ bd() {
   fi
 
   log "Starting backup of '$source' to '$target' at $(date)"
+
+  # Create the image as ours and 600 first: left to `sudo dd` it is born
+  # root-owned 644, a whole disk readable by every account. dd writes into the
+  # existing file, which keeps its owner and mode.
+  ( umask 077; : > "$target" ) || return 1
 
   # Perform the dd backup
   if sudo dd if="$source" of="$target" bs=4M status=progress conv=noerror,sync; then

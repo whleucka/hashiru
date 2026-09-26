@@ -28,8 +28,7 @@ section() { echo; echo -e "${BLUE}:: $*${NC}"; }
 section "Install"
 
 if [[ -f /etc/hashiru-release ]]; then
-    # shellcheck source=/dev/null
-    source /etc/hashiru-release
+    read_release_stamp
     # HASHIRU_VERSION arrived in v1.7.2; machines stamped before it have only a
     # commit, and printing that twice reads worse than not printing it at all.
     if [[ -n "${HASHIRU_VERSION:-}" ]]; then

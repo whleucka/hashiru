@@ -53,16 +53,24 @@ list() {
 _bind="/sys/bus/usb/drivers/usb/bind"
 _unbind="/sys/bus/usb/drivers/usb/unbind"
 
+# The id is written by root, so it is checked against the bus-port shape
+# (1-2, 3-1.4) and passed as data to tee, never spliced into a root shell.
+check_id() {
+    [[ "$1" =~ ^[0-9]+-[0-9]+(\.[0-9]+)*$ ]] || { echo "Not a bus-port id: $1 (see usb --list)" >&2; exit 1; }
+}
+
 bind_usb() {
-    sudo su - root -c "echo $1 > $_bind"
+    check_id "$1"
+    printf '%s' "$1" | sudo tee "$_bind" > /dev/null
 }
 
 unbind_usb() {
-    sudo su - root -c "echo $1 > $_unbind"
+    check_id "$1"
+    printf '%s' "$1" | sudo tee "$_unbind" > /dev/null
 }
 
 reset_usb() {
-    sudo su - root -c "echo $1 > $_unbind && sleep 1 && echo $1 > $_bind"
+    unbind_usb "$1" && sleep 1 && bind_usb "$1"
 }
 
 ARGS=()
@@ -111,9 +119,9 @@ if [ $# -eq 0 ]; then
     exit 0
 fi
 
-[[ ! -z "$BIND" ]] && bind_usb $1
-[[ ! -z "$UNBIND" ]] && unbind_usb $1
-[[ ! -z "$RESET" ]] && reset_usb $1
+[[ ! -z "$BIND" ]] && bind_usb "$1"
+[[ ! -z "$UNBIND" ]] && unbind_usb "$1"
+[[ ! -z "$RESET" ]] && reset_usb "$1"
 
 
 exit

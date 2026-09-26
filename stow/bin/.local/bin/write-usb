@@ -10,6 +10,18 @@ blocksize=${3:-4M}
 [[ -f "$input"  ]] || { echo "input is not a file: $input"        >&2; exit 1; }
 [[ -b "$output" ]] || { echo "output is not a block device: $output" >&2; exit 1; }
 
+# Anything mounted on it (the disk or any partition) means it is in use, and is
+# how a mistyped /dev/nvme0n1 would otherwise take the running system with it.
+if lsblk -nro MOUNTPOINTS "$output" | grep -q .; then
+    echo "$output has mounted filesystems — refusing:" >&2
+    lsblk -o NAME,SIZE,MOUNTPOINTS "$output" >&2
+    exit 1
+fi
+
+echo "ALL DATA on $output ($(lsblk -dno SIZE,MODEL "$output" | tr -s ' ')) will be destroyed."
+read -rp "Type 'yes' to write $input to it: " confirm
+[[ "$confirm" == "yes" ]] || { echo "Aborted." >&2; exit 1; }
+
 # Authenticate up front so the sudo password prompt doesn't appear mid-write and
 # clobber the pv progress bar.
 sudo -v

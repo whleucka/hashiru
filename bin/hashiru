@@ -404,8 +404,7 @@ cmd_config() {
 
 cmd_status() {
     if [[ -f /etc/hashiru-release ]]; then
-        # shellcheck source=/dev/null
-        source /etc/hashiru-release
+        read_release_stamp
         local commit="${HASHIRU_COMMIT:-unknown}"
         echo "version:   ${HASHIRU_VERSION:-unknown}"
         echo "commit:    ${commit:0:12}"

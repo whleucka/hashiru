@@ -546,6 +546,21 @@ _install_date() {
     date -Is
 }
 
+# Load /etc/hashiru-release into HASHIRU_VERSION, _COMMIT, _INSTALL_DATE and
+# _UPDATED. Parsed, never sourced: VERSION is `git describe` output, git allows
+# `$(…)` in a tag name, and tags are not covered by update's signature check, so
+# sourcing it would run whatever a pushed tag was named.
+read_release_stamp() {
+    local key value
+    [[ -r /etc/hashiru-release ]] || return 1
+    while IFS='=' read -r key value; do
+        case "${key}" in
+            HASHIRU_VERSION|HASHIRU_COMMIT|HASHIRU_INSTALL_DATE|HASHIRU_UPDATED)
+                printf -v "${key}" '%s' "${value}" ;;
+        esac
+    done < /etc/hashiru-release
+}
+
 # Record which Hashiru this machine is running, in /etc/hashiru-release.
 #
 # One writer, called from install.sh *before* the reboot prompt. `hashiru
