@@ -2,8 +2,8 @@
 # stage0.sh — Hashiru live installer front-end.
 #
 # Runs in the archiso live environment (tty1). Collects the only things that
-# vary per machine — keyboard, username, password, timezone, target disk (+
-# optional separate LUKS passphrase) — splices them into the archinstall config, then
+# vary per machine — keyboard, username, password, hostname, timezone,
+# language, target disk (+ optional separate LUKS passphrase) — splices them into the archinstall config, then
 # hands off to archinstall, which owns partitioning, LUKS, pacstrap, fstab,
 # bootloader and user creation. Hashiru itself bootstraps on first boot.
 #
@@ -18,7 +18,9 @@ set -euo pipefail
 CONFIG_SRC="/root/archinstall/user_config.json"
 CONFIG_RUN="/root/user_config.json"
 CREDS_RUN="/root/user_creds.json"
-DEFAULT_TZ="America/Toronto"
+DEFAULT_TZ="UTC"
+DEFAULT_LOCALE="en_US.UTF-8"
+LOCALES_SUPPORTED="/usr/share/i18n/SUPPORTED"
 DEFAULT_HOSTNAME="hashiru"
 DEFAULT_KEYMAP="us"
 KBD_MODEL_MAP="/usr/share/systemd/kbd-model-map"
@@ -26,7 +28,8 @@ SHOW_ALL_KEYMAPS="Show all keymaps…"
 DRY_RUN=0
 
 # The steps, in order, as the rail shows them.
-STEPS=(Network Keyboard Account Machine Disk)
+# Keyboard comes first: the WiFi passphrase in Network is already typed on it.
+STEPS=(Keyboard Network Account Machine Disk)
 
 # The shared installer UI — banner, Tokyo Night palette, prompts. build.sh
 # copies lib/ui.sh from the repo to /root/lib/ui.sh, beside this script.
@@ -152,6 +155,30 @@ ask_network() {
     exit 1
   fi
   ui_success "Network is up."
+  detect_timezone
+}
+
+# --- timezone from the network ------------------------------------------------
+# Only a starting point for the Machine step's picker, shown there and never
+# applied on its own. ipinfo.io answers in plain text; ipwho.is is the JSON
+# fallback. 3 s each, so an offline or rate-limited run costs at most ~6 s.
+# Whatever comes back must name a real zoneinfo file, and the pattern keeps a
+# hostile or broken answer (HTML, "../../etc/passwd") from getting that far.
+valid_timezone() {
+  [[ "$1" =~ ^[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)*$ && -f "/usr/share/zoneinfo/$1" ]]
+}
+
+detect_timezone() {
+  local tz
+  tz="$(curl -fsS --max-time 3 https://ipinfo.io/timezone 2>/dev/null)" || tz=""
+  if ! valid_timezone "${tz}"; then
+    tz="$(curl -fsS --max-time 3 https://ipwho.is/ 2>/dev/null | jq -r '.timezone.id // empty' 2>/dev/null)" || tz=""
+  fi
+  if valid_timezone "${tz}"; then
+    HTZ_DETECTED="${tz}"
+  else
+    HTZ_DETECTED="${DEFAULT_TZ}"
+  fi
 }
 
 # --- step: keyboard -----------------------------------------------------------
@@ -287,11 +314,16 @@ ask_machine() {
     HHOST="$(ui_input "Hostname" "${DEFAULT_HOSTNAME}")"
   done
 
-  HTZ="$(ui_input "Timezone" "${HTZ:-${DEFAULT_TZ}}")"
-  until [[ -n "${HTZ}" && -f "/usr/share/zoneinfo/${HTZ}" ]]; do
-    err "Unknown timezone '${HTZ}'. Example: Europe/Berlin"
-    HTZ="$(ui_input "Timezone" "${DEFAULT_TZ}")"
-  done
+  # Pickers, so an answer is always one archinstall accepts.
+  HTZ="$(timedatectl list-timezones --no-pager \
+         | ui_filter "Timezone" "${HTZ:-${HTZ_DETECTED:-${DEFAULT_TZ}}}")"
+  HLOCALE="$(system_locales | ui_filter "Language" "${HLOCALE:-${DEFAULT_LOCALE}}")"
+}
+
+# The UTF-8 locales glibc can generate, as archinstall's sys_lang wants them
+# (en_US.UTF-8, sr_RS@latin). C.UTF-8 is always there, so it isn't a choice.
+system_locales() {
+  awk '$2 == "UTF-8" && $1 != "C.UTF-8" { print $1 }' "${LOCALES_SUPPORTED}"
 }
 
 # --- step: disk -------------------------------------------------------------------
@@ -360,6 +392,7 @@ splice_config() {
   say "Preparing archinstall configuration…"
   sed -e "s|__TIMEZONE__|${HTZ}|g" \
       -e "s|__KB_LAYOUT__|${HKEYMAP}|g" \
+      -e "s|__SYS_LANG__|${HLOCALE}|g" \
       -e "s|__HOSTNAME__|${HHOST}|g" \
       -e "s|__HASHIRU_USER__|${HUSER}|g" \
       -e "s|__TARGET_DISK__|${HDISK}|g" \
@@ -509,8 +542,8 @@ main() {
   ui_splash "Arch + Hyprland live installer" "Press Enter to begin"
   require_uefi
 
-  ask_network
   ask_keyboard
+  ask_network
   ask_account
   ask_machine
   ask_disk
