@@ -46,6 +46,54 @@ EOF
 # to the user rather than leaving it root-owned.
 chown -R "${HUSER}:${HUSER}" "${REPO}"
 
+# Hyprland reads its own kb_layout and ignores the system keymap, so without
+# this a uk or de install gets a us desktop. The keymap picked in stage0 is
+# already here as an xkb layout: archinstall set it with localectl before
+# creating the user, and systemd-localed wrote the X11 equivalent from its
+# kbd-model-map. Turn that into ~/.config/hashiru/hypr/local.lua, the
+# machine-local override Hashiru never touches.
+#
+# Done here, not in stage0, because this runs inside the target while it is
+# certainly mounted; after archinstall returns, stage0 can't count on /mnt.
+# Created only if absent, and nothing for plain us. Of the options only the
+# grp: ones are kept (how a two-layout map like ru,us switches), and
+# caps:super is repeated because kb_options is one string: setting the switch
+# alone would drop Hashiru's Caps-as-Super.
+write_hypr_keyboard() {
+  local conf="${X11_KEYBOARD_CONF:-/etc/X11/xorg.conf.d/00-keyboard.conf}"
+  local file="${USER_HOME}/.config/hashiru/hypr/local.lua"
+  local layout variant options grp='' opt dir fields
+  [[ -r "${conf}" && ! -e "${file}" ]] || return 0
+  xkb_option() { sed -n "s/^[[:space:]]*Option[[:space:]]*\"$1\"[[:space:]]*\"\([^\"]*\)\".*/\1/p" "${conf}" | head -1; }
+  layout="$(xkb_option XkbLayout)"
+  variant="$(xkb_option XkbVariant)"
+  options="$(xkb_option XkbOptions)"
+  [[ -n "${layout}" ]] || return 0
+  [[ "${layout}" == "us" && -z "${variant}" ]] && return 0
+  # Only what an xkb name can hold, so nothing odd lands inside a Lua string.
+  [[ "${layout}${variant}${options}" =~ ^[A-Za-z0-9_,:()+-]*$ ]] || return 0
+
+  local IFS=,
+  for opt in ${options}; do
+    [[ "${opt}" == grp* ]] && grp+="${grp:+,}${opt}"
+  done
+  unset IFS
+
+  fields="kb_layout = \"${layout}\""
+  [[ -n "${variant}" ]] && fields+=", kb_variant = \"${variant}\""
+  [[ -n "${grp}" ]] && fields+=", kb_options = \"caps:super,${grp}\""
+
+  for dir in "${USER_HOME}/.config" "${USER_HOME}/.config/hashiru" "${USER_HOME}/.config/hashiru/hypr"; do
+    [[ -d "${dir}" ]] || install -d -m 755 -o "${HUSER}" -g "${HUSER}" "${dir}"
+  done
+  printf '%s\n' \
+    "-- Written by the Hashiru installer for this machine's keyboard (${layout}${variant:+ ${variant}})." \
+    "-- Yours from here on: nothing in Hashiru overwrites this file." \
+    "hl.config({ input = { ${fields} } })" \
+    | install -m 644 -o "${HUSER}" -g "${HUSER}" /dev/stdin "${file}"
+}
+write_hypr_keyboard
+
 # Convenience only — the real location is /opt/hashiru.
 ln -sfn "${REPO}" "${USER_HOME}/hashiru"
 chown -h "${HUSER}:${HUSER}" "${USER_HOME}/hashiru"

@@ -183,9 +183,10 @@ detect_timezone() {
 
 # --- step: keyboard -----------------------------------------------------------
 # The console keymap archinstall sets (vconsole.conf) never reaches Hyprland,
-# which reads its own input:kb_layout. So the pick is translated to xkb here,
-# through the same table localectl uses, and written into the new user's
-# ~/.config/hashiru/hypr/local.lua after the install (write_local_lua).
+# which reads its own input:kb_layout. install-firstboot.sh writes that into
+# the new user's ~/.config/hashiru/hypr/local.lua from the X11 layout localed
+# derives. Here the same table (kbd-model-map) only tells the review card what
+# Hyprland will get, and warns when a keymap has no match.
 
 # xkb_for_keymap <keymap> — "layout|variant|options" from the first matching
 # kbd-model-map row, or non-zero if the keymap isn't in it. Options keep only
@@ -229,10 +230,10 @@ ask_keyboard() {
   fi
   HKEYMAP="${pick}"
 
-  if IFS='|' read -r HXKB_LAYOUT HXKB_VARIANT HXKB_OPTIONS < <(xkb_for_keymap "${HKEYMAP}"); then
+  if IFS='|' read -r HXKB_LAYOUT HXKB_VARIANT _ < <(xkb_for_keymap "${HKEYMAP}"); then
     HXKB_MAPPED=1
   else
-    HXKB_MAPPED=0 HXKB_LAYOUT="us" HXKB_VARIANT="" HXKB_OPTIONS=""
+    HXKB_MAPPED=0 HXKB_LAYOUT="us" HXKB_VARIANT=""
     ui_warn "${HKEYMAP} has no desktop equivalent; Hyprland will stay on us."
     ui_warn "Set it later in ~/.config/hashiru/hypr/local.lua."
   fi
@@ -244,46 +245,6 @@ ask_keyboard() {
   else
     ui_warn "Couldn't switch this console to ${HKEYMAP}; it is still set for the install."
   fi
-}
-
-# local_lua — the override that puts Hyprland on the picked layout, on stdout.
-# Empty when there is nothing to say (us, or an unmapped keymap). caps:super
-# is repeated from hyprland.lua because kb_options is one string: setting the
-# layout switch alone would drop Hashiru's Caps-as-Super.
-local_lua() {
-  (( HXKB_MAPPED )) || return 0
-  [[ "${HXKB_LAYOUT}" == "us" && -z "${HXKB_VARIANT}" ]] && return 0
-  local fields="kb_layout = \"${HXKB_LAYOUT}\""
-  [[ -n "${HXKB_VARIANT}" ]] && fields+=", kb_variant = \"${HXKB_VARIANT}\""
-  [[ -n "${HXKB_OPTIONS}" ]] && fields+=", kb_options = \"caps:super,${HXKB_OPTIONS}\""
-  printf '%s\n' \
-    "-- Written by the Hashiru installer for the keymap picked there (${HKEYMAP})." \
-    "-- Yours from here on: nothing in Hashiru overwrites this file." \
-    "hl.config({ input = { ${fields} } })"
-}
-
-# Into the installed system, after archinstall and while /mnt is mounted.
-# Created only if absent, owned by the new user (numeric ids from the target's
-# passwd: the live system has no such user).
-write_local_lua() {
-  local body home dir file uid gid
-  body="$(local_lua)"
-  [[ -n "${body}" ]] || return 0
-  home="/mnt/home/${HUSER}"
-  file="${home}/.config/hashiru/hypr/local.lua"
-  [[ -e "${file}" ]] && return 0
-  IFS=: read -r uid gid < <(awk -F: -v u="${HUSER}" '$1 == u { print $3 ":" $4 }' /mnt/etc/passwd)
-  if [[ -z "${uid}" ]]; then
-    ui_warn "No ${HUSER} in the new system's passwd; Hyprland keyboard left at us."
-    return 0
-  fi
-  for dir in "${home}/.config" "${home}/.config/hashiru" "${home}/.config/hashiru/hypr"; do
-    [[ -d "${dir}" ]] || install -d -m 755 -o "${uid}" -g "${gid}" "${dir}"
-  done
-  printf '%s\n' "${body}" > "${file}"
-  chown "${uid}:${gid}" "${file}"
-  chmod 644 "${file}"
-  say "Hyprland keyboard set to ${HXKB_LAYOUT}${HXKB_VARIANT:+ (${HXKB_VARIANT})} in ${file#/mnt}"
 }
 
 # --- step: account --------------------------------------------------------------
@@ -667,7 +628,6 @@ main() {
 
   run_archinstall
   seed_wifi
-  write_local_lua
   offer_reboot
 }
 
