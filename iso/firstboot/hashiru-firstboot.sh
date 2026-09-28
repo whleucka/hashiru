@@ -43,15 +43,19 @@ trap cleanup EXIT
 # doesn't exist on a serial-console or headless boot, where the journal is the
 # only output that matters.
 if [[ -w /dev/tty1 ]]; then
+  # The shared installer UI, drawn on the block's stdout (tty1). It spots a VT
+  # from where the fd points, not from TERM, which this unit doesn't set, and
+  # loads the Tokyo Night palette before the clear so the background takes it.
+  # The palette stays with the VT, so install.sh's progress line below inherits
+  # it too.
   {
+    # shellcheck source=lib/ui.sh
+    source "${REPO}/lib/ui.sh"
+    HASHIRU_UI_FD=1
+    ui_console_palette
     printf '\033[H\033[2J'
-    cat <<'BANNER'
-==================================================
-        ▓░ ░ ▓▒▀▓ ▓█▀▀ ▓░ ░ ▓░ ▓█▀▓ ▓█ ░
-        ▒▓▀▒ ▒░▄▒ ▀▀▒▓ ▒▓▀▒ ▒▒ ▒▓▄▀ ▒▓ ▒
-        ░  ▓ ░  ░ ▄▄░▒ ░  ▓ ░▓ ░▒ ▒ ░▒▄▓
-                  First boot
-==================================================
+    ui_banner "First boot"
+    cat <<'MSG'
 Setting up your Hyprland desktop. This downloads
 and builds a fair amount, so it takes a while —
 leave it alone and it will reboot when it's done.
@@ -60,8 +64,8 @@ A progress line follows below. The full output of
 every stage goes to the install log instead of the
 screen; after the reboot, read it with
 `hashiru log` (or `hashiru report` for warnings).
-==================================================
-BANNER
+MSG
+    ui_rule
     echo
   } > /dev/tty1
 fi
