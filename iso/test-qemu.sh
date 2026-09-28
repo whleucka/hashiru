@@ -9,9 +9,9 @@
 # the ISO (the CD is still "in the drive"). Use `run` mode to boot the system
 # you just installed — the equivalent of pulling the USB stick out.
 #
-# Requires: qemu-desktop (NOT qemu-base — `-display gtk` below needs the gtk UI
-# module, which only the desktop/full packages pull in), edk2-ovmf (UEFI
-# firmware), and /dev/kvm.
+# Requires: qemu-base plus qemu-ui-gtk (`-display gtk` below needs the gtk UI
+# module, which qemu-base leaves out), edk2-ovmf (UEFI firmware), and /dev/kvm.
+# pacman/dev.txt installs all of them; the preflight below says what's missing.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,12 +37,12 @@ OVMF_VARS_SRC="/usr/share/edk2/x64/OVMF_VARS.4m.fd"
 missing_pkgs=()
 problems=()
 if ! command -v qemu-img &>/dev/null || ! command -v qemu-system-x86_64 &>/dev/null; then
-  missing_pkgs+=(qemu-desktop)
+  missing_pkgs+=(qemu-base qemu-ui-gtk)
   problems+=("QEMU is not installed (qemu-img / qemu-system-x86_64).")
 elif ! compgen -G '/usr/lib/qemu/ui-gtk*.so' >/dev/null; then
   # qemu-base has the binaries but not the gtk display this script opens.
   missing_pkgs+=(qemu-ui-gtk)
-  problems+=("QEMU has no gtk display module (qemu-base alone lacks it; qemu-desktop includes it).")
+  problems+=("QEMU has no gtk display module (qemu-base doesn't include it).")
 fi
 if [[ ! -f "${OVMF_CODE}" || ! -f "${OVMF_VARS_SRC}" ]]; then
   missing_pkgs+=(edk2-ovmf)
@@ -61,10 +61,20 @@ if (( ${#problems[@]} > 0 )); then
   done
   if (( ${#missing_pkgs[@]} > 0 )); then
     echo >&2
-    echo "   Install the missing packages with:" >&2
+    echo "   Install the missing packages with (pacman/dev.txt lists them, so" >&2
+    echo "   './install.sh 99' does the same):" >&2
     echo "     sudo pacman -S --needed ${missing_pkgs[*]}" >&2
   fi
   exit 1
+fi
+
+# Find the ISO before creating anything, so a missing build doesn't leave a
+# fresh 30 GiB disk image behind.
+ISO=""
+if [[ "${MODE}" == "install" ]]; then
+  # shellcheck disable=SC2012  # ls -t for newest-first is fine; our ISO names have no spaces
+  ISO="$(ls -t "${HERE}"/out/*.iso 2>/dev/null | head -1 || true)"
+  [[ -n "${ISO}" ]] || { echo "!! No ISO in ${HERE}/out/ — run 'sudo ./iso/build.sh' first." >&2; exit 1; }
 fi
 
 DISK="${HERE}/work/test-disk.qcow2"
@@ -93,9 +103,6 @@ if [[ "${MODE}" == "run" ]]; then
   echo "==> Booting the INSTALLED system from disk (no ISO attached)."
   QEMU_ARGS+=(-boot c)
 else
-  # shellcheck disable=SC2012  # ls -t for newest-first is fine; our ISO names have no spaces
-  ISO="$(ls -t "${HERE}"/out/*.iso 2>/dev/null | head -1 || true)"
-  [[ -n "${ISO}" ]] || { echo "No ISO in ${HERE}/out/. Run ./build.sh first."; exit 1; }
   echo "==> Booting installer ISO ${ISO##*/}"
   echo "    (after install + reboot, use './test-qemu.sh run' to boot the installed system)"
   QEMU_ARGS+=(-cdrom "${ISO}" -boot d)

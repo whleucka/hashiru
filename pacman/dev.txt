@@ -47,6 +47,15 @@ php-sqlite
 php-sodium
 composer
 
+# ISO build and test (iso/build.sh, iso/test-qemu.sh)
+archiso
+# qemu-base, not qemu-desktop: the two conflict, and install_packages runs
+# pacman --noconfirm, which answers "no" to replacing one with the other.
+# qemu-ui-gtk is the display test-qemu.sh opens; edk2-ovmf the UEFI firmware.
+qemu-base
+qemu-ui-gtk
+edk2-ovmf
+
 # Containers
 docker
 docker-compose

@@ -25,7 +25,7 @@ prompts.
 ## Build
 
 ```bash
-sudo pacman -S archiso          # one-time
+sudo pacman -S archiso          # one-time; pacman/dev.txt installs it
 sudo ./iso/build.sh             # → iso/out/hashiru-*.iso
 ```
 
@@ -36,11 +36,13 @@ upstream archiso for free.
 
 ## Test in QEMU (no hardware needed)
 
-Install qemu on arch linux
+`pacman/dev.txt` installs everything this needs (stage 99). By hand:
 
 ```bash
-sudo pacman -S qemu-desktop qemu-ui-gtk
+sudo pacman -S --needed archiso qemu-base qemu-ui-gtk edk2-ovmf
 ```
+
+`test-qemu.sh` checks for these before starting and says what's missing.
 
 ```bash
 ./iso/test-qemu.sh             # install mode — boots latest out/*.iso (the installer)
