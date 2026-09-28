@@ -28,6 +28,7 @@ rustup
 # C libraries (graphics)
 glfw
 glm
+shader-slang
 
 # Python
 python
@@ -43,6 +44,7 @@ pnpm
 # PHP
 php
 php-sqlite
+php-sodium
 composer
 
 # Containers
