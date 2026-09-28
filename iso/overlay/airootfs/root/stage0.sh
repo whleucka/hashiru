@@ -2,8 +2,8 @@
 # stage0.sh — Hashiru live installer front-end.
 #
 # Runs in the archiso live environment (tty1). Collects the only things that
-# vary per machine — username, password, timezone, target disk (+ optional
-# separate LUKS passphrase) — splices them into the archinstall config, then
+# vary per machine — keyboard, username, password, timezone, target disk (+
+# optional separate LUKS passphrase) — splices them into the archinstall config, then
 # hands off to archinstall, which owns partitioning, LUKS, pacstrap, fstab,
 # bootloader and user creation. Hashiru itself bootstraps on first boot.
 #
@@ -20,10 +20,13 @@ CONFIG_RUN="/root/user_config.json"
 CREDS_RUN="/root/user_creds.json"
 DEFAULT_TZ="America/Toronto"
 DEFAULT_HOSTNAME="hashiru"
+DEFAULT_KEYMAP="us"
+KBD_MODEL_MAP="/usr/share/systemd/kbd-model-map"
+SHOW_ALL_KEYMAPS="Show all keymaps…"
 DRY_RUN=0
 
 # The steps, in order, as the rail shows them.
-STEPS=(Network Account Machine Disk)
+STEPS=(Network Keyboard Account Machine Disk)
 
 # The shared installer UI — banner, Tokyo Night palette, prompts. build.sh
 # copies lib/ui.sh from the repo to /root/lib/ui.sh, beside this script.
@@ -151,6 +154,111 @@ ask_network() {
   ui_success "Network is up."
 }
 
+# --- step: keyboard -----------------------------------------------------------
+# The console keymap archinstall sets (vconsole.conf) never reaches Hyprland,
+# which reads its own input:kb_layout. So the pick is translated to xkb here,
+# through the same table localectl uses, and written into the new user's
+# ~/.config/hashiru/hypr/local.lua after the install (write_local_lua).
+
+# xkb_for_keymap <keymap> — "layout|variant|options" from the first matching
+# kbd-model-map row, or non-zero if the keymap isn't in it. Options keep only
+# the grp:/grp_led: ones: they are how a two-layout map like ru ("ru,us")
+# switches layouts, and the rest (terminate:ctrl_alt_bksp) aren't ours to add.
+xkb_for_keymap() {
+  awk -v k="$1" '
+    !/^#/ && $1 == k {
+      variant = ($4 == "-") ? "" : $4
+      opts = ""
+      n = split($5, o, ",")
+      for (i = 1; i <= n; i++)
+        if (o[i] ~ /^grp/) opts = opts (opts == "" ? "" : ",") o[i]
+      print $2 "|" variant "|" opts
+      found = 1
+      exit
+    }
+    END { exit !found }
+  ' "${KBD_MODEL_MAP}"
+}
+
+# Keymaps that are both installed and have an xkb equivalent: the default list.
+mapped_keymaps() {
+  comm -12 <(awk '!/^#/ && NF { print $1 }' "${KBD_MODEL_MAP}" | sort -u) \
+           <(localectl list-keymaps --no-pager | sort -u)
+}
+
+ask_keyboard() {
+  rail Keyboard
+  local pick
+  if ui_gum; then
+    # The fuzzy finder shows the list, so the full one can hide behind an entry.
+    pick="$( { mapped_keymaps; echo "${SHOW_ALL_KEYMAPS}"; } \
+             | ui_filter "Keyboard layout" "${HKEYMAP:-${DEFAULT_KEYMAP}}")"
+    if [[ "${pick}" == "${SHOW_ALL_KEYMAPS}" ]]; then
+      pick="$(localectl list-keymaps --no-pager | ui_filter "Keyboard layout (all)" "${HKEYMAP:-${DEFAULT_KEYMAP}}")"
+    fi
+  else
+    # Typed, so any installed keymap is accepted as-is; a miss lists close ones.
+    pick="$(localectl list-keymaps --no-pager | ui_filter "Keyboard layout" "${HKEYMAP:-${DEFAULT_KEYMAP}}")"
+  fi
+  HKEYMAP="${pick}"
+
+  if IFS='|' read -r HXKB_LAYOUT HXKB_VARIANT HXKB_OPTIONS < <(xkb_for_keymap "${HKEYMAP}"); then
+    HXKB_MAPPED=1
+  else
+    HXKB_MAPPED=0 HXKB_LAYOUT="us" HXKB_VARIANT="" HXKB_OPTIONS=""
+    ui_warn "${HKEYMAP} has no desktop equivalent; Hyprland will stay on us."
+    ui_warn "Set it later in ~/.config/hashiru/hypr/local.lua."
+  fi
+
+  # Live, so every later answer (the password above all) is typed on the
+  # layout the user just picked. Fails harmlessly off a VT (tests, ssh).
+  if loadkeys "${HKEYMAP}" >/dev/null 2>&1; then
+    ui_success "Keyboard is now ${HKEYMAP}."
+  else
+    ui_warn "Couldn't switch this console to ${HKEYMAP}; it is still set for the install."
+  fi
+}
+
+# local_lua — the override that puts Hyprland on the picked layout, on stdout.
+# Empty when there is nothing to say (us, or an unmapped keymap). caps:super
+# is repeated from hyprland.lua because kb_options is one string: setting the
+# layout switch alone would drop Hashiru's Caps-as-Super.
+local_lua() {
+  (( HXKB_MAPPED )) || return 0
+  [[ "${HXKB_LAYOUT}" == "us" && -z "${HXKB_VARIANT}" ]] && return 0
+  local fields="kb_layout = \"${HXKB_LAYOUT}\""
+  [[ -n "${HXKB_VARIANT}" ]] && fields+=", kb_variant = \"${HXKB_VARIANT}\""
+  [[ -n "${HXKB_OPTIONS}" ]] && fields+=", kb_options = \"caps:super,${HXKB_OPTIONS}\""
+  printf '%s\n' \
+    "-- Written by the Hashiru installer for the keymap picked there (${HKEYMAP})." \
+    "-- Yours from here on: nothing in Hashiru overwrites this file." \
+    "hl.config({ input = { ${fields} } })"
+}
+
+# Into the installed system, after archinstall and while /mnt is mounted.
+# Created only if absent, owned by the new user (numeric ids from the target's
+# passwd: the live system has no such user).
+write_local_lua() {
+  local body home dir file uid gid
+  body="$(local_lua)"
+  [[ -n "${body}" ]] || return 0
+  home="/mnt/home/${HUSER}"
+  file="${home}/.config/hashiru/hypr/local.lua"
+  [[ -e "${file}" ]] && return 0
+  IFS=: read -r uid gid < <(awk -F: -v u="${HUSER}" '$1 == u { print $3 ":" $4 }' /mnt/etc/passwd)
+  if [[ -z "${uid}" ]]; then
+    ui_warn "No ${HUSER} in the new system's passwd; Hyprland keyboard left at us."
+    return 0
+  fi
+  for dir in "${home}/.config" "${home}/.config/hashiru" "${home}/.config/hashiru/hypr"; do
+    [[ -d "${dir}" ]] || install -d -m 755 -o "${uid}" -g "${gid}" "${dir}"
+  done
+  printf '%s\n' "${body}" > "${file}"
+  chown "${uid}:${gid}" "${file}"
+  chmod 644 "${file}"
+  say "Hyprland keyboard set to ${HXKB_LAYOUT}${HXKB_VARIANT:+ (${HXKB_VARIANT})} in ${file#/mnt}"
+}
+
 # --- step: account --------------------------------------------------------------
 ask_account() {
   rail Account
@@ -251,6 +359,7 @@ confirm_wipe() {
 splice_config() {
   say "Preparing archinstall configuration…"
   sed -e "s|__TIMEZONE__|${HTZ}|g" \
+      -e "s|__KB_LAYOUT__|${HKEYMAP}|g" \
       -e "s|__HOSTNAME__|${HHOST}|g" \
       -e "s|__HASHIRU_USER__|${HUSER}|g" \
       -e "s|__TARGET_DISK__|${HDISK}|g" \
@@ -401,6 +510,7 @@ main() {
   require_uefi
 
   ask_network
+  ask_keyboard
   ask_account
   ask_machine
   ask_disk
@@ -416,6 +526,7 @@ main() {
 
   run_archinstall
   seed_wifi
+  write_local_lua
   offer_reboot
 }
 

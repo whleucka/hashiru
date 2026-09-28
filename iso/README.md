@@ -85,7 +85,7 @@ Iterate: edit → `build.sh` → `test-qemu.sh`. Delete `iso/work/test-disk.qcow
    layout/user/encryption you want, use "Save configuration" (decline credential
    encryption so the creds file is readable), and copy the exported
    `user_configuration.json` / `user_credentials.json` back into this dir —
-   re-inserting the `__TIMEZONE__` / `__HOSTNAME__` / `__HASHIRU_USER__` /
+   re-inserting the `__TIMEZONE__` / `__HOSTNAME__` / `__KB_LAYOUT__` / `__HASHIRU_USER__` /
    `__TARGET_DISK__` placeholders and the `custom_commands`. Pin your ISO to a
    known archiso snapshot to avoid surprise breakage.
 

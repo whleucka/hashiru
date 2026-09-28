@@ -83,7 +83,7 @@
     "hostname": "__HOSTNAME__",
     "kernels": ["linux"],
     "locale_config": {
-        "kb_layout": "us",
+        "kb_layout": "__KB_LAYOUT__",
         "sys_enc": "UTF-8",
         "sys_lang": "en_US.UTF-8"
     },
