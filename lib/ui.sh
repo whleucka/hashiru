@@ -173,6 +173,13 @@ ui_console_palette() {
 
 readonly _UI_RULE='──────────────────────────────────────────────────'
 readonly _UI_WIDTH=50
+# The wordmark, shared by the banner and the splash. Every glyph is in the
+# Linux console font (CP437 block elements), so it renders on a bare VT.
+readonly _UI_LOGO=(
+    '▓░ ░ ▓▒▀▓ ▓█▀▀ ▓░ ░ ▓░ ▓█▀▓ ▓█ ░'
+    '▒▓▀▒ ▒░▄▒ ▀▀▒▓ ▒▓▀▒ ▒▒ ▒▓▄▀ ▒▓ ▒'
+    '░  ▓ ░  ░ ▄▄░▒ ░  ▓ ░▓ ░▒ ▒ ░▒▄▓'
+)
 
 # Centre <text> in the banner's width. ${#} counts characters, not bytes, in a
 # UTF-8 locale, which the logo's block glyphs need.
@@ -188,20 +195,196 @@ _ui_centre() {
 ui_banner() {
     _ui_init
     local subtitle="${1:-Arch + Hyprland bootstrap}"
-    local logo=(
-        '▓░ ░ ▓▒▀▓ ▓█▀▀ ▓░ ░ ▓░ ▓█▀▓ ▓█ ░'
-        '▒▓▀▒ ▒░▄▒ ▀▀▒▓ ▒▓▀▒ ▒▒ ▒▓▄▀ ▒▓ ▒'
-        '░  ▓ ░  ░ ▄▄░▒ ░  ▓ ░▓ ░▒ ▒ ░▒▄▓'
-    )
     local nl=$'\n'
     local line out="${UI_MUTED}${_UI_RULE}${UI_RESET}${nl}"
-    for line in "${logo[@]}"; do
+    for line in "${_UI_LOGO[@]}"; do
         out+="${UI_ACCENT}$(_ui_centre "${line}")${UI_RESET}${nl}"
     done
     out+="${UI_TEXT}${UI_BOLD}$(_ui_centre "${subtitle}")${UI_RESET}${nl}"
     out+="${UI_MUTED}$(_ui_centre 'Created by: Will Hleucka')${UI_RESET}${nl}"
     out+="${UI_MUTED}${_UI_RULE}${UI_RESET}${nl}"
     _ui_out "${out}"
+}
+
+# -----------------------------------------------------------------------------
+# Splash
+# -----------------------------------------------------------------------------
+#
+# ui_splash <subtitle> [hint] — the first screen of the ISO installer. The logo,
+# subtitle and hint sit in the middle of the screen while a band of light
+# sweeps across the logo; Enter moves on.
+#
+# The animation is a background loop that only ever writes, and the foreground
+# only ever reads, so the two cannot fight over a keypress. Lessons from
+# Omarchy's first boot, which does the same with ttfx:
+#   - repaint by absolute cursor position, never DEC save/restore: a late
+#     console resize (the KMS handoff) moves or resets a saved cursor, and the
+#     logo ends up smeared across the screen;
+#   - re-measure the console and repaint everything when it changes size;
+#   - stop the animator by PID, and guard kill/wait so a caller's `set -e`
+#     never trips on the signal it just sent;
+#   - indexed colours only (slots 4 -> 6 -> 2): the framebuffer console turns
+#     24-bit colour to mud, and on a VT ui_console_palette has made those slots
+#     Tokyo Night anyway.
+
+readonly _UI_SPLASH_FPS_DELAY=0.05   # ~20 frames a second
+readonly _UI_SPLASH_BAND=4           # columns of light in the sweep
+readonly _UI_SPLASH_REST=13          # frames the logo rests between sweeps
+# The logo's resting colour, as a console slot rather than UI_ACCENT: on a
+# 24-bit terminal UI_ACCENT is the exact hex, and the band beside it would be a
+# slot, so a terminal with its own theme would show two different blues.
+readonly _UI_SPLASH_BASE=$'\033[34m'
+
+# Animate only when there is something to animate on: colour, a real terminal
+# that reports a size wide enough for the logo, and nobody asking for less
+# motion (HASHIRU_NO_ANIM=1, environment only, like HASHIRU_NO_GUM).
+_ui_splash_animated() {
+    [[ "${UI_DEPTH}" != 'none' && "${HASHIRU_NO_ANIM:-0}" != "1" ]] || return 1
+    local size rows cols
+    size="$(stty size < /dev/tty 2>/dev/null)" || return 1
+    read -r rows cols <<< "${size}"
+    [[ "${rows}" =~ ^[0-9]+$ && "${cols}" =~ ^[0-9]+$ ]] || return 1
+    (( cols >= ${#_UI_LOGO[0]} + 4 && rows >= 10 ))
+}
+
+# Where everything goes for the current console size, into _UI_SP_* globals.
+# The block is logo (3) + gap + subtitle + byline + gap + hint = 8 rows.
+_ui_splash_geometry() {
+    local size
+    size="$(stty size < /dev/tty 2>/dev/null)" || size='24 80'
+    read -r _UI_SP_ROWS _UI_SP_COLS <<< "${size}"
+    _UI_SP_TOP=$(( (_UI_SP_ROWS - 8) / 2 + 1 ))
+    (( _UI_SP_TOP >= 1 )) || _UI_SP_TOP=1
+    _UI_SP_LEFT=$(( (_UI_SP_COLS - ${#_UI_LOGO[0]}) / 2 + 1 ))
+    (( _UI_SP_LEFT >= 1 )) || _UI_SP_LEFT=1
+}
+
+# Column where <text> starts when centred on the current console.
+_ui_splash_col() {
+    local col=$(( (_UI_SP_COLS - ${#1}) / 2 + 1 ))
+    (( col >= 1 )) || col=1
+    printf '%s' "${col}"
+}
+
+# Paint the whole splash from scratch: clear, then every line at an absolute
+# position. Called once up front and again after any resize.
+_ui_splash_full() {
+    local subtitle="$1" hint="$2" byline='Created by: Will Hleucka' i out
+    _ui_splash_geometry
+    out=$'\033[?25l\033[H\033[2J'
+    for i in 0 1 2; do
+        out+=$'\033['"$(( _UI_SP_TOP + i ));${_UI_SP_LEFT}H${_UI_SPLASH_BASE}${_UI_LOGO[${i}]}${UI_RESET}"
+    done
+    out+=$'\033['"$(( _UI_SP_TOP + 4 ));$(_ui_splash_col "${subtitle}")H${UI_TEXT}${UI_BOLD}${subtitle}${UI_RESET}"
+    out+=$'\033['"$(( _UI_SP_TOP + 5 ));$(_ui_splash_col "${byline}")H${UI_MUTED}${byline}${UI_RESET}"
+    out+=$'\033['"$(( _UI_SP_TOP + 7 ));$(_ui_splash_col "${hint}")H${UI_MUTED}${hint}${UI_RESET}"
+    _ui_out "${out}"
+}
+
+# One frame of the sweep: repaint the three logo rows with the band's leading
+# edge at column <pos> (0-based; the band trails behind it). Positions past the
+# end of the logo leave it plain accent, which is also the resting frame.
+_ui_splash_frame() {
+    local pos="$1" i line width head band tail start c out=''
+    local -a shades=($'\033[36m' $'\033[36m' $'\033[32m' $'\033[1;32m')
+    for i in 0 1 2; do
+        line="${_UI_LOGO[${i}]}"
+        width=${#line}
+        start=$(( pos - _UI_SPLASH_BAND + 1 ))
+        out+=$'\033['"$(( _UI_SP_TOP + i ));${_UI_SP_LEFT}H"
+        if (( pos < 0 || start >= width )); then
+            out+="${_UI_SPLASH_BASE}${line}${UI_RESET}"
+            continue
+        fi
+        head="${line:0:$(( start > 0 ? start : 0 ))}"
+        band=''
+        for (( c = start; c <= pos; c++ )); do
+            (( c >= 0 && c < width )) || continue
+            band+="${shades[$(( c - start ))]}${line:c:1}"
+        done
+        tail="${line:$(( pos + 1 ))}"
+        out+="${_UI_SPLASH_BASE}${head}${band}${UI_RESET}${_UI_SPLASH_BASE}${tail}${UI_RESET}"
+    done
+    _ui_out "${out}"
+}
+
+# The animator. Runs in the background, reads nothing, and exits on its own if
+# the shell that started it goes away (a SIGKILL skips every trap).
+_ui_splash_animate() {
+    local subtitle="$1" hint="$2" parent="$3" frame=0 pos size last_size
+    local width=${#_UI_LOGO[0]}
+    local period=$(( width + _UI_SPLASH_BAND + _UI_SPLASH_REST ))
+    trap 'exit 0' TERM
+    last_size="$(stty size < /dev/tty 2>/dev/null)"
+    while kill -0 "${parent}" 2>/dev/null; do
+        # Re-measure every few frames: a stty fork per frame is wasted work,
+        # and a quarter of a second is well inside how long a resize takes.
+        if (( frame % 5 == 0 )); then
+            size="$(stty size < /dev/tty 2>/dev/null)"
+            if [[ "${size}" != "${last_size}" ]]; then
+                last_size="${size}"
+                _ui_splash_full "${subtitle}" "${hint}"
+            fi
+        fi
+        pos=$(( frame % period ))
+        # Draw the sweep, then one plain frame to settle; rest frames draw
+        # nothing at all.
+        if (( pos <= width + _UI_SPLASH_BAND - 1 )); then
+            _ui_splash_frame "${pos}"
+        fi
+        frame=$(( frame + 1 ))
+        sleep "${_UI_SPLASH_FPS_DELAY}"
+    done
+}
+
+_UI_SPLASH_PID=''
+
+# Stop the animator and give the screen back: kill, reap, clear, cursor on.
+# Safe to call twice and when nothing is running.
+_ui_splash_stop() {
+    if [[ -n "${_UI_SPLASH_PID}" ]]; then
+        kill "${_UI_SPLASH_PID}" 2>/dev/null || true
+        wait "${_UI_SPLASH_PID}" 2>/dev/null || true
+        _UI_SPLASH_PID=''
+    fi
+    _ui_out $'\033[0m\033[H\033[2J\033[?25h'
+}
+
+ui_splash() {
+    _ui_init
+    local subtitle="${1:-Arch + Hyprland bootstrap}"
+    local hint="${2:-Press Enter to begin}"
+    local src _
+    src="$(_ui_in)"
+    # Character counts here assume a UTF-8 locale: the logo is multibyte, and
+    # in the C locale ${#line} would count bytes and misplace everything.
+    local LC_ALL=C.UTF-8
+
+    if ! _ui_splash_animated; then
+        ui_banner "${subtitle}"
+        _ui_out $'\n'"${UI_MUTED}$(_ui_centre "${hint}")${UI_RESET}"$'\n'
+        IFS= read -rs _ < "${src}" || true
+        return 0
+    fi
+
+    # Ctrl-C must not leave a hidden cursor or an orphan painting the screen.
+    # The caller's traps are put back afterwards.
+    local old_int old_term
+    old_int="$(trap -p INT)"
+    old_term="$(trap -p TERM)"
+    trap '_ui_splash_stop; exit 130' INT
+    trap '_ui_splash_stop; exit 143' TERM
+
+    _ui_splash_full "${subtitle}" "${hint}"
+    _ui_splash_animate "${subtitle}" "${hint}" "$$" < /dev/null &
+    _UI_SPLASH_PID=$!
+
+    IFS= read -rs _ < "${src}" || true
+    _ui_splash_stop
+
+    eval "${old_int:-trap - INT}"
+    eval "${old_term:-trap - TERM}"
+    return 0
 }
 
 # A muted horizontal rule, the banner's width. Frames a summary.
