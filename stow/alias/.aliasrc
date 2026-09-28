@@ -68,19 +68,14 @@ alias c="clear"
 # grep
 alias grep="grep --color=auto"
 
-# copy
-alias cp="cp -ivr"
-
 # mkdir
 alias mkdir="mkdir -pv"
 
-# do not delete / or prompt if deleting more than 3 files at a time #
-alias rm='rm -I --preserve-root'
-
-# confirmation #
-alias mv='mv -i'
-alias cp='cp -i'
-alias ln='ln -i'
+# never delete / #
+# No -i/-I confirmation aliases on rm, cp, mv or ln: a prompt nobody sees
+# stalls any tool driving the shell (Claude Code's Bash tool hung on
+# "cp: overwrite?"), and scripts that source this file inherit them too.
+alias rm='rm --preserve-root'
 
 # Parenting changing perms on / #
 alias chown='chown --preserve-root'
