@@ -29,7 +29,7 @@ DRY_RUN=0
 
 # The steps, in order, as the rail shows them.
 # Keyboard comes first: the WiFi passphrase in Network is already typed on it.
-STEPS=(Keyboard Network Account Machine Disk)
+STEPS=(Keyboard Network Account Machine Disk Review)
 
 # The shared installer UI — banner, Tokyo Night palette, prompts. build.sh
 # copies lib/ui.sh from the repo to /root/lib/ui.sh, beside this script.
@@ -299,9 +299,9 @@ ask_account() {
 
   # LUKS passphrase — reuse the user password by default (asked only if not).
   if ui_confirm "Reuse this password for disk encryption?" yes; then
-    HLUKS="${HPASS}"
+    HLUKS="${HPASS}" HLUKS_SAME=1
   else
-    HLUKS="$(ui_password "LUKS passphrase")"
+    HLUKS="$(ui_password "LUKS passphrase")" HLUKS_SAME=0
   fi
 }
 
@@ -407,6 +407,7 @@ ask_disk() {
   while true; do
     pick="$(ui_choose "Disk to ERASE and install to" "${choices[@]}")"
     HDISK="${pick%% *}"
+    HDISK_LABEL="$(tr -s ' ' <<< "${pick}")"
     if ! valid_target "${HDISK}"; then
       continue
     elif ! disk_fits "${HDISK}"; then
@@ -430,13 +431,83 @@ valid_target() {
   return 1
 }
 
+# --- review: every answer on one card, any of them editable ------------------
+# Nothing has been written anywhere yet, so leaving from here costs nothing.
+REVIEW_NOTE=""
+
+keyboard_summary() {
+  if (( HXKB_MAPPED )); then
+    printf '%s → Hyprland %s%s' "${HKEYMAP}" "${HXKB_LAYOUT}" "${HXKB_VARIANT:+ (${HXKB_VARIANT})}"
+  else
+    printf '%s → Hyprland us (no match)' "${HKEYMAP}"
+  fi
+}
+
+review_card() {
+  local luks="same as login"
+  (( HLUKS_SAME )) || luks="separate"
+  ui_card "Review" \
+    Keyboard  "$(keyboard_summary)" \
+    Network   "${WIFI_SSID:+WiFi ${WIFI_SSID}}${WIFI_SSID:-wired}" \
+    Username  "${HUSER}" \
+    Password  "••••••••" \
+    "Disk key" "${luks}" \
+    Hostname  "${HHOST}" \
+    Timezone  "${HTZ}" \
+    Language  "${HLOCALE}" \
+    Disk      "${HDISK_LABEL}"
+  if (( ! HXKB_MAPPED )); then
+    ui_warn "${HKEYMAP} has no desktop equivalent, so Hyprland stays on us."
+    ui_warn "Set it later in ~/.config/hashiru/hypr/local.lua."
+  fi
+}
+
+# Loops until Install is confirmed (returns) or Quit (exits 0). An edit re-runs
+# just that step, which re-applies whatever it does (loadkeys for Keyboard).
+review() {
+  local choice rc
+  while true; do
+    rail Review
+    review_card
+    if [[ -n "${REVIEW_NOTE}" ]]; then
+      err "${REVIEW_NOTE}"
+      REVIEW_NOTE=""
+    fi
+    rc=0
+    choice="$(ui_choose "Ready to install?" Install "Edit Keyboard" "Edit Account" \
+                "Edit Machine" "Edit Disk" Quit)" || rc=$?
+    if (( rc != 0 )); then
+      # Esc in gum is "not yet", not "quit": stay here. Anything else
+      # (Ctrl-C, end of input) is a real stop.
+      (( rc == 1 )) && ui_gum && continue
+      exit "${rc}"
+    fi
+    case "${choice}" in
+      Install)         confirm_wipe && return 0 ;;
+      "Edit Keyboard") ask_keyboard ;;
+      "Edit Account")  ask_account ;;
+      "Edit Machine")  ask_machine ;;
+      "Edit Disk")     ask_disk ;;
+      Quit)
+        ui_note "Nothing was written. Run /root/stage0.sh to start again."
+        exit 0 ;;
+    esac
+  done
+}
+
 # --- the point of no return ----------------------------------------------------
+# Typing the disk's own name (nvme0n1) rather than "yes" makes the answer
+# depend on which disk is about to go. A miss goes back to review.
 confirm_wipe() {
+  local name="${HDISK#/dev/}" typed
   echo
-  err "ALL DATA on ${HDISK} ($(lsblk -dno SIZE,MODEL "${HDISK}" | tr -s ' ')) will be destroyed."
-  local confirm
-  confirm="$(ui_input "Type 'yes' to proceed")"
-  [[ "${confirm}" == "yes" ]] || { err "Aborted."; exit 1; }
+  err "ALL DATA on ${HDISK_LABEL} will be destroyed."
+  typed="$(ui_input "Type ${name} to erase it and install")"
+  if [[ "${typed}" == "${name}" ]]; then
+    return 0
+  fi
+  REVIEW_NOTE="'${typed}' is not ${name}. Nothing was erased."
+  return 1
 }
 
 # --- splice answers into config + creds --------------------------------------
@@ -585,7 +656,7 @@ main() {
   ask_machine
   ask_disk
 
-  confirm_wipe
+  review
   splice_config
   write_creds
 
