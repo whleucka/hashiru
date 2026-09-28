@@ -101,12 +101,14 @@ fi
 # stage0 sources it on its first line, so a missing copy is an installer that
 # dies before the banner. Compared against the expected commit's lib/ui.sh, the
 # same way the pin is: an ISO built from a stale tree would draw a stale UI.
+# Compared by git blob id, not cmp: git is already required for the pin, and
+# the CI container (bare archlinux) has no diffutils.
+UI_WANT="$(git -C "${HERE}/.." rev-parse -q --verify "${EXPECTED_REF}:lib/ui.sh" 2>/dev/null || true)"
 if [[ ! -f "${TMP}/x/root/lib/ui.sh" ]]; then
     bad "root/lib/ui.sh is missing — stage0 would die on its first line"
 elif [[ -z "${EXPECTED_REF}" ]]; then
     ok "root/lib/ui.sh present (nothing to compare against)"
-elif git -C "${HERE}/.." show "${EXPECTED_REF}:lib/ui.sh" 2>/dev/null \
-        | cmp -s - "${TMP}/x/root/lib/ui.sh"; then
+elif [[ -n "${UI_WANT}" && "${UI_WANT}" == "$(git hash-object "${TMP}/x/root/lib/ui.sh")" ]]; then
     ok "root/lib/ui.sh matches ${EXPECTED_REF:0:12}"
 else
     bad "root/lib/ui.sh differs from ${EXPECTED_REF:0:12}'s lib/ui.sh"
