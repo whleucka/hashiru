@@ -66,14 +66,26 @@ fi
 # which clones from GitHub and then resets to this ref — so a ref that exists
 # only in this checkout produces an ISO whose install dies at `reset --hard`
 # on an unknown object, ten minutes into archinstall. Cheaper to say so now.
+# A refusal, not a warning: a warning scrolls away under mkarchiso's output, and
+# an ISO that can never finish an install is not worth the ten minutes.
+# HASHIRU_ALLOW_UNPUSHED=1 builds one anyway (to test only the live side).
 #
 # Skipped when the ref isn't a sha this checkout knows about (CI passes one
-# explicitly, and a tarball build has no .git to ask).
+# explicitly, and a tarball build has no .git to ask). "On a remote branch" is
+# judged from the remote-tracking refs, so it is as fresh as the last push/fetch.
 if git -C "${HERE}/.." cat-file -e "${HASHIRU_REF}^{commit}" 2>/dev/null; then
   if ! git -C "${HERE}/.." branch -r --contains "${HASHIRU_REF}" 2>/dev/null | grep -q .; then
-    echo "    WARNING: ${HASHIRU_REF:0:12} is on no remote branch — push it first."
-    echo "    The installed system clones from GitHub and resets to this ref;"
-    echo "    an unpushed commit will fail the install, not this build."
+    if [[ "${HASHIRU_ALLOW_UNPUSHED:-0}" == 1 ]]; then
+      echo "    WARNING: ${HASHIRU_REF:0:12} is on no remote branch; installs from"
+      echo "    this ISO will fail at the clone (HASHIRU_ALLOW_UNPUSHED=1)."
+    else
+      echo "ERROR: ${HASHIRU_REF:0:12} is on no remote branch. Push it first:" >&2
+      echo "    git push origin $(git -C "${HERE}/.." branch --show-current 2>/dev/null)" >&2
+      echo "The installed system clones from GitHub and resets to this commit, so" >&2
+      echo "an ISO built from an unpushed one fails every install at that step." >&2
+      echo "HASHIRU_ALLOW_UNPUSHED=1 builds it anyway." >&2
+      exit 1
+    fi
   fi
 fi
 
