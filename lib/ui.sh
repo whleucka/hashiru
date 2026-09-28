@@ -241,7 +241,7 @@ readonly _UI_SPLASH_BASE=$'\033[34m'
 _ui_splash_animated() {
     [[ "${UI_DEPTH}" != 'none' && "${HASHIRU_NO_ANIM:-0}" != "1" ]] || return 1
     local size rows cols
-    size="$(stty size < /dev/tty 2>/dev/null)" || return 1
+    size="$(stty size 2>/dev/null < /dev/tty)" || return 1
     read -r rows cols <<< "${size}"
     [[ "${rows}" =~ ^[0-9]+$ && "${cols}" =~ ^[0-9]+$ ]] || return 1
     (( cols >= ${#_UI_LOGO[0]} + 4 && rows >= 10 ))
@@ -251,7 +251,7 @@ _ui_splash_animated() {
 # The block is logo (3) + gap + subtitle + byline + gap + hint = 8 rows.
 _ui_splash_geometry() {
     local size
-    size="$(stty size < /dev/tty 2>/dev/null)" || size='24 80'
+    size="$(stty size 2>/dev/null < /dev/tty)" || size='24 80'
     read -r _UI_SP_ROWS _UI_SP_COLS <<< "${size}"
     _UI_SP_TOP=$(( (_UI_SP_ROWS - 8) / 2 + 1 ))
     (( _UI_SP_TOP >= 1 )) || _UI_SP_TOP=1
@@ -315,12 +315,12 @@ _ui_splash_animate() {
     local width=${#_UI_LOGO[0]}
     local period=$(( width + _UI_SPLASH_BAND + _UI_SPLASH_REST ))
     trap 'exit 0' TERM
-    last_size="$(stty size < /dev/tty 2>/dev/null)"
+    last_size="$(stty size 2>/dev/null < /dev/tty)"
     while kill -0 "${parent}" 2>/dev/null; do
         # Re-measure every few frames: a stty fork per frame is wasted work,
         # and a quarter of a second is well inside how long a resize takes.
         if (( frame % 5 == 0 )); then
-            size="$(stty size < /dev/tty 2>/dev/null)"
+            size="$(stty size 2>/dev/null < /dev/tty)"
             if [[ "${size}" != "${last_size}" ]]; then
                 last_size="${size}"
                 _ui_splash_full "${subtitle}" "${hint}"
@@ -432,7 +432,7 @@ ui_gum() {
     _ui_init
     [[ -t "${_UI_FD}" ]] || return 1
     local size
-    size="$(stty size < /dev/tty 2>/dev/null)" || return 1
+    size="$(stty size 2>/dev/null < /dev/tty)" || return 1
     [[ "${size}" =~ ^[1-9][0-9]*\ [1-9][0-9]*$ ]]
 }
 
