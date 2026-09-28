@@ -342,26 +342,78 @@ find_boot_disk() {
   fi
 }
 
-ask_disk() {
-  rail Disk
-  find_boot_disk
-  say "Available disks:"
-  # TYPE filter drops the airootfs loop device and partitions; TYPE sits before
-  # MODEL so the greedy last read field keeps models with spaces intact.
+# btrfs_size <disk bytes> — the btrfs partition that fills such a disk.
+#
+# The saved layout froze an absolute btrfs partition size (captured on a small
+# test disk), so it is recomputed for the actual target: total bytes, minus the
+# btrfs start offset, minus 1 MiB for the GPT backup header. Then rounded DOWN
+# to a 1 MiB boundary. The start is already 1 MiB-aligned, so a 1 MiB-multiple
+# size keeps the partition END aligned too. Without this the end lands at
+# (disk_bytes - 1 MiB), and a real disk is sectors*512 — almost never a whole
+# MiB — so parted/archinstall rejects it as misaligned. (A round qcow2 test disk
+# IS a whole MiB, which is why QEMU never tripped this.) 1 MiB is a multiple of
+# both 512- and 4096-byte sectors, so this is safe on 4Kn drives.
+btrfs_size() {
+  local start size
+  start="$(jq -r '.disk_config.device_modifications[0].partitions[]
+                  | select(.fs_type=="btrfs") | .start.value' "${CONFIG_SRC}")"
+  size=$(( $1 - start - 1048576 ))
+  echo $(( (size / 1048576) * 1048576 ))
+}
+
+# Base system + Hyprland desktop needs real space, and a tiny disk would make
+# the size calculation go zero or negative. Checked when the disk is picked,
+# not after the final confirmation.
+MIN_BTRFS_SIZE=$(( 15 * 1024 * 1024 * 1024 ))
+disk_fits() {
+  (( $(btrfs_size "$(blockdev --getsize64 "$1")") >= MIN_BTRFS_SIZE ))
+}
+
+# The disks stage0 may offer, one "/dev/x  size  model" line each: whole disks
+# only (TYPE filter drops the airootfs loop device, partitions and the CD
+# drive), never zram/loop/ram, never the live installer medium. TYPE sits
+# before MODEL so the greedy last read field keeps models with spaces intact.
+disk_choices() {
   local name size _type model dev
   while read -r name size _type model; do
     dev="/dev/${name}"
-    if [[ "${dev}" == "${BOOT_DISK}" ]]; then
-      printf '    %-16s %8s  %s  << live installer medium\n' "${dev}" "${size}" "${model}"
-    else
-      printf '    %-16s %8s  %s\n' "${dev}" "${size}" "${model}"
-    fi
+    [[ -n "${BOOT_DISK}" && "${dev}" == "${BOOT_DISK}" ]] && continue
+    printf '%-14s %7s  %s\n' "${dev}" "${size}" "${model:-unknown model}"
   done < <(lsblk -dno NAME,SIZE,TYPE,MODEL | awk '$3=="disk" && $1 !~ /^(zram|loop|ram)/')
-  echo
+}
 
-  HDISK="$(ui_input "Target disk to ERASE (e.g. /dev/nvme0n1)")"
-  while ! valid_target "${HDISK}"; do
-    HDISK="$(ui_input "Target disk")"
+ask_disk() {
+  rail Disk
+  find_boot_disk
+  local -a choices=()
+  mapfile -t choices < <(disk_choices)
+  if (( ${#choices[@]} == 0 )); then
+    err "No disk to install to (the one this installer booted from is never offered)."
+    err "Attach the target disk (or check it shows in 'lsblk'), then re-run /root/stage0.sh."
+    exit 1
+  fi
+  # Every disk too small would otherwise be a picker that refuses every pick.
+  local line fits=0
+  for line in "${choices[@]}"; do
+    disk_fits "${line%% *}" && { fits=1; break; }
+  done
+  if (( ! fits )); then
+    err "No disk here is big enough: Hashiru needs a disk of more than 16 GiB."
+    printf '    %s\n' "${choices[@]}" >&2
+    exit 1
+  fi
+
+  local pick
+  while true; do
+    pick="$(ui_choose "Disk to ERASE and install to" "${choices[@]}")"
+    HDISK="${pick%% *}"
+    if ! valid_target "${HDISK}"; then
+      continue
+    elif ! disk_fits "${HDISK}"; then
+      err "${HDISK} is too small: Hashiru needs a disk of more than 16 GiB. Pick another disk."
+      continue
+    fi
+    break
   done
 }
 
@@ -398,25 +450,10 @@ splice_config() {
       -e "s|__TARGET_DISK__|${HDISK}|g" \
       "${CONFIG_SRC}" > "${CONFIG_RUN}"
 
-  # The saved layout froze an absolute btrfs partition size (captured on a small
-  # test disk). Resize it to fill the actual target disk: total bytes, minus the
-  # btrfs start offset, minus 1 MiB for the GPT backup header.
   local tmp
   DISK_BYTES="$(blockdev --getsize64 "${HDISK}")"
-  BTRFS_START="$(jq -r '.disk_config.device_modifications[0].partitions[]
-                        | select(.fs_type=="btrfs") | .start.value' "${CONFIG_RUN}")"
-  BTRFS_SIZE=$(( DISK_BYTES - BTRFS_START - 1048576 ))
-  # Round the size DOWN to a 1 MiB boundary. The start is already 1 MiB-aligned,
-  # so a 1 MiB-multiple size keeps the partition END aligned too. Without this the
-  # end lands at (disk_bytes - 1 MiB), and a real disk is sectors*512 — almost
-  # never a whole MiB — so parted/archinstall rejects it as misaligned. (A round
-  # qcow2 test disk IS a whole MiB, which is why QEMU never tripped this.) 1 MiB is
-  # a multiple of both 512- and 4096-byte sectors, so this is safe on 4Kn drives.
-  BTRFS_SIZE=$(( (BTRFS_SIZE / 1048576) * 1048576 ))
-  # Sanity-check before archinstall produces a cryptic mid-partitioning error:
-  # base system + Hyprland desktop needs real space, and a tiny disk would make
-  # the size calculation go zero or negative.
-  MIN_BTRFS_SIZE=$(( 15 * 1024 * 1024 * 1024 ))
+  BTRFS_SIZE="$(btrfs_size "${DISK_BYTES}")"
+  # ask_disk already refused small disks; this only guards a disk that changed.
   if (( BTRFS_SIZE < MIN_BTRFS_SIZE )); then
     err "${HDISK} is too small: need at least ~16 GiB, got $(( DISK_BYTES / 1024 / 1024 / 1024 )) GiB."
     exit 1
