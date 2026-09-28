@@ -25,5 +25,8 @@ git
 git-delta
 
 # TUI tools
+# gum draws the installer's prompts (lib/ui.sh). install.sh installs it up
+# front on a first run; listing it here keeps it upgraded on every replay.
+gum
 lazygit
 lazydocker

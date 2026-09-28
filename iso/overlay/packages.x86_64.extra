@@ -2,3 +2,5 @@
 # git and archinstall already ship in releng; jq is used by stage0.sh to build
 # the archinstall credentials file with proper escaping.
 jq
+# gum draws stage0's prompts (lib/ui.sh, copied in by build.sh).
+gum

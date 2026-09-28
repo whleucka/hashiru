@@ -216,6 +216,24 @@ fi
 # broken install — so it is swallowed rather than checked.
 sudo touch /run/hashiru-replay 2>/dev/null || true
 
+# gum draws the prompts in lib/ui.sh. The ISO installs it with the base system;
+# a machine coming from an existing Arch install has not got it yet, and stage
+# 30 (where terminal.txt lists it) is too late for anything before it. So take
+# it now — but only on a run that is already reaching the network, so an
+# offline `./install.sh 45` never pays for it.
+#
+# -S without -y on purpose: -Sy<pkg> is a partial upgrade. A stale sync db can
+# make this fail, and that is fine — it is a warning, the prompts fall back to
+# plain read, and stage 30 installs gum after stage 10 has synced.
+if [[ "${NEEDS_NETWORK}" -eq 1 ]] && ! command -v gum &>/dev/null; then
+    log_info "Installing gum for the installer's prompts"
+    # The log is the user's, so the user's shell should open it, not root.
+    # shellcheck disable=SC2024
+    if ! sudo pacman -S --needed --noconfirm gum >> "${HASHIRU_LOG}" 2>&1; then
+        log_warn "Could not install gum yet — prompts fall back to plain text until stage 30"
+    fi
+fi
+
 # Run scripts
 TOTAL=${#SCRIPTS[@]}
 

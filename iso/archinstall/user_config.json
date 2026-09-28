@@ -89,7 +89,7 @@
     },
     "network_config": { "type": "nm" },
     "ntp": true,
-    "packages": ["git", "sudo"],
+    "packages": ["git", "sudo", "gum"],
     "pacman_config": {
         "color": true,
         "parallel_downloads": 5
