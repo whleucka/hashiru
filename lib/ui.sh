@@ -199,6 +199,12 @@ ui_banner() {
     _ui_out "${out}"
 }
 
+# A muted horizontal rule, the banner's width. Frames a summary.
+ui_rule() {
+    _ui_init
+    _ui_out "${UI_MUTED}${_UI_RULE}${UI_RESET}"$'\n'
+}
+
 # `▌ Step n/total · title` — marks where one group of questions starts.
 ui_section() {
     _ui_init

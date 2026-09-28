@@ -229,16 +229,12 @@ TOTAL=${#SCRIPTS[@]}
 # the next.
 progress_init "${TOTAL}"
 
-log_info "=========================================="
-log_info " "
-log_info "     ▓░ ░ ▓▒▀▓ ▓█▀▀ ▓░ ░ ▓░ ▓█▀▓ ▓█ ░"
-log_info "     ▒▓▀▒ ▒░▄▒ ▀▀▒▓ ▒▓▀▒ ▒▒ ▒▓▄▀ ▒▓ ▒"
-log_info "     ░  ▓ ░  ░ ▄▄░▒ ░  ▓ ░▓ ░▒ ▒ ░▒▄▓"
-log_info " "
-log_info "        Arch + Hyprland Bootstrap"
-log_info "        Created by: Will Hleucka "
-log_info " "
-log_info "=========================================="
+# The banner is console-only: log_run_marker has already put this run's start
+# line in the log, and a banner there would only be escape-free noise. Kept off
+# a quiet run's console for the reason above — firstboot drew its own.
+if ! _progress_active; then
+    ui_banner "Arch + Hyprland bootstrap"
+fi
 
 # Animate the elapsed clock, so a four-minute cargo build doesn't read as a hung
 # machine. It re-reads the state file rather than inheriting variables, which is
@@ -319,13 +315,13 @@ if [[ -s "${HASHIRU_REPORT}" ]]; then
     WARN_COUNT="$(wc -l < "${HASHIRU_REPORT}")"
 fi
 
-log_success "=========================================="
+ui_rule
 if (( WARN_COUNT > 0 )); then
     log_success "Hashiru installation complete in $(fmt_duration "${RUN_ELAPSED}") — ${WARN_COUNT} warning(s)"
 else
     log_success "Hashiru installation complete in $(fmt_duration "${RUN_ELAPSED}")"
 fi
-log_success "=========================================="
+ui_rule
 for idx in "${!STAGE_NAMES[@]}"; do
     log_info "$(printf '  %-18s %s' "${STAGE_NAMES[${idx}]}" "$(fmt_duration "${STAGE_TIMES[${idx}]}")")"
 done

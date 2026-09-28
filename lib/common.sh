@@ -3,12 +3,15 @@
 
 set -euo pipefail
 
-# Colors
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[0;33m'
-readonly BLUE='\033[0;34m'
-readonly NC='\033[0m' # No Color
+# Colors. Unused in this file since log tags moved to lib/ui.sh's palette;
+# doctor.sh draws with them, so they stay (and shellcheck, reading this file on
+# its own, can't see that).
+# shellcheck disable=SC2034
+readonly RED='\033[0;31m' \
+    GREEN='\033[0;32m' \
+    YELLOW='\033[0;33m' \
+    BLUE='\033[0;34m' \
+    NC='\033[0m' # No Color
 
 # Paths
 readonly HASHIRU_DATA_DIR="${HOME}/.local/share/hashiru"
@@ -129,6 +132,13 @@ if [[ ! -e /proc/self/fd/3 ]]; then
     exec 3>&1
 fi
 
+# The installer's look — banner, Tokyo Night palette, prompts — shared with the
+# ISO and first boot. It draws on fd 3 for the same reason the log lines above
+# do: in quiet mode stderr can be the log, and the log never gets an escape.
+HASHIRU_UI_FD=3
+# shellcheck source=lib/ui.sh
+source "${HASHIRU_ROOT}/lib/ui.sh"
+
 # Ensure log directory exists
 mkdir -p "${HASHIRU_DATA_DIR}"
 
@@ -140,6 +150,12 @@ _log() {
     local level="$1"
     local color="$2"
     local message="$3"
+    # Tag colours come from lib/ui.sh, so they follow the same rules as the
+    # rest of the installer: Tokyo Night on a terminal, nothing in a pipe or
+    # under NO_COLOR. <color> names a UI_* role.
+    _ui_init
+    color="${!color}"
+    local reset="${UI_RESET}"
     local timestamp
     timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
 
@@ -150,11 +166,11 @@ _log() {
         # errors earn a line of their own: clear the bar, print, redraw beneath.
         if [[ "${level}" == "WARN" || "${level}" == "ERROR" ]]; then
             printf '\r\033[K' >&3
-            echo -e "${color}[${level}]${NC} ${message}" >&3
+            printf '%s\n' "${color}[${level}]${reset} ${message}" >&3
             progress_render
         fi
     else
-        echo -e "${color}[${level}]${NC} ${message}" >&3
+        printf '%s\n' "${color}[${level}]${reset} ${message}" >&3
     fi
 
     # File output (no colors)
@@ -169,19 +185,19 @@ _log() {
 }
 
 log_info() {
-    _log "INFO" "${BLUE}" "$1"
+    _log "INFO" UI_ACCENT "$1"
 }
 
 log_success() {
-    _log "OK" "${GREEN}" "$1"
+    _log "OK" UI_SUCCESS "$1"
 }
 
 log_warn() {
-    _log "WARN" "${YELLOW}" "$1"
+    _log "WARN" UI_WARN "$1"
 }
 
 log_error() {
-    _log "ERROR" "${RED}" "$1"
+    _log "ERROR" UI_ERROR "$1"
 }
 
 # -----------------------------------------------------------------------------
@@ -731,11 +747,13 @@ progress_render() {
         elapsed=$(( $(date +%s) - _p_start ))
     fi
 
-    # Built uncoloured so its width is its length: the truncation below has to
-    # count columns, and escape sequences would make that arithmetic wrong.
-    local head
-    head="$(printf '[%s/%s] %s %3d%%  %s  ' \
-        "${_p_num}" "${_p_total}" "${bar}" "${pct}" "$(fmt_duration "${elapsed}")")"
+    # Measured uncoloured so its width is its length: the truncation below has
+    # to count columns, and escape sequences would make that arithmetic wrong.
+    # The coloured copy is built from the same pieces.
+    local count clock head
+    count="$(printf '[%s/%s]' "${_p_num}" "${_p_total}")"
+    clock="$(fmt_duration "${elapsed}")"
+    head="$(printf '%s %s %3d%%  %s  ' "${count}" "${bar}" "${pct}" "${clock}")"
 
     # Truncate to the console width so the carriage return keeps landing on the
     # same row — a line that wraps leaves the previous one behind as debris.
@@ -743,7 +761,14 @@ progress_render() {
     cols="$(_console_cols)"
     room=$(( cols - ${#head} - 1 ))
     (( room > 0 )) || room=0
-    printf '\r\033[K%s%s' "${head}" "${_p_label:0:room}" >&3
+
+    _ui_init
+    printf '\r\033[K%s%s%s %s%s%s%s %s%3d%%%s  %s%s%s  %s%s%s' \
+        "${UI_MUTED}" "${count}" "${UI_RESET}" \
+        "${UI_ACCENT}" "${bar:0:filled}" "${UI_MUTED}" "${bar:filled}" \
+        "${UI_TEXT}" "${pct}" "${UI_RESET}" \
+        "${UI_MUTED}" "${clock}" "${UI_RESET}" \
+        "${UI_TEXT}" "${_p_label:0:room}" "${UI_RESET}" >&3
 }
 
 progress_clear() {
