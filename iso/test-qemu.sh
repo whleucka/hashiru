@@ -17,9 +17,10 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE="${1:-install}"
 
-DISK="${HERE}/work/test-disk.qcow2"
-mkdir -p "${HERE}/work"
-[[ -f "${DISK}" ]] || qemu-img create -f qcow2 "${DISK}" 30G
+case "${MODE}" in
+  install|run) ;;
+  *) echo "Usage: $0 [install|run]" >&2; exit 2 ;;
+esac
 
 # UEFI firmware: read-only CODE + a writable per-VM VARS copy so the installed
 # bootloader's UEFI entry persists across reboots within the VM.
@@ -27,6 +28,55 @@ OVMF_CODE="/usr/share/edk2/x64/OVMF_CODE.4m.fd"
 [[ -f "${OVMF_CODE}" ]] || OVMF_CODE="/usr/share/ovmf/x64/OVMF_CODE.fd"
 OVMF_VARS_SRC="/usr/share/edk2/x64/OVMF_VARS.4m.fd"
 [[ -f "${OVMF_VARS_SRC}" ]] || OVMF_VARS_SRC="/usr/share/ovmf/x64/OVMF_VARS.fd"
+
+# --- preflight ----------------------------------------------------------------
+# Check everything up front and report it all at once, with the package that
+# fixes each gap. Without this the first missing piece surfaces as a bare
+# "qemu-img: command not found" halfway through, and the next one only after
+# that is fixed.
+missing_pkgs=()
+problems=()
+if ! command -v qemu-img &>/dev/null || ! command -v qemu-system-x86_64 &>/dev/null; then
+  missing_pkgs+=(qemu-desktop)
+  problems+=("QEMU is not installed (qemu-img / qemu-system-x86_64).")
+elif ! compgen -G '/usr/lib/qemu/ui-gtk*.so' >/dev/null; then
+  # qemu-base has the binaries but not the gtk display this script opens.
+  missing_pkgs+=(qemu-ui-gtk)
+  problems+=("QEMU has no gtk display module (qemu-base alone lacks it; qemu-desktop includes it).")
+fi
+if [[ ! -f "${OVMF_CODE}" || ! -f "${OVMF_VARS_SRC}" ]]; then
+  missing_pkgs+=(edk2-ovmf)
+  problems+=("No UEFI firmware (OVMF) — the ISO only boots UEFI.")
+fi
+if [[ ! -e /dev/kvm ]]; then
+  problems+=("/dev/kvm does not exist: enable virtualization (VT-x / AMD-V, SVM) in the firmware setup, then reboot.")
+elif [[ ! -r /dev/kvm || ! -w /dev/kvm ]]; then
+  problems+=("/dev/kvm is not accessible to ${USER}: run 'sudo usermod -aG kvm ${USER}', then log out and back in.")
+fi
+
+if (( ${#problems[@]} > 0 )); then
+  echo "!! test-qemu.sh can't start the VM yet:" >&2
+  for p in "${problems[@]}"; do
+    echo "   - ${p}" >&2
+  done
+  if (( ${#missing_pkgs[@]} > 0 )); then
+    echo >&2
+    echo "   Install the missing packages with:" >&2
+    echo "     sudo pacman -S --needed ${missing_pkgs[*]}" >&2
+  fi
+  exit 1
+fi
+
+DISK="${HERE}/work/test-disk.qcow2"
+mkdir -p "${HERE}/work"
+if [[ ! -f "${DISK}" ]]; then
+  if [[ "${MODE}" == "run" ]]; then
+    echo "!! No installed disk at ${DISK} — run './test-qemu.sh' (install mode) first." >&2
+    exit 1
+  fi
+  qemu-img create -f qcow2 "${DISK}" 30G
+fi
+
 OVMF_VARS="${HERE}/work/OVMF_VARS.fd"
 [[ -f "${OVMF_VARS}" ]] || cp "${OVMF_VARS_SRC}" "${OVMF_VARS}"
 
