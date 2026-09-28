@@ -399,6 +399,119 @@ ui_section() {
     _ui_out $'\n'"${UI_ACCENT}▌${UI_RESET} ${UI_MUTED}Step $1/$2 ·${UI_RESET} ${UI_TEXT}${UI_BOLD}$3${UI_RESET}"$'\n\n'
 }
 
+# Columns available on the terminal, for layout decisions. 80 when there is no
+# terminal to ask, which is also the width a pipe or a log is read at.
+_ui_cols() {
+    local size cols=80
+    if size="$(stty size 2>/dev/null < /dev/tty)"; then
+        cols="${size##* }"
+        [[ "${cols}" =~ ^[0-9]+$ ]] && (( cols > 0 )) || cols=80
+    fi
+    printf '%s' "${cols}"
+}
+
+# ui_rail <current> <name>... — where the installer is, as tabs along the top:
+#   • Network ─ • Keyboard ─ ▌Account ─ ○ Machine ─ ○ Disk ─ ○ Review
+# Done steps in green, the current one in bold accent, the rest muted.
+# <current> is 1-based. Below 80 columns, or if the rail wouldn't fit, it falls
+# back to ui_section's single line, which says the same thing in less room.
+#
+# On a terminal it starts a new page: clear, then the rail on the first row, so
+# each step reads as its own screen instead of stacking under the last one's
+# answers (the review card is where those all come back together). Anywhere
+# else — a pipe, a log — it only prints, and never wipes anything.
+ui_rail() {
+    _ui_init
+    local LC_ALL=C.UTF-8
+    local current="$1"
+    shift
+    local total=$# i name plain='' out='' sep=' ─ ' cols
+    for (( i = 1; i <= total; i++ )); do
+        name="${!i}"
+        (( i > 1 )) && plain+="${sep}" && out+="${UI_MUTED}${sep}${UI_RESET}"
+        if (( i < current )); then
+            plain+="• ${name}"
+            out+="${UI_SUCCESS}• ${name}${UI_RESET}"
+        elif (( i == current )); then
+            plain+="▌${name}"
+            out+="${UI_ACCENT}${UI_BOLD}▌${name}${UI_RESET}"
+        else
+            plain+="○ ${name}"
+            out+="${UI_MUTED}○ ${name}${UI_RESET}"
+        fi
+    done
+    [[ -t "${_UI_FD}" ]] && _ui_out $'\033[H\033[2J'
+    cols="$(_ui_cols)"
+    if (( cols < 80 || ${#plain} + 2 > cols )); then
+        local cur="${!current:-}"
+        ui_section "${current}" "${total}" "${cur}"
+        return 0
+    fi
+    _ui_out $'\n'" ${out}"$'\n\n'
+}
+
+# ui_card <title> <label> <value> [<label> <value>]... — a framed block of
+# answers, labels aligned, for the review screen:
+#   ┌─ Review ─────────────────────────┐
+#   │ Username   will                  │
+#   │ Disk       /dev/nvme0n1  512G    │
+#   └──────────────────────────────────┘
+# Values print verbatim. One too long for the terminal is cut short with "..."
+# (ASCII on purpose: "…" is not in the Linux console font). Box glyphs are the
+# square CP437 ones; the rounded corners are not in that font either.
+ui_card() {
+    _ui_init
+    local LC_ALL=C.UTF-8
+    local title="$1"
+    shift
+    local -a labels=() values=()
+    while (( $# >= 2 )); do
+        labels+=("$1")
+        values+=("$2")
+        shift 2
+    done
+
+    local i lw=0 vw=0 cols inner
+    for i in "${!labels[@]}"; do
+        (( ${#labels[${i}]} > lw )) && lw=${#labels[${i}]}
+        (( ${#values[${i}]} > vw )) && vw=${#values[${i}]}
+    done
+    # Inner width: " label   value " — and at least wide enough for the title.
+    inner=$(( 1 + lw + 3 + vw + 1 ))
+    (( inner >= ${#title} + 4 )) || inner=$(( ${#title} + 4 ))
+    # At most 72 wide, and never into the terminal's last column: some
+    # terminals wrap as soon as that column is written, doubling every line.
+    local max
+    cols="$(_ui_cols)"
+    max=$(( cols - 1 < 72 ? cols - 1 : 72 ))
+    if (( inner + 2 > max )); then
+        inner=$(( max - 2 ))
+        vw=$(( inner - lw - 5 ))
+        (( vw >= 4 )) || vw=4
+    fi
+
+    local rule='' nl=$'\n' out value pad lpad
+    printf -v rule '%*s' "$(( inner - ${#title} - 3 ))" ''
+    rule="${rule// /─}"
+    out="${UI_MUTED}┌─${UI_RESET} ${UI_TEXT}${UI_BOLD}${title}${UI_RESET} ${UI_MUTED}${rule}┐${UI_RESET}${nl}"
+    for i in "${!labels[@]}"; do
+        value="${values[${i}]}"
+        if (( ${#value} > vw )); then
+            value="${value:0:$(( vw - 3 ))}..."
+        fi
+        # Padding by character count, not printf's %-*s: printf pads bytes, and
+        # a multibyte label or value would push the right border out of line.
+        printf -v pad '%*s' "$(( inner - 1 - lw - 3 - ${#value} - 1 ))" ''
+        printf -v lpad '%*s' "$(( lw - ${#labels[${i}]} ))" ''
+        out+="${UI_MUTED}│${UI_RESET} ${UI_MUTED}${labels[${i}]}${lpad}${UI_RESET}   "
+        out+="${UI_TEXT}${value}${UI_RESET}${pad} ${UI_MUTED}│${UI_RESET}${nl}"
+    done
+    printf -v rule '%*s' "${inner}" ''
+    rule="${rule// /─}"
+    out+="${UI_MUTED}└${rule}┘${UI_RESET}${nl}"
+    _ui_out "${out}"
+}
+
 # One-liners. The glyphs are the ones stage0 and firstboot already used, so
 # they still read correctly with colour off.
 ui_note()    { _ui_init; _ui_out "${UI_ACCENT}==>${UI_RESET} $*"$'\n'; }
