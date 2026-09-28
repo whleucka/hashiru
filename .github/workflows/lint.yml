@@ -17,6 +17,7 @@ jobs:
             install.sh \
             doctor.sh \
             lib/common.sh \
+            lib/ui.sh \
             bin/hashiru \
             scripts/*.sh \
             iso/build.sh \
