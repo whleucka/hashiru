@@ -62,9 +62,11 @@ Iterate: edit → `build.sh` → `test-qemu.sh`. Delete `iso/work/test-disk.qcow
 |------|------|
 | `build.sh` | Assemble + build the ISO |
 | `test-qemu.sh` | Boot the ISO in QEMU (UEFI) |
+| `verify.sh` | Check a built ISO without booting it: size, commit pin, stage0 mode, `lib/ui.sh` copy |
 | `overlay/airootfs/root/stage0.sh` | Interactive front-end (runs on tty1) |
 | `overlay/airootfs/root/.zprofile`, `.bash_profile` | Auto-launch stage0 on tty1 |
-| `overlay/packages.x86_64.extra` | Extra live-ISO packages (`jq`) |
+| `overlay/packages.x86_64.extra` | Extra live-ISO packages (`jq`, `gum`) |
+| `../lib/ui.sh` → `/root/lib/ui.sh` | Shared installer UI (banner, palette, prompts), copied in by `build.sh`; `verify.sh` checks it matches the pinned commit |
 | `archinstall/user_config.json` | Fixed install layout (templated) |
 | `archinstall/user_creds.example.json` | Reference creds shape (real one generated at runtime) |
 | `firstboot/install-firstboot.sh` | Runs in chroot; installs the first-boot unit, hands `/opt/hashiru` to the user |
