@@ -14,24 +14,21 @@ CREDS_RUN="/root/user_creds.json"
 DEFAULT_TZ="America/Toronto"
 DEFAULT_HOSTNAME="hashiru"
 
-c_red=$'\e[0;31m'; c_blu=$'\e[0;34m'; c_rst=$'\e[0m'
-say() { printf '%s %s\n' "${c_blu}==>${c_rst}" "$*"; }
-err() { printf '%s %s\n' "${c_red}!!${c_rst}" "$*" >&2; }
+# The shared installer UI — banner, Tokyo Night palette, prompts. build.sh
+# copies lib/ui.sh from the repo to /root/lib/ui.sh, beside this script.
+# shellcheck source=lib/ui.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/ui.sh"
 
+say() { ui_note "$*"; }
+err() { ui_error "$*"; }
+
+# Palette first, then clear: the VT only repaints its background from slot 0
+# on a clear, so the other order leaves the old black behind the text.
+ui_console_palette
 clear 2>/dev/null || true
-cat <<'BANNER'
-==================================================
-        ▓░ ░ ▓▒▀▓ ▓█▀▀ ▓░ ░ ▓░ ▓█▀▓ ▓█ ░
-        ▒▓▀▒ ▒░▄▒ ▀▀▒▓ ▒▓▀▒ ▒▒ ▒▓▄▀ ▒▓ ▒
-        ░  ▓ ░  ░ ▄▄░▒ ░  ▓ ░▓ ░▒ ▒ ░▒▄▓
-         Arch + Hyprland live installer
-            Created by: Will Hleucka
-==================================================
-This ERASES the target disk, sets up LUKS disk
-encryption, installs base Arch, and bootstraps
-Hashiru (Hyprland desktop) on first boot.
-==================================================
-BANNER
+ui_banner "Arch + Hyprland live installer"
+ui_warn "This ERASES the target disk, sets up LUKS disk encryption,"
+ui_warn "installs base Arch, and bootstraps Hashiru on first boot."
 echo
 
 # --- UEFI is required (the archinstall config sets up GRUB on an ESP) ---------

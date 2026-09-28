@@ -62,8 +62,8 @@ fi
 ok "squashfs extracted from the ISO9660 image"
 
 CFG="root/archinstall/user_config.json"
-if ! unsquashfs -q -n -d "${TMP}/x" "${TMP}/airootfs.sfs" "${CFG}" root/stage0.sh >/dev/null 2>&1; then
-    bad "could not read ${CFG} / root/stage0.sh out of the squashfs"
+if ! unsquashfs -q -n -d "${TMP}/x" "${TMP}/airootfs.sfs" "${CFG}" root/stage0.sh root/lib/ui.sh >/dev/null 2>&1; then
+    bad "could not read ${CFG} / root/stage0.sh / root/lib/ui.sh out of the squashfs"
     exit 1
 fi
 
@@ -95,6 +95,21 @@ if [[ "${mode}" == "755" ]]; then
     ok "root/stage0.sh is mode 755"
 else
     bad "root/stage0.sh is mode ${mode:-missing}, expected 755 — the installer would not run"
+fi
+
+# --- stage0's UI library has to be there, and be this commit's ------------------
+# stage0 sources it on its first line, so a missing copy is an installer that
+# dies before the banner. Compared against the expected commit's lib/ui.sh, the
+# same way the pin is: an ISO built from a stale tree would draw a stale UI.
+if [[ ! -f "${TMP}/x/root/lib/ui.sh" ]]; then
+    bad "root/lib/ui.sh is missing — stage0 would die on its first line"
+elif [[ -z "${EXPECTED_REF}" ]]; then
+    ok "root/lib/ui.sh present (nothing to compare against)"
+elif git -C "${HERE}/.." show "${EXPECTED_REF}:lib/ui.sh" 2>/dev/null \
+        | cmp -s - "${TMP}/x/root/lib/ui.sh"; then
+    ok "root/lib/ui.sh matches ${EXPECTED_REF:0:12}"
+else
+    bad "root/lib/ui.sh differs from ${EXPECTED_REF:0:12}'s lib/ui.sh"
 fi
 
 echo

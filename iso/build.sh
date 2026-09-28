@@ -35,6 +35,12 @@ cp -a "${HERE}/overlay/airootfs/." "${PROFILE}/airootfs/"
 mkdir -p "${PROFILE}/airootfs/root/archinstall"
 cp -a "${HERE}/archinstall/." "${PROFILE}/airootfs/root/archinstall/"
 
+# stage0 sources the shared installer UI. Copied from lib/ rather than kept in
+# overlay/, so the banner, palette and prompts have one source of truth: the
+# ISO, first boot and install.sh all draw from the same file.
+echo "==> Adding the shared installer UI (lib/ui.sh)"
+install -Dm644 "${HERE}/../lib/ui.sh" "${PROFILE}/airootfs/root/lib/ui.sh"
+
 echo "==> Pinning installer to the ISO's commit"
 # The target system clones the repo from GitHub at install time; pin that
 # clone to the commit this ISO was built from so the ISO and the code that
@@ -109,6 +115,7 @@ sed -i \
 
 echo "==> Marking installer scripts executable in the squashfs"
 sed -i '/^file_permissions=(/a\  ["/root/stage0.sh"]="0:0:755"' "${PROFILE}/profiledef.sh"
+sed -i '/^file_permissions=(/a\  ["/root/lib/ui.sh"]="0:0:644"' "${PROFILE}/profiledef.sh"
 
 echo "==> Building ISO (mkarchiso)"
 mkarchiso -v -w "${WORK}/mkarchiso" -o "${OUT}" "${PROFILE}"
