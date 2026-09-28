@@ -18,7 +18,8 @@ Documentation lives at **[hashiru.williamhleucka.com](https://hashiru.williamhle
 (`hashiru-YYYY.MM.DD-x86_64.iso`)
 
 1. Flash it, boot it.
-2. Answer the prompts: username, password, timezone, hostname, disk.
+2. Pick keyboard, account, hostname, timezone, language and disk, then review
+   and type the disk's name to install.
 3. Go do something else.
 
 It installs an encrypted base Arch system, reboots, then runs the Hashiru stages

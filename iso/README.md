@@ -12,15 +12,25 @@ the manual one-liner.
 
 ```
 ISO (this dir)            → archiso releng + Hashiru overlay
-  └ stage0.sh             → prompts: user / password / timezone / disk (+LUKS)
+  └ stage0.sh             → steps: keyboard / network / account / machine / disk,
+                             then a review before anything is erased
       └ archinstall       → partition, LUKS, btrfs, pacstrap, bootloader, user
-          └ custom_commands → clone repo + enable first-boot unit
+          └ custom_commands → clone repo, enable first-boot unit, keyboard for Hyprland
               └ first boot → hashiru-firstboot.service runs ./install.sh as user
 ```
 
-Only username, password, timezone and target disk are interactive. Everything
-else is fixed in `archinstall/user_config.json` — customization in code, not
-prompts.
+The only questions are the ones that vary per machine: keyboard, WiFi (only if
+wired fails), username, password (and an optional separate disk passphrase),
+hostname, timezone (pre-filled from a geo-IP lookup), language and target disk.
+A review card shows every answer, any of them can be edited, and the disk is
+only erased after you type its name. Everything else is fixed in
+`archinstall/user_config.json`: customization in code, not prompts.
+
+The keyboard reaches Hyprland too: `install-firstboot.sh` turns the X11 layout
+systemd derives from the keymap into `~/.config/hashiru/hypr/local.lua`.
+
+`/root/stage0.sh --dry-run` walks every step and prints the config it would
+hand archinstall (secrets redacted), then stops. Nothing is written to disk.
 
 ## Build
 
@@ -55,7 +65,9 @@ base install completes, switch to `run` mode to boot the system you just
 installed (the equivalent of pulling the USB stick out). That first disk boot is
 where `hashiru-firstboot.service` runs stages 10–99.
 
-Iterate: edit → `build.sh` → `test-qemu.sh`. Delete `iso/work/test-disk.qcow2`
+Iterate: edit → `build.sh` → `test-qemu.sh`. `build.sh` refuses a commit that
+isn't pushed, since the installed system clones it from GitHub
+(`HASHIRU_ALLOW_UNPUSHED=1` builds anyway, for testing only the live side). Delete `iso/work/test-disk.qcow2`
 (and `iso/work/OVMF_VARS.fd`) to start from a completely clean machine.
 
 ## Files
