@@ -108,7 +108,7 @@ Everything else a *user* reads lives on the website, not here:
 | | |
 |---|---|
 | Source | `~/projects/hashiru-wiki/public/` |
-| Deploy | `msync` → `williamhleucka.com:/opt/hashiru` |
+| Deploy | push to GitHub (`whleucka/hashiru-wiki`), then `git pull` on `williamhleucka.com:/opt/hashiru` |
 | Live | <https://hashiru.williamhleucka.com> |
 
 It is the source of truth for install, CLI, keybinds, configuration, internals
@@ -128,7 +128,7 @@ back and ask what the site would now tell someone wrongly:
 - anything shipped → a row in `docs/changelog.html`
 - the install one-liner changed → the `data-copy` on the landing page hero
 
-Then `msync` it up. A release that changes behaviour without touching the site
+Then push the wiki; the server pulls it. A release that changes behaviour without touching the site
 ships stale docs, and the site is now the only place a user looks.
 
 Adding a whole page means three things stay in sync: the sidebar nav (repeated
