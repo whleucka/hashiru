@@ -101,10 +101,15 @@ _ui_init() {
     _UI_INIT_FD="${_UI_FD}"
     local fd="${_UI_FD}"
 
-    if [[ -n "${NO_COLOR:-}" || ! -t "${fd}" || "${TERM:-}" == "dumb" ]]; then
+    # A VT is checked before TERM on purpose: where the fd points is the
+    # ground truth, and the first-boot unit's TERM can be unset or "dumb"
+    # while it draws on a console that renders colour perfectly well.
+    if [[ -n "${NO_COLOR:-}" || ! -t "${fd}" ]]; then
         UI_DEPTH='none'
     elif _ui_fd_is_vt "${fd}"; then
         UI_DEPTH='vt'
+    elif [[ "${TERM:-dumb}" == "dumb" ]]; then
+        UI_DEPTH='none'
     elif [[ "${COLORTERM:-}" == "truecolor" || "${COLORTERM:-}" == "24bit" ]]; then
         UI_DEPTH='truecolor'
     else
