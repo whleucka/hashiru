@@ -1,6 +1,6 @@
 ---
 name: hashiru
-description: Working on the Hashiru repo (/opt/hashiru) — the Arch + Hyprland bootstrap that owns this machine. Use when editing stages in scripts/, config under stow/ or config/, package manifests in pacman/, the hashiru CLI, doctor.sh, the ISO, or release notes — whenever a change to this machine's desktop, shell, or system config is asked for, since Hashiru owns those files and editing them in $HOME is reverted on the next update — and whenever a release is cut, since the docs site in ~/.mount/hashiru has to be checked and updated in the same pass.
+description: Working on the Hashiru repo (/opt/hashiru) — the Arch + Hyprland bootstrap that owns this machine. Use when editing stages in scripts/, config under stow/ or config/, package manifests in pacman/, the hashiru CLI, doctor.sh, the ISO, or release notes — whenever a change to this machine's desktop, shell, or system config is asked for, since Hashiru owns those files and editing them in $HOME is reverted on the next update — and whenever a release is cut, since the docs site in ~/projects/hashiru-wiki has to be checked and updated in the same pass.
 ---
 
 # Hashiru
@@ -107,7 +107,7 @@ Everything else a *user* reads lives on the website, not here:
 
 | | |
 |---|---|
-| Source | `~/.mount/hashiru/public/` |
+| Source | `~/projects/hashiru-wiki/public/` |
 | Deploy | `msync` → `williamhleucka.com:/opt/hashiru` |
 | Live | <https://hashiru.williamhleucka.com> |
 
@@ -133,4 +133,4 @@ ships stale docs, and the site is now the only place a user looks.
 
 Adding a whole page means three things stay in sync: the sidebar nav (repeated
 in every page), the `INDEX` array in `assets/js/search.js`, and `sitemap.xml`.
-`~/.mount/hashiru/README.md` has the rest.
+`~/projects/hashiru-wiki/README.md` has the rest.
