@@ -29,3 +29,12 @@
 # weekly regardless, so this only ever costs you on a first install.
 # Same as --no-reflector.
 #: "${HASHIRU_NO_REFLECTOR=1}"
+
+# Fingerprint for sudo and polkit prompts. Set by `hashiru fingerprint on|off`,
+# which also enrolls a finger — use that rather than editing this. 1 keeps the
+# PAM lines in, 0 keeps them out, and leaving it unset means Hashiru never
+# touches /etc/pam.d. A failed scan always falls back to the password. Worth
+# knowing before turning on: anyone who can put your finger on the sensor
+# gets root without knowing anything. hyprlock reads fprintd itself and
+# doesn't depend on this.
+#: "${HASHIRU_FINGERPRINT=1}"

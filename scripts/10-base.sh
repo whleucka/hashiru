@@ -128,4 +128,12 @@ if [[ -f "${SCRIPT_DIR}/config/systemd/zram-generator.conf" ]]; then
     fi
 fi
 
+# Fingerprint auth for sudo and polkit, if `hashiru fingerprint` turned it on
+# or off. The command applies a change itself; this keeps it applied across
+# pacman's .pacnew merges and polkit's own file changing underneath us. With
+# HASHIRU_FINGERPRINT unset it does nothing at all. A refusal is a warning,
+# not a failed stage: it means /etc/pam.d is shaped in a way Hashiru didn't
+# expect, and the run has nothing better to do about that than say so.
+apply_fingerprint_pam || log_warn "Fingerprint PAM not applied; see the error above"
+
 script_end "10-base.sh"
