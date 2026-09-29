@@ -330,6 +330,50 @@ else
     bad "dangling config symlinks: ${dangling[*]}"
 fi
 
+# Fingerprint PAM, judged against HASHIRU_FINGERPRINT — the one piece of
+# /etc/pam.d Hashiru manages, and only once `hashiru fingerprint` has set the
+# knob. Unset means hands off, so there is nothing to hold the files to.
+# A mismatch is a failure because stage 10 would fix it; the rest are things
+# only a person can (a finger, a reader, somebody else's polkit-1).
+case "${HASHIRU_FINGERPRINT}" in
+    "")
+        skip "fingerprint: not managed by Hashiru ('hashiru fingerprint on' to set up)"
+        ;;
+    0|1)
+        fp_state="$(fingerprint_pam_state)"
+        fp_sudo="${fp_state% *}"
+        fp_polkit="${fp_state#* }"
+        fp_want=off
+        [[ "${HASHIRU_FINGERPRINT}" == "1" ]] && fp_want=on
+
+        fp_drift=()
+        [[ "${fp_sudo}" != "${fp_want}" ]] && fp_drift+=("sudo is ${fp_sudo}")
+        [[ "${fp_polkit}" != foreign && "${fp_polkit}" != "${fp_want}" ]] && fp_drift+=("polkit is ${fp_polkit}")
+        if (( ${#fp_drift[@]} )); then
+            bad "fingerprint: HASHIRU_FINGERPRINT=${HASHIRU_FINGERPRINT} but ${fp_drift[*]} (./install.sh 10)"
+        else
+            ok "fingerprint: ${fp_want} for sudo and polkit, as configured"
+        fi
+        [[ "${fp_polkit}" == foreign ]] \
+            && meh "fingerprint: /etc/pam.d/polkit-1 isn't Hashiru's, so polkit is left alone"
+
+        if [[ "${fp_want}" == on ]]; then
+            fp_probe=0
+            _fp_probe --quiet || fp_probe=$?
+            if (( fp_probe == 2 )); then
+                meh "fingerprint: on, but no reader found — sudo falls back to the password"
+            elif (( fp_probe == 1 )); then
+                meh "fingerprint: on, but fprintd didn't answer ('hashiru fingerprint' for detail)"
+            elif (( ${#FP_FINGERS[@]} == 0 )); then
+                meh "fingerprint: on, but nothing enrolled for ${USER} ('hashiru fingerprint on')"
+            fi
+        fi
+        ;;
+    *)
+        bad "fingerprint: HASHIRU_FINGERPRINT='${HASHIRU_FINGERPRINT}' is not 0 or 1 ('hashiru config')"
+        ;;
+esac
+
 
 # --- Machine-local overrides ----------------------------------------------------
 

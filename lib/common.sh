@@ -503,6 +503,44 @@ _pam_apply_polkit() {
     fi
 }
 
+# Ask fprintd about the reader and $USER's prints. Sets FP_READER (the
+# sensor's name) and FP_FINGERS (enrolled finger names). Returns 2 when there
+# is no reader, 1 when fprintd answered in a way this doesn't recognise —
+# after printing what it said, since that is the only useful diagnostic.
+# --quiet skips that, for doctor, which reports in its own voice and must
+# not write the install log.
+#
+# Parsed from fprintd-list's text because it has no other interface short of
+# D-Bus. Only two shapes matter, and both name the sensor:
+#   Fingerprints for user <u> on <sensor> (<type>):   then " - #N: <finger>"
+#   User <u> has no fingers enrolled for <sensor>.
+_fp_probe() {
+    local quiet=0 out rc=0
+    [[ "${1:-}" == "--quiet" ]] && quiet=1
+    FP_READER=""
+    FP_FINGERS=()
+    if ! command -v fprintd-list &>/dev/null; then
+        (( quiet )) || log_error "fprintd isn't installed (it's in pacman/base.txt — './install.sh 10')"
+        return 1
+    fi
+    out="$(fprintd-list "${USER}" 2>&1)" || rc=$?
+    if grep -q 'No devices available' <<< "${out}"; then
+        return 2
+    fi
+    FP_READER="$(sed -nE \
+        -e 's/^Fingerprints for user .* on (.*) \([^)]*\):$/\1/p' \
+        -e 's/^User .* has no fingers enrolled for (.*)\.$/\1/p' <<< "${out}" | head -1)"
+    if (( rc != 0 )) || [[ -z "${FP_READER}" ]]; then
+        if (( ! quiet )); then
+            log_error "Couldn't read fprintd's answer:"
+            printf '%s\n' "${out}" >&2
+        fi
+        return 1
+    fi
+    # shellcheck disable=SC2034  # read by callers, see above
+    mapfile -t FP_FINGERS < <(sed -nE 's/^ - #[0-9]+: (.*)$/\1/p' <<< "${out}")
+}
+
 # What /etc/pam.d says right now, read-only, as two words: sudo's state, then
 # polkit's. Each is `on` (takes a fingerprint) or `off`; polkit can also be
 # `foreign`, a file there that isn't ours. For `hashiru fingerprint` and
