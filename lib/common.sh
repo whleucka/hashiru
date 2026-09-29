@@ -118,6 +118,18 @@ export HASHIRU_STAMP_UPDATED="${HASHIRU_STAMP_UPDATED:-0}"
 # keeping the list fresh weekly ever since.
 export HASHIRU_NO_REFLECTOR="${HASHIRU_NO_REFLECTOR:-0}"
 
+# Fingerprint auth for sudo and polkit, as set by `hashiru fingerprint on|off`.
+# Three states, and the default is none of the two: empty means Hashiru leaves
+# /etc/pam.d alone entirely, which is what keeps a machine that never ran the
+# command — or wired it up by hand — exactly as it is. Defaulting this to 0
+# like the knobs above would strip hand-made lines on the next update.
+HASHIRU_FINGERPRINT="${HASHIRU_FINGERPRINT:-}"
+
+# Where apply_fingerprint_pam finds etc/pam.d and usr/lib/pam.d. Internal
+# wiring for testing against a scratch copy, not a hashiru.conf knob; set, it
+# also drops sudo, since a scratch tree is the caller's own.
+HASHIRU_PAM_ROOT="${HASHIRU_PAM_ROOT:-}"
+
 # fd 3 is "the console", wherever that was when the run started.
 #
 # Quiet mode redirects each stage's stdout and stderr into the log, which would
@@ -346,6 +358,167 @@ set_conf_knob() {
     ' "${conf}" > "${tmp}"
     cat "${tmp}" > "${conf}"
     rm -f "${tmp}"
+}
+
+# -----------------------------------------------------------------------------
+# Fingerprint PAM
+# -----------------------------------------------------------------------------
+#
+# HASHIRU_FINGERPRINT decides whether /etc/pam.d/sudo and /etc/pam.d/polkit-1
+# accept a fingerprint. The two are handled differently because they are owned
+# differently:
+#
+#   sudo      pacman's, marked backup, so edited in place: one line added or
+#             removed, the rest left to whatever the machine has. Upgrades
+#             write .pacnew rather than overwrite.
+#   polkit-1  nobody's. polkit ships its file in /usr/lib/pam.d, and one in
+#             /etc/pam.d replaces it outright rather than layering on top —
+#             so ours is the vendor file plus one line, regenerated every run
+#             so vendor changes carry through. A lone fprintd line there
+#             leaves polkit with no password and no account stack.
+#
+# `sufficient`, never `required`: a failed or skipped scan falls through to
+# the password. That fallback is the whole safety of the feature.
+
+readonly _PAM_FPRINTD_LINE="auth       sufficient   pam_fprintd.so"
+readonly _PAM_MANAGED_HEADER="# Managed by Hashiru (hashiru fingerprint) — regenerated on every update."
+
+_pam_dir()        { echo "${HASHIRU_PAM_ROOT}/etc/pam.d"; }
+_pam_vendor_dir() { echo "${HASHIRU_PAM_ROOT}/usr/lib/pam.d"; }
+
+# A live (uncommented) pam_fprintd line anywhere in the file.
+_pam_has_fprintd() {
+    grep -qE '^[^#]*pam_fprintd\.so' "$1" 2>/dev/null
+}
+
+_pam_as_root() {
+    if [[ -n "${HASHIRU_PAM_ROOT}" ]]; then
+        "$@"
+    else
+        sudo "$@"
+    fi
+}
+
+# Put <tmp> at <dest> — only if it still includes system-auth, and atomically.
+#
+# The check is the lockout guard. Every file this touches has its password
+# path in `auth include system-auth`; a candidate without one is a bug in the
+# code that built it, and writing it could leave sudo with no way in. The
+# write goes to a sibling name and is renamed over, so there is never a
+# moment where the service's file is half there.
+_pam_install() {
+    local tmp="$1" dest="$2"
+    if ! grep -qE '^[[:space:]]*auth[[:space:]]+include[[:space:]]+system-auth' "${tmp}"; then
+        log_error "Refusing to write ${dest}: it would have no 'auth include system-auth' line"
+        return 1
+    fi
+    if cmp -s "${tmp}" "${dest}"; then
+        return 0
+    fi
+    _pam_as_root install -m644 "${tmp}" "${dest}.hashiru-new" \
+        && _pam_as_root mv -f "${dest}.hashiru-new" "${dest}"
+}
+
+# <file> with the fprintd line inserted before its first auth line.
+_pam_with_fprintd() {
+    awk -v line="${_PAM_FPRINTD_LINE}" '
+        !done && /^[[:space:]]*auth[[:space:]]/ { print line; done = 1 }
+        { print }
+    ' "$1"
+}
+
+# What /etc/pam.d/polkit-1 should be when fingerprint is on: the vendor file
+# plus our line, with the header after #%PAM-1.0 so that stays line one.
+_pam_polkit_expected() {
+    _pam_with_fprintd "$(_pam_vendor_dir)/polkit-1" | awk -v hdr="${_PAM_MANAGED_HEADER}" '
+        NR == 1 && /^#%PAM/ { print; print hdr; done = 1; next }
+        NR == 1             { print hdr; done = 1 }
+        { print }
+    '
+}
+
+# Whether /etc/pam.d/polkit-1 is ours to rewrite or remove: missing, carrying
+# our header, or the vendor file plus the fprintd line — which is what a
+# careful hand edit produces, so this machine's own gets adopted. Anything
+# else is someone's deliberate file and is left alone.
+_pam_polkit_ours() {
+    local file vendor
+    file="$(_pam_dir)/polkit-1"
+    vendor="$(_pam_vendor_dir)/polkit-1"
+    [[ -e "${file}" ]] || return 0
+    grep -qF "${_PAM_MANAGED_HEADER}" "${file}" && return 0
+    [[ -f "${vendor}" ]] || return 1
+    # Compare with whitespace runs collapsed and blank lines dropped: spacing
+    # is how hand edits differ, and it means nothing to PAM. NF is tested
+    # before the reassignment: `$1 = $1` on a blank line makes NF 1.
+    # shellcheck disable=SC2016  # awk's $1, not the shell's
+    local squash='NF { $1 = $1; print }'
+    [[ "$(awk "${squash}" "${file}")" == "$(_pam_with_fprintd "${vendor}" | awk "${squash}")" ]]
+}
+
+_pam_apply_sudo() {
+    local file tmp
+    file="$(_pam_dir)/sudo"
+    if [[ ! -f "${file}" ]]; then
+        log_warn "No ${file}; fingerprint for sudo not applied"
+        return 0
+    fi
+    tmp="$(mktemp)"
+    if [[ "${HASHIRU_FINGERPRINT}" == "1" ]]; then
+        if _pam_has_fprintd "${file}"; then
+            rm -f "${tmp}"
+            return 0
+        fi
+        _pam_with_fprintd "${file}" > "${tmp}"
+    else
+        _pam_has_fprintd "${file}" || { rm -f "${tmp}"; return 0; }
+        grep -vE '^[^#]*pam_fprintd\.so' "${file}" > "${tmp}"
+    fi
+    local rc=0
+    _pam_install "${tmp}" "${file}" || rc=$?
+    rm -f "${tmp}"
+    return "${rc}"
+}
+
+_pam_apply_polkit() {
+    local file tmp
+    file="$(_pam_dir)/polkit-1"
+    if ! _pam_polkit_ours; then
+        log_warn "${file} isn't one Hashiru manages; left alone. Delete it and run './install.sh 10' to hand it over"
+        return 0
+    fi
+    if [[ "${HASHIRU_FINGERPRINT}" == "1" ]]; then
+        if [[ ! -f "$(_pam_vendor_dir)/polkit-1" ]]; then
+            log_warn "No $(_pam_vendor_dir)/polkit-1 to build from; fingerprint for polkit not applied"
+            return 0
+        fi
+        tmp="$(mktemp)"
+        _pam_polkit_expected > "${tmp}"
+        local rc=0
+        _pam_install "${tmp}" "${file}" || rc=$?
+        rm -f "${tmp}"
+        return "${rc}"
+    elif [[ -e "${file}" ]]; then
+        _pam_as_root rm -f "${file}"
+    fi
+}
+
+# Make /etc/pam.d match HASHIRU_FINGERPRINT. Idempotent; an empty knob is a
+# no-op. Called by `hashiru fingerprint` to apply a change at once, and by
+# stage 10 on every run to keep it applied.
+apply_fingerprint_pam() {
+    case "${HASHIRU_FINGERPRINT}" in
+        "") return 0 ;;
+        0|1) ;;
+        *)
+            log_warn "HASHIRU_FINGERPRINT='${HASHIRU_FINGERPRINT}' is not 0 or 1; /etc/pam.d left alone"
+            return 0
+            ;;
+    esac
+    local rc=0
+    _pam_apply_sudo || rc=1
+    _pam_apply_polkit || rc=1
+    return "${rc}"
 }
 
 # -----------------------------------------------------------------------------
