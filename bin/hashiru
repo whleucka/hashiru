@@ -5,7 +5,8 @@
 #   hashiru update --no-confirm  ... without stopping to ask anything
 #   hashiru doctor               read-only health check
 #   hashiru config               edit this machine's overrides
-#   hashiru version              what this machine is running
+#   hashiru fingerprint [on|off] fingerprint for sudo and polkit
+#   hashiru version             what this machine is running
 #   hashiru status               where this install came from, and how stale
 #   hashiru log                  the install log
 #   hashiru report               warnings from the last install
@@ -41,7 +42,13 @@ Commands:
                        from hashiru.conf.example the first time. Aliased as
                        'edit'. Machine-local *config* — monitors, kitty, waybar
                        — lives beside it in ~/.config/hashiru/.
-  status               Show install provenance, checkout state, and whether a
+  fingerprint [on|off [--forget]]
+                       Fingerprint for sudo and polkit prompts. 'on' checks
+                       for a reader, enrolls a finger if none is, and turns it
+                       on; 'off' turns it off and keeps the prints for
+                       hyprlock, unless --forget. Bare, shows where it stands.
+                       A failed scan always falls back to the password.
+  status             Show install provenance, checkout state, and whether a
                        pull is available.
   version              One line: the version this machine is running.
   log [-f|--last]      Page the install log; -f follows it live, --last shows
@@ -387,6 +394,156 @@ cmd_config() {
     exec "${cmd[@]}" "${target}"
 }
 
+# Ask fprintd about the reader and $USER's prints. Sets FP_READER (the
+# sensor's name) and FP_FINGERS (enrolled finger names). Returns 2 when there
+# is no reader, 1 when fprintd answered in a way this doesn't recognise —
+# after printing what it said, since that is the only useful diagnostic.
+#
+# Parsed from fprintd-list's text because it has no other interface short of
+# D-Bus. Only two shapes matter, and both name the sensor:
+#   Fingerprints for user <u> on <sensor> (<type>):   then " - #N: <finger>"
+#   User <u> has no fingers enrolled for <sensor>.
+_fp_probe() {
+    local out rc=0
+    FP_READER=""
+    FP_FINGERS=()
+    if ! command -v fprintd-list &>/dev/null; then
+        log_error "fprintd isn't installed (it's in pacman/base.txt — './install.sh 10')"
+        return 1
+    fi
+    out="$(fprintd-list "${USER}" 2>&1)" || rc=$?
+    if grep -q 'No devices available' <<< "${out}"; then
+        return 2
+    fi
+    FP_READER="$(sed -nE \
+        -e 's/^Fingerprints for user .* on (.*) \([^)]*\):$/\1/p' \
+        -e 's/^User .* has no fingers enrolled for (.*)\.$/\1/p' <<< "${out}" | head -1)"
+    if (( rc != 0 )) || [[ -z "${FP_READER}" ]]; then
+        log_error "Couldn't read fprintd's answer:"
+        printf '%s\n' "${out}" >&2
+        return 1
+    fi
+    mapfile -t FP_FINGERS < <(sed -nE 's/^ - #[0-9]+: (.*)$/\1/p' <<< "${out}")
+}
+
+# Fingerprint auth for sudo and polkit. The state lives in hashiru.conf as
+# HASHIRU_FINGERPRINT, so stage 10 can keep /etc/pam.d matching it on every
+# update; this command is how it changes, and applies the change at once.
+#
+# Order matters in `on` and `off`: PAM first, knob second. The knob records a
+# state that was actually reached, so a sudo prompt cancelled halfway leaves
+# hashiru.conf saying what it said before rather than promising something the
+# next update would then try to force.
+cmd_fingerprint() {
+    local action="${1:-status}" forget=0
+    shift || true
+    while (( $# )); do
+        case "$1" in
+            --forget) forget=1 ;;
+            *) log_error "Unknown argument: $1"; exit 1 ;;
+        esac
+        shift
+    done
+    if (( forget )) && [[ "${action}" != "off" ]]; then
+        log_error "--forget only goes with 'off'"
+        exit 1
+    fi
+
+    local probe=0
+    case "${action}" in
+        status)
+            _fp_probe || probe=$?
+            (( probe == 1 )) && exit 1
+            local state sudo_state polkit_state knob
+            state="$(fingerprint_pam_state)"
+            sudo_state="${state% *}"
+            polkit_state="${state#* }"
+            case "${HASHIRU_FINGERPRINT}" in
+                1) knob="on (HASHIRU_FINGERPRINT=1)" ;;
+                0) knob="off (HASHIRU_FINGERPRINT=0)" ;;
+                *) knob="unset — Hashiru leaves /etc/pam.d alone" ;;
+            esac
+            if (( probe == 2 )); then
+                echo "reader:    none — no fingerprint reader found"
+            else
+                echo "reader:    ${FP_READER}"
+                if (( ${#FP_FINGERS[@]} )); then
+                    echo "enrolled:  ${FP_FINGERS[*]}"
+                    echo "           add another with: fprintd-enroll -f <finger>"
+                else
+                    echo "enrolled:  nothing — 'hashiru fingerprint on' enrolls one"
+                fi
+            fi
+            echo "setting:   ${knob}"
+            [[ "${sudo_state}" == on ]] && echo "sudo:      fingerprint, then password" \
+                || echo "sudo:      password only"
+            case "${polkit_state}" in
+                on)      echo "polkit:    fingerprint, then password" ;;
+                off)     echo "polkit:    password only" ;;
+                foreign) echo "polkit:    /etc/pam.d/polkit-1 isn't Hashiru's; left alone" ;;
+            esac
+            ;;
+
+        on)
+            _fp_probe || probe=$?
+            if (( probe == 2 )); then
+                log_error "No fingerprint reader found (fprintd: No devices available). Nothing changed."
+                exit 1
+            fi
+            (( probe == 0 )) || exit 1
+
+            if (( ${#FP_FINGERS[@]} == 0 )); then
+                log_info "Enrolling your right index finger on ${FP_READER}: touch the sensor until it says enroll-completed"
+                if ! fprintd-enroll "${USER}"; then
+                    log_error "Enrollment failed. Nothing changed."
+                    exit 1
+                fi
+                log_info "Now once more, to check it matches"
+                if ! fprintd-verify "${USER}"; then
+                    log_error "That didn't match. The finger stays enrolled, sudo is unchanged; 'fprintd-delete ${USER}' clears it"
+                    exit 1
+                fi
+            fi
+
+            log_info "Adding fingerprint to /etc/pam.d/sudo and polkit-1 (sudo may ask)"
+            HASHIRU_FINGERPRINT=1
+            if ! apply_fingerprint_pam; then
+                log_error "/etc/pam.d not updated; hashiru.conf left as it was"
+                exit 1
+            fi
+            set_conf_knob HASHIRU_FINGERPRINT 1
+            log_success "Fingerprint on for sudo and polkit. A skipped scan falls back to your password — try 'sudo -k; sudo true'"
+            ;;
+
+        off)
+            log_info "Taking fingerprint out of /etc/pam.d/sudo and polkit-1 (sudo may ask)"
+            HASHIRU_FINGERPRINT=0
+            if ! apply_fingerprint_pam; then
+                log_error "/etc/pam.d not updated; hashiru.conf left as it was"
+                exit 1
+            fi
+            set_conf_knob HASHIRU_FINGERPRINT 0
+            log_success "Fingerprint off for sudo and polkit"
+
+            if (( forget )); then
+                if ui_confirm "Delete every enrolled fingerprint for ${USER}? hyprlock stops taking them too"; then
+                    fprintd-delete "${USER}"
+                    log_success "Fingerprints deleted"
+                else
+                    log_info "Fingerprints kept; hyprlock still takes them"
+                fi
+            else
+                log_info "Enrolled fingerprints kept for hyprlock ('off --forget' deletes them)"
+            fi
+            ;;
+
+        *)
+            log_error "Unknown action: ${action} (on, off, or nothing for status)"
+            exit 1
+            ;;
+    esac
+}
+
 cmd_status() {
     if [[ -f /etc/hashiru-release ]]; then
         read_release_stamp
@@ -430,6 +587,7 @@ case "${1:-help}" in
     doctor) shift; exec "${HASHIRU_ROOT}/doctor.sh" "$@" ;;
     status) cmd_status ;;
     config|edit) cmd_config ;;
+    fingerprint) shift; cmd_fingerprint "$@" ;;
     version|--version|-V) cmd_version ;;
     log) shift; cmd_log "$@" ;;
     report) cmd_report ;;

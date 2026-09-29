@@ -503,6 +503,24 @@ _pam_apply_polkit() {
     fi
 }
 
+# What /etc/pam.d says right now, read-only, as two words: sudo's state, then
+# polkit's. Each is `on` (takes a fingerprint) or `off`; polkit can also be
+# `foreign`, a file there that isn't ours. For `hashiru fingerprint` and
+# doctor, which report state and must never change it.
+fingerprint_pam_state() {
+    local sudo_state=off polkit_state=off file
+    _pam_has_fprintd "$(_pam_dir)/sudo" && sudo_state=on
+    file="$(_pam_dir)/polkit-1"
+    if [[ -e "${file}" ]]; then
+        if ! _pam_polkit_ours; then
+            polkit_state=foreign
+        elif _pam_has_fprintd "${file}"; then
+            polkit_state=on
+        fi
+    fi
+    echo "${sudo_state} ${polkit_state}"
+}
+
 # Make /etc/pam.d match HASHIRU_FINGERPRINT. Idempotent; an empty knob is a
 # no-op. Called by `hashiru fingerprint` to apply a change at once, and by
 # stage 10 on every run to keep it applied.
