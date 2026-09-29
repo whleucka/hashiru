@@ -420,6 +420,7 @@ cmd_fingerprint() {
     local probe=0
     case "${action}" in
         status)
+            # shellcheck disable=SC2119  # no args is the loud mode, not a lost "$@"
             _fp_probe || probe=$?
             (( probe == 1 )) && exit 1
             local state sudo_state polkit_state knob
@@ -453,6 +454,7 @@ cmd_fingerprint() {
             ;;
 
         on)
+            # shellcheck disable=SC2119  # as above
             _fp_probe || probe=$?
             if (( probe == 2 )); then
                 log_error "No fingerprint reader found (fprintd: No devices available). Nothing changed."
