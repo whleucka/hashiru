@@ -291,6 +291,64 @@ ensure_dir() {
 }
 
 # -----------------------------------------------------------------------------
+# hashiru.conf
+# -----------------------------------------------------------------------------
+
+# The hashiru.conf this machine actually uses. With --seed, a machine that has
+# none gets one copied from the example, so the caller always has a file.
+#
+# A machine predating the move to ~/.config keeps its in-repo file, and the
+# loader above still reads it — so that is the one to use rather than creating
+# a second. Seeding the canonical path there would be worse than useless: the
+# example is entirely commented out, so the new file would win the lookup and
+# set nothing, leaving the real settings live but no longer where you edited.
+_hashiru_conf_path() {
+    local canonical="${HASHIRU_CONFIG_DIR}/hashiru.conf"
+    local legacy="${HASHIRU_ROOT}/hashiru.conf"
+    local example="${HASHIRU_ROOT}/hashiru.conf.example"
+
+    if [[ ! -f "${canonical}" && -f "${legacy}" ]]; then
+        echo "${legacy}"
+        return
+    fi
+    if [[ "${1:-}" == "--seed" && ! -f "${canonical}" ]]; then
+        if [[ ! -f "${example}" ]]; then
+            log_error "No ${example} to seed from"
+            return 1
+        fi
+        ensure_dir "${HASHIRU_CONFIG_DIR}"
+        cp "${example}" "${canonical}"
+        log_info "Seeded ${canonical} from hashiru.conf.example"
+    fi
+    echo "${canonical}"
+}
+
+# Set one knob in hashiru.conf, for the commands that own a setting rather than
+# asking you to go and edit it. Rewrites the first line assigning VAR — live or
+# commented out, as the example ships them — and drops any others, so the file
+# says one thing; appends when there is no such line. Written back through the
+# existing file rather than renamed over it, so a hashiru.conf that is itself a
+# symlink stays one.
+set_conf_knob() {
+    local var="$1" value="$2" conf tmp
+    conf="$(_hashiru_conf_path --seed)" || return 1
+    tmp="$(mktemp)"
+    awk -v var="${var}" -v line=": \"\${${var}=${value}}\"" '
+        # An assignment to exactly this name, in any of the forms a person
+        # writes one: the idiom, a bare VAR=, export VAR=, or any of those
+        # commented out. A longer name sharing the prefix does not match.
+        $0 ~ "^[[:space:]]*#?[[:space:]]*(:[[:space:]]*\"?\\$\\{|export[[:space:]]+)?" var "=" {
+            if (!done) { print line; done = 1 }
+            next
+        }
+        { print }
+        END { if (!done) print line }
+    ' "${conf}" > "${tmp}"
+    cat "${tmp}" > "${conf}"
+    rm -f "${tmp}"
+}
+
+# -----------------------------------------------------------------------------
 # Package management
 # -----------------------------------------------------------------------------
 

@@ -355,27 +355,12 @@ cmd_version() {
 # machine differ from the repo without forking it, and until now the only way to
 # reach it was to remember the path and that an example file existed.
 cmd_config() {
-    local canonical="${HASHIRU_CONFIG_DIR}/hashiru.conf"
-    local legacy="${HASHIRU_ROOT}/hashiru.conf"
-    local example="${HASHIRU_ROOT}/hashiru.conf.example"
-    local target="${canonical}"
-
-    # A machine predating the move keeps its in-repo file, and common.sh still
-    # reads it — so edit the one actually in use rather than creating a second.
-    # Seeding the canonical path here would be worse than useless: the example
-    # is entirely commented out, so the new file would win the lookup and set
-    # nothing, leaving the real settings live but no longer where you edited.
-    if [[ ! -f "${canonical}" && -f "${legacy}" ]]; then
-        target="${legacy}"
+    # Which file, and seeding it, is _hashiru_conf_path's — shared with
+    # set_conf_knob so a command writing a knob edits the file you would.
+    local target
+    target="$(_hashiru_conf_path --seed)" || exit 1
+    if [[ "${target}" == "${HASHIRU_ROOT}/hashiru.conf" ]]; then
         log_info "Editing the in-repo hashiru.conf; ~/.config/hashiru/ is the current home for it"
-    elif [[ ! -f "${target}" ]]; then
-        if [[ ! -f "${example}" ]]; then
-            log_error "No ${example} to seed from"
-            exit 1
-        fi
-        ensure_dir "${HASHIRU_CONFIG_DIR}"
-        cp "${example}" "${target}"
-        log_info "Seeded ${target} from hashiru.conf.example"
     fi
 
     # $VISUAL first: .zshrc sets both, and VISUAL is the one that means "a real
