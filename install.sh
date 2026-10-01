@@ -141,9 +141,15 @@ require_user
 # But not above require_arch/require_user either — those two refuse before a run
 # exists, and wiping the last install's warnings is not what "you are root"
 # should cost.
+#
+# The archived digest goes too. hashiru-report.sh renames report.txt to
+# report.last.txt once it has been shown at login, and nothing else ever removes
+# it, so doctor kept reporting a long-fixed warning from the run that made it.
+# A new run supersedes the old digest either way.
 rotate_log
 log_run_marker
 : > "${HASHIRU_REPORT}"
+rm -f "${HASHIRU_REPORT%.txt}.last.txt"
 export HASHIRU_DIGEST=1
 
 # Check connectivity once up front, but only when a selected stage actually
