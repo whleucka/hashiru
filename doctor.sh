@@ -203,6 +203,22 @@ else
     bad "herdr missing (60-herdr.sh)"
 fi
 
+# 60-herdr.sh installs these when Claude Code is present. Warnings, not
+# failures: herdr still works without them, it just guesses agent state and
+# cannot resume Claude panes after a restart.
+if command -v herdr &>/dev/null && command -v claude &>/dev/null; then
+    if herdr integration status 2>/dev/null | grep -q '^claude: installed'; then
+        ok "herdr Claude integration installed"
+    else
+        meh "herdr Claude integration missing (herdr integration install claude, or 60-herdr.sh)"
+    fi
+    if [[ -f "${HOME}/.claude/skills/herdr/SKILL.md" ]]; then
+        ok "herdr skill installed"
+    else
+        meh "herdr skill missing (60-herdr.sh)"
+    fi
+fi
+
 # --- Shell ---------------------------------------------------------------------
 
 section "Shell"
