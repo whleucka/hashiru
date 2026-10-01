@@ -54,7 +54,9 @@ fi
 if command -v claude &>/dev/null; then
     claude_status="$("${herdr_bin}" integration status 2>/dev/null | grep '^claude:' || true)"
     claude_outdated="$("${herdr_bin}" integration status --outdated-only 2>/dev/null | grep '^claude:' || true)"
-    if [[ "${claude_status}" == "claude: installed"* && -z "${claude_outdated}" ]]; then
+    # Status reads "claude: current (vN)" when installed, "claude: not installed
+    # (...)" when not; outdated ones are listed by --outdated-only.
+    if [[ -n "${claude_status}" && "${claude_status}" != "claude: not installed"* && -z "${claude_outdated}" ]]; then
         log_info "herdr Claude integration already installed"
     elif "${herdr_bin}" integration install claude; then
         log_success "herdr Claude integration installed"

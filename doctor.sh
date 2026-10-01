@@ -207,10 +207,14 @@ fi
 # failures: herdr still works without them, it just guesses agent state and
 # cannot resume Claude panes after a restart.
 if command -v herdr &>/dev/null && command -v claude &>/dev/null; then
-    if herdr integration status 2>/dev/null | grep -q '^claude: installed'; then
-        ok "herdr Claude integration installed"
-    else
+    claude_status="$(herdr integration status 2>/dev/null | grep '^claude:' || true)"
+    if [[ -z "${claude_status}" || "${claude_status}" == "claude: not installed"* ]]; then
         meh "herdr Claude integration missing (herdr integration install claude, or 60-herdr.sh)"
+    elif herdr integration status --outdated-only 2>/dev/null | grep -q '^claude:'; then
+        meh "herdr Claude integration outdated (herdr integration install claude, or 60-herdr.sh)"
+    else
+        claude_status="${claude_status#claude: }"
+        ok "herdr Claude integration ${claude_status%% (/*}"
     fi
     if [[ -f "${HOME}/.claude/skills/herdr/SKILL.md" ]]; then
         ok "herdr skill installed"
