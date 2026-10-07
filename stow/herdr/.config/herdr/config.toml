@@ -142,6 +142,28 @@ width = "90%"
 height = "90%"
 description = "lazydocker"
 
+# mantis-tui (MantisBT issues) and fnav (fleet navigator) in popups, same shape
+# as lazydocker. Both live outside PATH as the herdr server sees it — the server
+# is a lazy daemon started under Hyprland, and these bin dirs are only added by
+# ~/.zshrc.local — so the command goes through an interactive zsh to pick that
+# PATH up, and `exec` hands the popup straight to the TUI. prefix+m and prefix+f
+# are unbound in herdr's defaults.
+[[keys.command]]
+key = "prefix+m"
+type = "popup"
+command = "zsh -ic 'exec mantis-tui'"
+width = "90%"
+height = "90%"
+description = "mantis-tui"
+
+[[keys.command]]
+key = "prefix+f"
+type = "popup"
+command = "zsh -ic 'exec fnav'"
+width = "90%"
+height = "90%"
+description = "fnav"
+
 # Move the focused pane forward/backward through the tab's pane order (tmux
 # swap-pane -D/-U). herdr's native swap is directional only; herdr-swap walks
 # the linear pane list. (ctrl+shift+b reclaimed from open_notification_target.)
