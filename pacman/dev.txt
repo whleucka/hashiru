@@ -25,6 +25,9 @@ gdb
 # Rust
 rustup
 
+# Go (`go install` drops binaries in ~/go/bin, which .zshrc puts on PATH)
+go
+
 # C libraries (graphics)
 glfw
 glm
@@ -70,6 +73,7 @@ bash-language-server
 typescript-language-server
 yaml-language-server
 pyright
+gopls
 taplo-cli
 vscode-css-languageserver
 vscode-html-languageserver
