@@ -519,6 +519,99 @@ ui_success() { _ui_init; _ui_out "${UI_SUCCESS}==>${UI_RESET} $*"$'\n'; }
 ui_warn()    { _ui_init; _ui_out "${UI_WARN}!!${UI_RESET} $*"$'\n'; }
 ui_error()   { _ui_init; _ui_out "${UI_ERROR}!!${UI_RESET} $*"$'\n'; }
 
+# _ui_safe_line <line> <max> — one log line made safe to draw, cut to at most
+# <max> characters with "...". A line rewritten with CR (pacman's progress bars)
+# keeps only what a terminal would have ended up showing: the text after the
+# last CR. Tabs become spaces, and every other control character — ESC above
+# all, but also backspace, and the C1 set, which a VT can take for CSI — shows
+# as caret notation, the way `cat -v` would. A log can carry a program's colour
+# codes, and the failure screen must show them as text rather than obey them.
+# Result in _UI_SAFE, to save a subshell per line.
+_UI_SAFE=''
+_ui_safe_line() {
+    local LC_ALL=C.UTF-8
+    local line="${1%$'\r'}" max="$2" c i out=''
+    local -i n
+    line="${line##*$'\r'}"
+    line="${line//$'\t'/    }"
+    # Escaping only ever lengthens, so nothing past max + 1 can survive the cut.
+    line="${line:0:$(( max + 1 ))}"
+    if [[ "${line}" == *[[:cntrl:]]* ]]; then
+        for (( i = 0; i < ${#line}; i++ )); do
+            c="${line:i:1}"
+            if [[ "${c}" != [[:cntrl:]] ]]; then
+                out+="${c}"
+                continue
+            fi
+            printf -v n '%d' "'${c}"
+            if (( n == 127 )); then
+                out+='^?'
+            elif (( n < 32 )); then
+                printf -v c '\\x%02x' $(( n + 64 ))
+                printf -v c '^%b' "${c}"
+                out+="${c}"
+            else
+                printf -v c '\\x%02x' $(( n - 64 ))
+                printf -v c 'M-^%b' "${c}"
+                out+="${c}"
+            fi
+        done
+        line="${out}"
+    fi
+    (( ${#line} > max )) && line="${line:0:$(( max - 3 ))}..."
+    _UI_SAFE="${line}"
+}
+
+# ui_failure <title> <log> [lines] [note...] — the one failure block, shared by
+# stage0, first boot and install.sh so every failure reads the same:
+#   !! <title>
+#      <note>
+#      <note>
+#
+#   Last 30 lines of /var/log/whatever.log:
+#     <log line>
+#     ...
+# The log is drawn muted and made safe line by line (see _ui_safe_line); a line
+# too long for the terminal is cut short with "...", since the full text is in
+# the file the block names. A missing or empty log says "(no log yet)". Menus
+# stay with the caller: this only draws.
+ui_failure() {
+    _ui_init
+    local LC_ALL=C.UTF-8
+    local title="$1" log="$2" lines="${3:-30}"
+    shift 2
+    (( $# )) && shift
+    [[ "${lines}" =~ ^[0-9]+$ ]] && (( lines > 0 )) || lines=30
+
+    local nl=$'\n' out note cols max line
+    out="${nl}${UI_ERROR}${UI_BOLD}!!${UI_RESET} ${UI_TEXT}${UI_BOLD}${title}${UI_RESET}${nl}"
+    for note in "$@"; do
+        out+="   ${note}${nl}"
+    done
+    out+="${nl}"
+
+    local -a tail=()
+    if [[ -s "${log}" && -r "${log}" ]]; then
+        mapfile -t tail < <(tail -n "${lines}" -- "${log}" 2>/dev/null)
+    fi
+    if (( ${#tail[@]} == 0 )); then
+        out+="${UI_MUTED}(no log yet: ${log})${UI_RESET}${nl}"
+        _ui_out "${out}"
+        return 0
+    fi
+
+    # Indented two, and never into the last column (see ui_card).
+    cols="$(_ui_cols)"
+    max=$(( cols - 3 ))
+    (( max >= 20 )) || max=20
+    out+="${UI_MUTED}Last ${#tail[@]} lines of ${log}:${UI_RESET}${nl}"
+    for line in "${tail[@]}"; do
+        _ui_safe_line "${line}" "${max}"
+        out+="  ${UI_MUTED}${_UI_SAFE}${UI_RESET}${nl}"
+    done
+    _ui_out "${out}"
+}
+
 # -----------------------------------------------------------------------------
 # Prompts
 # -----------------------------------------------------------------------------
