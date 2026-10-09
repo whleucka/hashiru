@@ -223,6 +223,16 @@ if command -v herdr &>/dev/null && command -v claude &>/dev/null; then
     fi
 fi
 
+# Tab titles from what is running. A warning: herdr works without it. Disabled
+# counts as present, since that was the user's call.
+if command -v herdr &>/dev/null; then
+    if herdr plugin list 2>/dev/null | grep -q '^- herdr.auto-title '; then
+        ok "herdr plugin herdr.auto-title installed"
+    else
+        meh "herdr plugin herdr.auto-title missing (herdr plugin install kryptamine/herdr-auto-title, or 60-herdr.sh)"
+    fi
+fi
+
 # --- Shell ---------------------------------------------------------------------
 
 section "Shell"

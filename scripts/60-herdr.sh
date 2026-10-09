@@ -5,8 +5,8 @@
 # in stow/herdr/.config/herdr/scripts drive it (herdr-relayout, -nav, -route,
 # -split-run, -swap), and its config is a Hashiru stow package placed by
 # 45-config.sh. This stage installs the binary — it is where third-party user
-# binaries land — plus the two things herdr generates for Claude Code: its
-# state-reporting hooks and its agent skill.
+# binaries land — plus the two things herdr generates for Claude Code (its
+# state-reporting hooks and its agent skill) and the Auto Title plugin.
 #
 # This stage used to clone and stow a personal dotfiles repo. It no longer does,
 # and Hashiru no longer knows what dotfiles are: everything it stows lives in
@@ -81,6 +81,24 @@ if [[ -d "${HOME}/.claude" ]]; then
         mkdir -p "${skill_dir}"
         printf '%s\n' "${skill_new}" > "${skill_dir}/SKILL.md"
         log_success "herdr skill written to ${skill_dir}"
+    fi
+fi
+
+# Auto Title: names tabs from what is running in them. herdr installs plugins
+# from GitHub into ~/.config/herdr/plugins (a real directory, see 45-config.sh)
+# and builds this one with go, which dev.txt only brings in at stage 99, so it
+# is installed here first. Installed only when absent: a plugin the user has
+# disabled is still listed, and stays disabled.
+readonly AUTO_TITLE_ID="herdr.auto-title"
+readonly AUTO_TITLE_REPO="kryptamine/herdr-auto-title"
+if "${herdr_bin}" plugin list 2>/dev/null | grep -q "^- ${AUTO_TITLE_ID} "; then
+    log_info "herdr plugin ${AUTO_TITLE_ID} already installed"
+else
+    is_pkg_installed go || sudo pacman -S --needed --noconfirm go
+    if "${herdr_bin}" plugin install --yes "${AUTO_TITLE_REPO}" </dev/null; then
+        log_success "herdr plugin ${AUTO_TITLE_ID} installed"
+    else
+        log_warn "herdr plugin ${AUTO_TITLE_ID} failed (retry: herdr plugin install ${AUTO_TITLE_REPO})"
     fi
 fi
 
