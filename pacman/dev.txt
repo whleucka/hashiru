@@ -31,7 +31,6 @@ go
 # C libraries (graphics)
 glfw
 glm
-shader-slang
 
 # Python
 python

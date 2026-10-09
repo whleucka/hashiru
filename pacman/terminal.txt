@@ -2,6 +2,9 @@
 
 # Terminal emulator
 kitty
+# kitty.conf's custom_shaders (cursor-trail-blaze) are compiled with slang;
+# without it every kitty window opens on a "Failed to load custom shaders" page.
+shader-slang
 
 # Shell
 zsh
