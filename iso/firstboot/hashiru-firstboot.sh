@@ -5,29 +5,147 @@
 # systemd unit has no TTY to type a sudo password into, so we grant the user
 # temporary passwordless sudo for the duration of the bootstrap and remove it
 # afterwards. On success the unit disables itself; on failure it stays enabled
-# so the next boot retries.
+# so the next boot retries from the stage that failed, up to MAX_ATTEMPTS.
 set -euo pipefail
 
 : "${HASHIRU_USER:?HASHIRU_USER not set}"
-SUDOERS="/etc/sudoers.d/hashiru-firstboot"
+# How many times first boot has failed so far, and the stage to resume from.
+# Both live in the env file and are rewritten on each failure.
+HASHIRU_FIRSTBOOT_ATTEMPTS="${HASHIRU_FIRSTBOOT_ATTEMPTS:-0}"
+HASHIRU_RESUME_FROM="${HASHIRU_RESUME_FROM:-}"
+readonly MAX_ATTEMPTS=3
+
+# Every path below sits under ROOT, which is empty on a real boot. A test points
+# it at a scratch tree.
+ROOT="${HASHIRU_FIRSTBOOT_ROOT:-}"
+SUDOERS="${ROOT}/etc/sudoers.d/hashiru-firstboot"
+ENV_FILE="${ROOT}/etc/hashiru-firstboot.env"
+# Read at every login by config/profile.d/hashiru-firstboot-failed.sh.
+MARKER="${ROOT}/var/lib/hashiru/firstboot-failed"
 # Permanent location — see install-firstboot.sh. ~/hashiru is a symlink here.
 REPO="/opt/hashiru"
 USER_UID="$(id -u "${HASHIRU_USER}")"
+USER_HOME="$(getent passwd "${HASHIRU_USER}" | cut -d: -f6)"
+# Written by install.sh when a stage fails, removed once it succeeds.
+FAILED_STAGE_FILE="${ROOT}${USER_HOME}/.local/share/hashiru/failed-stage"
+INSTALL_LOG="${USER_HOME}/.local/share/hashiru/install.log"
 
-GETTY_DROPIN="/etc/systemd/system/getty@tty1.service.d/10-hashiru-firstboot.conf"
+# Keeps the tty1 login prompt away while first boot runs (install-firstboot.sh).
+GETTY_DROPIN="${ROOT}/etc/systemd/system/getty@tty1.service.d/10-hashiru-firstboot.conf"
+# This boot only: /run is tmpfs. Sorts after both the drop-in above and stage
+# 30's autologin.conf, so its resets win.
+FAILED_DROPIN="${ROOT}/run/systemd/system/getty@tty1.service.d/zz-hashiru-failed.conf"
 # Set just before `systemctl reboot`, so the trap can tell "we're on our way
 # down" from "we died" — the two want opposite things done to tty1.
 REBOOTING=0
 
-# Hand tty1 back to a login prompt. On the success path the machine reboots
-# into the finished system and stage 30's autologin takes over, so this only
-# matters when the bootstrap failed: without it the drop-in would still be
-# blocking the getty and there'd be no way to log in on tty1 and read what
-# went wrong.
+# Hand tty1 back to a plain login prompt for the rest of this boot. Not
+# autologin: once stage 30 and 45 have run, autologin starts Hyprland, right
+# over the failure it should be showing. The runtime drop-in:
+#   - cancels the gate's condition, so the getty runs now; the gate itself
+#     stays, and keeps tty1 quiet while the next boot retries. An empty
+#     ConditionPathExists= clears every one, getty@'s own /dev/tty0 check
+#     included, so that one is put back.
+#   - resets ExecStart to the stock prompt, dropping any --autologin
+#   - keeps the screen: getty@ deallocates the VT when it starts, which would
+#     wipe the failure screen before anyone could read it
 restore_getty() {
-  rm -f "${GETTY_DROPIN}"
+  mkdir -p "${FAILED_DROPIN%/*}"
+  cat > "${FAILED_DROPIN}" <<'DROPIN'
+[Unit]
+ConditionPathExists=
+ConditionPathExists=/dev/tty0
+
+[Service]
+ExecStart=
+ExecStart=-/usr/bin/agetty --noreset --noclear - ${TERM}
+TTYVTDisallocate=no
+DROPIN
   systemctl daemon-reload
   systemctl start --no-block getty@tty1.service || true
+}
+
+# The stage install.sh last failed in ("50"), or nothing when it stopped
+# before any stage (network check, sudo).
+failed_stage() {
+  local n
+  n="$(cat "${FAILED_STAGE_FILE}" 2>/dev/null || true)"
+  [[ "${n}" =~ ^[0-9]+$ ]] && echo "${n}"
+  return 0
+}
+
+# "50-snapper.sh" for "50", for people to read.
+stage_name() {
+  local f
+  for f in "${REPO}/scripts/$1"-*.sh; do
+    [[ -e "${f}" ]] && { echo "${f##*/}"; return 0; }
+  done
+  echo "stage $1"
+}
+
+# Rewrite the env file in one move, so a power cut never leaves half of it.
+write_env() {
+  local tmp="${ENV_FILE}.new"
+  {
+    printf 'HASHIRU_USER=%s\n' "${HASHIRU_USER}"
+    printf 'HASHIRU_FIRSTBOOT_ATTEMPTS=%s\n' "$1"
+    [[ -n "$2" ]] && printf 'HASHIRU_RESUME_FROM=%s\n' "$2"
+  } > "${tmp}"
+  mv -f "${tmp}" "${ENV_FILE}"
+}
+
+# The failure path: count it, remember where to resume, leave a marker for the
+# login notice, say so on tty1, and give up after MAX_ATTEMPTS.
+on_failure() {
+  local attempt stage name resume gave_up=0
+  attempt=$(( HASHIRU_FIRSTBOOT_ATTEMPTS + 1 ))
+  stage="$(failed_stage)"
+  # A failure before any stage keeps the previous resume point.
+  stage="${stage:-${HASHIRU_RESUME_FROM}}"
+  name=""
+  [[ -n "${stage}" ]] && name="$(stage_name "${stage}")"
+  resume="hashiru install${stage:+ ${stage}+}"
+
+  write_env "${attempt}" "${stage}"
+  if (( attempt >= MAX_ATTEMPTS )); then
+    gave_up=1
+    systemctl disable hashiru-firstboot.service || true
+    # Nothing will run first boot again, so nothing should hold tty1 back.
+    rm -f "${GETTY_DROPIN}"
+  fi
+
+  mkdir -p "${MARKER%/*}"
+  {
+    printf 'stage=%s\n' "${name:-before the first stage}"
+    printf 'attempt=%s\n' "${attempt}"
+    printf 'max=%s\n' "${MAX_ATTEMPTS}"
+    printf 'gave_up=%s\n' "${gave_up}"
+    printf 'resume=%s\n' "${resume}"
+    printf 'time=%(%F %T)T\n' -1
+  } > "${MARKER}"
+  chmod 644 "${MARKER}"
+
+  # The journal gets plain lines, whatever tty1 shows.
+  echo "!! Hashiru first boot failed${name:+ in ${name}} (attempt ${attempt} of ${MAX_ATTEMPTS})." >&2
+  echo "!! Log: ${INSTALL_LOG}" >&2
+  if (( gave_up )); then
+    echo "!! No more automatic tries. After fixing it, run: ${resume}" >&2
+  else
+    echo "!! The next boot tries again${stage:+ from stage ${stage}}." >&2
+  fi
+
+  if [[ -w /dev/tty1 ]] && declare -F ui_failure >/dev/null; then
+    local next
+    if (( gave_up )); then
+      next="That was the last automatic try: first boot won't run again."
+    else
+      next="The next boot tries again${stage:+, starting from ${name}}."
+    fi
+    ui_failure "First boot failed${name:+ in ${name}}" "${ROOT}${INSTALL_LOG}" 20 \
+      "Attempt ${attempt} of ${MAX_ATTEMPTS}. ${next}" \
+      "Log in below and look at the log: hashiru log" \
+      "After fixing it, finish the install with: ${resume}" > /dev/tty1 2>&1 || true
+  fi
 }
 
 cleanup() {
@@ -110,11 +228,21 @@ echo "==> Running Hashiru bootstrap as ${HASHIRU_USER}"
 # journal. It is all in ~/.local/share/hashiru/install.log (`hashiru log`), and
 # the ==>/!! lines below still go to the journal, which is what someone
 # debugging a failed first boot as root before any login actually needs.
+#
+# A retry resumes at the stage that failed (stages are idempotent, so this only
+# saves time), and still stamps /etc/hashiru-release: install.sh stamps full
+# runs only, and a resumed first boot finishes the whole bootstrap.
 run_bootstrap() {
+  local args=""
+  if [[ "${HASHIRU_RESUME_FROM}" =~ ^[0-9]+$ ]]; then
+    args="${HASHIRU_RESUME_FROM}+"
+    echo "==> Resuming from stage ${HASHIRU_RESUME_FROM} (attempt $(( HASHIRU_FIRSTBOOT_ATTEMPTS + 1 )) of ${MAX_ATTEMPTS})"
+  fi
   sudo -u "${HASHIRU_USER}" -H bash -lc "
       export XDG_RUNTIME_DIR='/run/user/${USER_UID}'
       export DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/${USER_UID}/bus'
-      cd '${REPO}' && HASHIRU_UNATTENDED=1 ./install.sh
+      ${args:+export HASHIRU_STAMP_UPDATED=1}
+      cd '${REPO}' && HASHIRU_UNATTENDED=1 ./install.sh ${args}
     "
 }
 BOOTSTRAP_OK=1
@@ -124,12 +252,7 @@ else
   run_bootstrap || BOOTSTRAP_OK=0
 fi
 if [[ "${BOOTSTRAP_OK}" -eq 0 ]]; then
-  echo "!! Hashiru bootstrap failed — unit left enabled; will retry next boot." >&2
-  # The log file, not just the journal: quiet mode sends every stage's own
-  # output there, so the journal holds only Hashiru's line-oriented messages.
-  echo "!! Log in below and check: ~${HASHIRU_USER}/.local/share/hashiru/install.log" >&2
-  echo "!! Stage boundaries and warnings: journalctl -u hashiru-firstboot" >&2
-  echo "!! Or resume a partial run: cd ${REPO} && ./install.sh --from <stage>" >&2
+  on_failure
   exit 1
 fi
 
@@ -141,8 +264,10 @@ systemctl disable hashiru-firstboot.service
 # Also drop the env file: ConditionPathExists then blocks the unit for good,
 # even if something re-enables it later. Dropping the getty drop-in alongside
 # it keeps that gate honest — were the file left behind, anything that recreated
-# the env file would silently suppress the tty1 login prompt as well.
-rm -f /etc/hashiru-firstboot.env "${GETTY_DROPIN}"
+# the env file would silently suppress the tty1 login prompt as well. The
+# marker and runtime drop-in go too: a retry that succeeds leaves no trace of
+# the attempts before it.
+rm -f "${ENV_FILE}" "${GETTY_DROPIN}" "${MARKER}" "${FAILED_DROPIN}"
 echo "==> Hashiru bootstrap complete — rebooting into the finished system."
 REBOOTING=1
 systemctl reboot

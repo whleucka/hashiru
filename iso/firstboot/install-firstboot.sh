@@ -24,8 +24,10 @@ install -Dm644 "${REPO}/iso/firstboot/hashiru-firstboot.service" \
 install -Dm755 "${REPO}/iso/firstboot/hashiru-firstboot.sh" \
   /usr/local/bin/hashiru-firstboot.sh
 
-# Tell the first-boot unit which user to bootstrap as.
-printf 'HASHIRU_USER=%s\n' "${HUSER}" > /etc/hashiru-firstboot.env
+# Tell the first-boot unit which user to bootstrap as. The attempt count starts
+# at 0; hashiru-firstboot.sh rewrites this file on each failure, adding the
+# stage to resume from.
+printf 'HASHIRU_USER=%s\nHASHIRU_FIRSTBOOT_ATTEMPTS=0\n' "${HUSER}" > /etc/hashiru-firstboot.env
 
 # Keep the tty1 login prompt off the screen for the whole first boot. Without
 # this, getty@tty1 comes up with multi-user.target, paints a login prompt, and
