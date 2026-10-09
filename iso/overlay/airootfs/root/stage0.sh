@@ -18,6 +18,9 @@ set -euo pipefail
 CONFIG_SRC="/root/archinstall/user_config.json"
 CONFIG_RUN="/root/user_config.json"
 CREDS_RUN="/root/user_creds.json"
+# stage0's own event log: plain lines, never a secret. The failure screens point
+# here. Overridable so a test run doesn't need /var/log.
+STAGE0_LOG="${HASHIRU_STAGE0_LOG:-/var/log/hashiru-stage0.log}"
 DEFAULT_TZ="UTC"
 DEFAULT_LOCALE="en_US.UTF-8"
 LOCALES_SUPPORTED="/usr/share/i18n/SUPPORTED"
@@ -36,8 +39,17 @@ STEPS=(Keyboard Network Account Machine Disk Review)
 # shellcheck source=lib/ui.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/ui.sh"
 
-say() { ui_note "$*"; }
-err() { ui_error "$*"; }
+# Append one plain, timestamped line to the stage0 log. Only these wrappers and
+# the step summaries write it, and none of them is ever handed HPASS, HLUKS or
+# WIFI_PSK. A log that can't be written never stops the install.
+slog() {
+  printf '%(%F %T)T %s\n' -1 "$*" >> "${STAGE0_LOG}" 2>/dev/null || true
+}
+
+say()  { slog "$*"; ui_note "$*"; }
+ok()   { slog "$*"; ui_success "$*"; }
+warn() { slog "warning: $*"; ui_warn "$*"; }
+err()  { slog "error: $*"; ui_error "$*"; }
 
 # --- UEFI is required (the archinstall config sets up GRUB on an ESP) ---------
 require_uefi() {
@@ -154,7 +166,8 @@ ask_network() {
     err "    /root/stage0.sh"
     exit 1
   fi
-  ui_success "Network is up."
+  ok "Network is up."
+  slog "network: ${WIFI_SSID:+wifi ${WIFI_SSID}}${WIFI_SSID:-wired}"
   detect_timezone
 }
 
@@ -234,17 +247,18 @@ ask_keyboard() {
     HXKB_MAPPED=1
   else
     HXKB_MAPPED=0 HXKB_LAYOUT="us" HXKB_VARIANT=""
-    ui_warn "${HKEYMAP} has no desktop equivalent; Hyprland will stay on us."
-    ui_warn "Set it later in ~/.config/hashiru/hypr/local.lua."
+    warn "${HKEYMAP} has no desktop equivalent; Hyprland will stay on us."
+    warn "Set it later in ~/.config/hashiru/hypr/local.lua."
   fi
 
   # Live, so every later answer (the password above all) is typed on the
   # layout the user just picked. Fails harmlessly off a VT (tests, ssh).
   if loadkeys "${HKEYMAP}" >/dev/null 2>&1; then
-    ui_success "Keyboard is now ${HKEYMAP}."
+    ok "Keyboard is now ${HKEYMAP}."
   else
-    ui_warn "Couldn't switch this console to ${HKEYMAP}; it is still set for the install."
+    warn "Couldn't switch this console to ${HKEYMAP}; it is still set for the install."
   fi
+  slog "keyboard: ${HKEYMAP} -> Hyprland ${HXKB_LAYOUT}${HXKB_VARIANT:+ (${HXKB_VARIANT})}"
 }
 
 # --- step: account --------------------------------------------------------------
@@ -264,6 +278,9 @@ ask_account() {
   else
     HLUKS="$(ui_password "LUKS passphrase")" HLUKS_SAME=0
   fi
+  local key="same as login"
+  (( HLUKS_SAME )) || key="separate"
+  slog "account: ${HUSER}, disk key ${key}"
 }
 
 # --- step: machine ----------------------------------------------------------------
@@ -279,6 +296,7 @@ ask_machine() {
   HTZ="$(timedatectl list-timezones --no-pager \
          | ui_filter "Timezone" "${HTZ:-${HTZ_DETECTED:-${DEFAULT_TZ}}}")"
   HLOCALE="$(system_locales | ui_filter "Language" "${HLOCALE:-${DEFAULT_LOCALE}}")"
+  slog "machine: ${HHOST}, ${HTZ}, ${HLOCALE}"
 }
 
 # The UTF-8 locales glibc can generate, as archinstall's sys_lang wants them
@@ -314,11 +332,23 @@ find_boot_disk() {
 # MiB — so parted/archinstall rejects it as misaligned. (A round qcow2 test disk
 # IS a whole MiB, which is why QEMU never tripped this.) 1 MiB is a multiple of
 # both 512- and 4096-byte sectors, so this is safe on 4Kn drives.
+#
+# The start comes from btrfs_start, read once by ask_disk. Not here: this runs
+# inside $(…) under a condition (disk_fits), where a failed jq is silently
+# swallowed and the size comes out wrong instead of stopping anything.
+BTRFS_START=""
+btrfs_start() {
+  BTRFS_START="$(jq -r '.disk_config.device_modifications[0].partitions[]
+                        | select(.fs_type=="btrfs") | .start.value' "${CONFIG_SRC}")"
+  if [[ ! "${BTRFS_START}" =~ ^[0-9]+$ ]]; then
+    err "Can't read the btrfs partition's start from ${CONFIG_SRC} (got '${BTRFS_START}')."
+    return 1
+  fi
+}
+
 btrfs_size() {
-  local start size
-  start="$(jq -r '.disk_config.device_modifications[0].partitions[]
-                  | select(.fs_type=="btrfs") | .start.value' "${CONFIG_SRC}")"
-  size=$(( $1 - start - 1048576 ))
+  local size
+  size=$(( $1 - BTRFS_START - 1048576 ))
   echo $(( (size / 1048576) * 1048576 ))
 }
 
@@ -346,6 +376,7 @@ disk_choices() {
 ask_disk() {
   rail Disk
   find_boot_disk
+  btrfs_start
   local -a choices=()
   mapfile -t choices < <(disk_choices)
   if (( ${#choices[@]} == 0 )); then
@@ -377,6 +408,7 @@ ask_disk() {
     fi
     break
   done
+  slog "disk: ${HDISK_LABEL}"
 }
 
 valid_target() {
@@ -443,6 +475,7 @@ review() {
       (( rc == 1 )) && ui_gum && continue
       exit "${rc}"
     fi
+    slog "review: ${choice}"
     case "${choice}" in
       Install)         confirm_wipe && return 0 ;;
       "Edit Keyboard") ask_keyboard ;;
@@ -463,11 +496,19 @@ confirm_wipe() {
   local name="${HDISK#/dev/}" typed
   echo
   err "ALL DATA on ${HDISK_LABEL} will be destroyed."
-  typed="$(ui_input "Type ${name} to erase it and install")"
+  # review calls this inside `&&`, where a failed $(…) doesn't stop anything:
+  # without the check, Ctrl-C in gum would read as a mistyped name.
+  typed="$(ui_input "Type ${name} to erase it and install")" || {
+    local rc=$?
+    (( rc == 130 )) && exit 130
+    typed=""
+  }
   if [[ "${typed}" == "${name}" ]]; then
+    slog "confirmed: erasing ${HDISK}"
     return 0
   fi
   REVIEW_NOTE="'${typed}' is not ${name}. Nothing was erased."
+  slog "wipe not confirmed (typed '${typed}')"
   return 1
 }
 
@@ -524,13 +565,14 @@ show_dry_run() {
   ui_note "…and these credentials (secrets redacted):"
   jq '.encryption_password = "<redacted>" | .users[]."!password" = "<redacted>"' "${CREDS_RUN}"
   command rm -f "${CREDS_RUN}"
-  ui_success "Dry run complete. Nothing was written to any disk."
+  ok "Dry run complete. Nothing was written to any disk."
 }
 
 # --- hand off to archinstall --------------------------------------------------
 run_archinstall() {
   say "Launching archinstall — this installs the base system (several minutes)…"
   archinstall --config "${CONFIG_RUN}" --creds "${CREDS_RUN}" --silent
+  slog "archinstall finished"
 
   # The live /root is tmpfs (RAM), but don't leave plaintext secrets around in
   # case the user pokes at the live session instead of rebooting. Kept on
@@ -583,8 +625,69 @@ EOF
   chmod 600 "${NMFILE}"
 }
 
+drop_to_shell() {
+  ui_note "A shell. Type 'exit' to come back here."
+  bash -i < /dev/tty > /dev/tty 2>&1 || true
+}
+
+power_off() {
+  slog "powering off"
+  systemctl poweroff
+}
+
+# --- unexpected failures (F0) --------------------------------------------------
+# set -E carries the ERR trap into every function and every $(…). In a subshell
+# it must do nothing: whether a subshell's failure matters is its caller's call
+# (`x="$(ui_choose …)" || rc=$?` is an answer, not a crash), and anything it
+# printed to stdout would end up in x. So only the top-level shell acts, which
+# also means one screen per failure rather than one per nesting level. ERR
+# follows set -e's rules, so nothing inside an `if`, `&&` or `||` gets here.
+on_err() {
+  local rc="$1" line="$2" fn="$3" cmd="$4"
+  (( BASH_SUBSHELL == 0 )) || return 0
+  trap - ERR
+  set +e
+  # Ctrl-C in gum comes back as a failed $(…) with status 130: a stop, not a
+  # crash. on_exit says so.
+  (( rc == 130 )) && exit 130
+
+  command rm -f "${CREDS_RUN}"
+  # One line: a multi-line command keeps its indentation otherwise.
+  cmd="${cmd//$'\n'/ }"
+  while [[ "${cmd}" == *"  "* ]]; do cmd="${cmd//  / }"; done
+  slog "FAILED in ${fn}, line ${line}: ${cmd} (exit ${rc})"
+  ui_failure "stage0 stopped unexpectedly" "${STAGE0_LOG}" 12 \
+    "In ${fn}, line ${line} (exit ${rc}):" \
+    "  ${cmd}" \
+    "Shell to look around, or Power off and boot the ISO again."
+
+  local choice crc
+  while true; do
+    crc=0
+    choice="$(ui_choose "What now?" Shell "Power off")" || crc=$?
+    if (( crc != 0 )); then
+      (( crc == 1 )) && ui_gum && continue
+      exit "${rc}"
+    fi
+    case "${choice}" in
+      Shell)       drop_to_shell ;;
+      "Power off") power_off; exit "${rc}" ;;
+    esac
+  done
+}
+
+# 130 is Ctrl-C, from wherever it came: gum's status, review's exit, or the INT
+# trap for a plain read. One line, no failure screen.
+on_exit() {
+  local rc=$?
+  if (( rc == 130 )); then
+    slog "stopped by the user"
+    ui_warn "Stopped."
+  fi
+}
+
 offer_reboot() {
-  ui_success "Base install complete. Hashiru will bootstrap automatically on first boot."
+  ok "Base install complete. Hashiru will bootstrap automatically on first boot."
   if ui_confirm "Reboot now?" yes; then
     umount -R /mnt 2>/dev/null || true
     systemctl reboot
@@ -604,6 +707,13 @@ main() {
     esac
     shift
   done
+
+  # Here rather than at the top, so sourcing this file for tests doesn't arm it.
+  set -E
+  trap 'on_err $? "${LINENO}" "${FUNCNAME[0]:-main}" "${BASH_COMMAND}"' ERR
+  trap 'exit 130' INT
+  trap on_exit EXIT
+  if (( DRY_RUN )); then slog "stage0 started (dry run)"; else slog "stage0 started"; fi
 
   # Palette before anything is drawn: on a VT it is what makes the splash's
   # colours Tokyo Night.
