@@ -694,16 +694,103 @@ show_dry_run() {
 }
 
 # --- hand off to archinstall --------------------------------------------------
-run_archinstall() {
-  say "Launching archinstall — this installs the base system (several minutes)…"
-  archinstall --config "${CONFIG_RUN}" --creds "${CREDS_RUN}" --silent
-  slog "archinstall finished"
+ARCHINSTALL_LOG="/var/log/archinstall/install.log"
+# The disk the last archinstall run was given. A retry cleans up after that
+# one, which is not HDISK any more if "Edit answers" picked another disk.
+LAST_TARGET=""
 
-  # The live /root is tmpfs (RAM), but don't leave plaintext secrets around in
-  # case the user pokes at the live session instead of rebooting. Kept on
-  # archinstall failure (set -e exits above) to allow debugging a failed run.
-  command rm -f "${CREDS_RUN}"
-  echo
+# Undo what a failed run left open, so the next one starts from nothing:
+# everything under /mnt, then the LUKS mappings on <disk>, deepest first. Then
+# check rather than trust: anything still mounted or mapped fails it.
+release_target() {
+  local disk="$1" name type
+  if mountpoint -q /mnt; then
+    umount -R /mnt || true
+  fi
+  if [[ -n "${disk}" && -b "${disk}" ]]; then
+    while read -r name type; do
+      [[ "${type}" == crypt ]] && { cryptsetup close "${name}" || true; }
+    done < <(lsblk -rno NAME,TYPE "${disk}" 2>/dev/null | tac)
+  fi
+
+  local left=""
+  mountpoint -q /mnt && left="/mnt is still mounted"
+  if [[ -z "${left}" && -n "${disk}" ]] \
+     && lsblk -rno TYPE "${disk}" 2>/dev/null | grep -qx crypt; then
+    left="a LUKS mapping on ${disk} is still open"
+  fi
+  if [[ -n "${left}" ]]; then
+    err "Couldn't clean up after the failed run: ${left}."
+    err "Pick Shell to look (lsblk, umount -R /mnt, cryptsetup close), then try again."
+    return 1
+  fi
+  slog "released ${disk:-nothing}"
+}
+
+# The F2 screen and its menu. Sets NEXT to retry or edit; Power off doesn't
+# come back. The creds file only exists while a run or Shell needs it.
+#
+# Results go through variables, not the return status, here and in
+# run_archinstall: a function whose status is tested runs with set -e and the
+# ERR trap off, and that would blind F0 to everything below it.
+NEXT=""
+archinstall_failed() {
+  local rc="$1" choice crc
+  ui_failure "archinstall failed (exit ${rc})" "${ARCHINSTALL_LOG}" 30 \
+    "Hashiru isn't installed, and ${LAST_TARGET} may be partly written." \
+    "Retry runs archinstall again with the same answers." \
+    "Edit answers goes back to the review."
+  while true; do
+    crc=0
+    choice="$(ui_choose "What now?" Retry "Edit answers" Shell "Power off")" || crc=$?
+    if (( crc != 0 )); then
+      (( crc == 1 )) && ui_gum && continue
+      exit "${crc}"
+    fi
+    slog "archinstall failed menu: ${choice}"
+    case "${choice}" in
+      Retry)
+        release_target "${LAST_TARGET}" && { NEXT=retry; return 0; } ;;
+      "Edit answers")
+        release_target "${LAST_TARGET}" && { NEXT=edit; return 0; } ;;
+      Shell)
+        # The one path that keeps the creds: re-running by hand needs them.
+        write_creds
+        ui_note "To re-run by hand: archinstall --config ${CONFIG_RUN} --creds ${CREDS_RUN}"
+        ui_note "${CREDS_RUN} holds your passwords; it is removed when you exit."
+        drop_to_shell
+        command rm -f "${CREDS_RUN}" ;;
+      "Power off")
+        power_off
+        exit 1 ;;
+    esac
+  done
+}
+
+# Sets INSTALLED=1 once archinstall has succeeded, or leaves it 0 to go back to
+# the review. archinstall's status is caught here rather than left to set -e: a
+# failure gets the F2 menu, not the generic F0 one.
+INSTALLED=0
+run_archinstall() {
+  local rc
+  while true; do
+    say "Launching archinstall — this installs the base system (several minutes)…"
+    LAST_TARGET="${HDISK}"
+    rc=0
+    archinstall --config "${CONFIG_RUN}" --creds "${CREDS_RUN}" --silent || rc=$?
+    # The live /root is tmpfs (RAM), but plaintext secrets don't stay around in
+    # case the user pokes at the live session. A retry writes them again.
+    command rm -f "${CREDS_RUN}"
+    slog "archinstall exited ${rc}"
+    if (( rc == 0 )); then
+      INSTALLED=1
+      echo
+      return 0
+    fi
+    archinstall_failed "${rc}"
+    [[ "${NEXT}" == retry ]] || return 0
+    write_creds
+  done
 }
 
 # --- seed WiFi into the installed system --------------------------------------
@@ -859,16 +946,20 @@ main() {
   ask_machine
   ask_disk
 
-  review
-  splice_config
-  write_creds
+  # Round again from the review when a failed install's "Edit answers" says so.
+  while true; do
+    review
+    splice_config
+    write_creds
 
-  if (( DRY_RUN )); then
-    show_dry_run
-    return 0
-  fi
+    if (( DRY_RUN )); then
+      show_dry_run
+      return 0
+    fi
 
-  run_archinstall
+    run_archinstall
+    (( INSTALLED )) && break
+  done
   seed_wifi
   offer_reboot
 }
