@@ -15,8 +15,13 @@
 # and Hyprland is exec'd straight from this file.
 [[ -d "${HOME}/.local/bin" ]] && export PATH="${HOME}/.local/bin:${PATH}"
 
-# Auto-start Hyprland on TTY1
-if [[ -z "${DISPLAY}" && "${XDG_VTNR}" == 1 ]]; then
+# Auto-start Hyprland on TTY1 — except while first boot stands failed: the
+# login notice (/etc/profile.d/hashiru-firstboot-failed.sh) has just said what
+# broke and how to finish, and a desktop launched over it, half-installed,
+# would hide both. The marker goes once the bootstrap completes.
+if [[ -z "${DISPLAY}" && "${XDG_VTNR}" == 1 && -e /var/lib/hashiru/firstboot-failed ]]; then
+    print -r -- "Hyprland not started while first boot is unfinished (start it anyway: start-hyprland)"
+elif [[ -z "${DISPLAY}" && "${XDG_VTNR}" == 1 ]]; then
     if command -v start-hyprland &>/dev/null; then
         exec start-hyprland
     else
