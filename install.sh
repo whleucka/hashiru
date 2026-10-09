@@ -302,8 +302,10 @@ for script in "${SCRIPTS[@]}"; do
         # back the tail of it. Without that a failed unattended install shows a
         # progress bar and nothing else, which is strictly worse than the flood.
         # Otherwise the output is already on screen, and the tail is left out.
+        # So it is on first boot (unattended), whose own failure screen right
+        # below this one shows the same tail.
         tail_lines=0
-        [[ "${HASHIRU_QUIET}" == "1" ]] && tail_lines=40
+        [[ "${HASHIRU_QUIET}" == "1" && "${HASHIRU_UNATTENDED}" != "1" ]] && tail_lines=40
         ui_failure "Stage failed: ${script_name}" "${HASHIRU_LOG}" "${tail_lines}" \
             "Fix the issue, then resume from here: ./install.sh ${stage_id}+" \
             "(or re-run just this stage: ./install.sh ${stage_id})" \
