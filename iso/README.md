@@ -32,6 +32,25 @@ systemd derives from the keymap into `~/.config/hashiru/hypr/local.lua`.
 `/root/stage0.sh --dry-run` walks every step and prints the config it would
 hand archinstall (secrets redacted), then stops. Nothing is written to disk.
 
+## When stage0 fails
+
+Every stop draws `ui_failure` (a red `!!` block plus a log tail) and a menu:
+
+| Failure | Menu |
+|---|---|
+| No network after the wired wait | Retry · Set up WiFi (scan, pick, `ui_password`) · Shell · Power off |
+| archinstall exits non-zero | Retry (same answers) · Edit answers · Shell · Power off. Retry first runs `umount -R /mnt` and closes the target's crypt mappings, then checks with `lsblk` |
+| archinstall dies in a `custom_commands` entry (`user-command.N.sh … exit code` in its log) | Retry wiring · Retry install · Edit answers · Shell · Power off. Retry wiring re-runs the entries from N onward via `arch-chroot /mnt`, then writes the fstab: archinstall runs `genfstab` *after* `custom_commands`, so a failure there leaves the target with none. Only offered while `/mnt` holds the installed system |
+| Anything else (`set -E` + `ERR` trap, top-level shell only) | Shell · Power off, naming the function, line and command |
+
+stage0 keeps its own plain log at `/var/log/hashiru-stage0.log`
+(`HASHIRU_STAGE0_LOG` overrides it): each step's answers, menu picks,
+archinstall's exit code. Passwords never pass through the wrappers that write
+it. The creds file is removed on every path except Shell after an archinstall
+failure, which needs it to re-run by hand. `seed_wifi` writes the NM keyfile
+only when `/mnt` is mounted with a readable `/etc`; otherwise the reboot screen
+warns that the installed system boots without WiFi.
+
 ## Build
 
 ```bash
@@ -85,7 +104,8 @@ isn't pushed, since the installed system clones it from GitHub
 | `archinstall/user_creds.example.json` | Reference creds shape (real one generated at runtime) |
 | `firstboot/install-firstboot.sh` | Runs in chroot; installs the first-boot unit, hands `/opt/hashiru` to the user |
 | `firstboot/hashiru-firstboot.service` | One-shot unit, first boot |
-| `firstboot/hashiru-firstboot.sh` | Runs `install.sh` as the user, then disables itself |
+| `firstboot/hashiru-firstboot.sh` | Runs `install.sh` as the user, then disables itself; on failure, resumes next boot (point 9) |
+| `../config/profile.d/hashiru-firstboot-failed.sh` | Login notice while first boot stands failed; installed by `install-firstboot.sh` |
 
 ## Known fragile points (validate in QEMU before trusting)
 
@@ -144,8 +164,33 @@ isn't pushed, since the installed system clones it from GitHub
    at `multi-user.target` and the bootstrap's console logging scribbles over it
    a moment later. It also stops someone logging in mid-install, which matters
    once stage 30 has written the autologin drop-in. The getty returns on its
-   own when the bootstrap clears the env file; on the failure path
-   `hashiru-firstboot.sh` removes the drop-in and starts the getty from its
-   `EXIT` trap, so a broken run still leaves a way in. If you ever need tty1
-   back by hand: `rm` the drop-in, `systemctl daemon-reload`, then start
+   own when the bootstrap clears the env file. On the failure path the drop-in
+   stays (it keeps tty1 quiet for the next boot's retry), and the `EXIT` trap
+   writes a runtime override instead,
+   `/run/systemd/system/getty@tty1.service.d/zz-hashiru-failed.conf`: it
+   cancels the gate's condition, resets `ExecStart` to a plain `agetty` (no
+   `--autologin`), and sets `TTYVTDisallocate=no` so the failure screen isn't
+   wiped. `zz-` sorts after both the gate and stage 30's `autologin.conf`;
+   `/run` is tmpfs, so the next boot is untouched. If you ever need tty1 back
+   by hand: `rm` the gate drop-in, `systemctl daemon-reload`, then start
    `getty@tty1`.
+
+9. **A failed first boot resumes, three times at most.** On a stage failure
+   `install.sh` writes the stage number to `~/.local/share/hashiru/failed-stage`
+   (removed once that stage succeeds). `hashiru-firstboot.sh` then rewrites
+   `/etc/hashiru-firstboot.env`:
+
+   ```
+   HASHIRU_USER=alice
+   HASHIRU_FIRSTBOOT_ATTEMPTS=1     # seeded as 0 by install-firstboot.sh
+   HASHIRU_RESUME_FROM=50           # the next boot runs ./install.sh 50+
+   ```
+
+   and writes the marker `/var/lib/hashiru/firstboot-failed` (stage, attempt,
+   resume command, time). While it exists, `/etc/profile.d/hashiru-firstboot-failed.sh`
+   prints it at every login and `.zprofile` doesn't start Hyprland on tty1.
+   The third failure disables the unit and removes the gate drop-in. Success
+   removes the env file, the marker and both drop-ins; so does a manual
+   `install.sh` run that completes the final stage (the marker, via `sudo`).
+   To start the count over by hand, set `HASHIRU_FIRSTBOOT_ATTEMPTS=0` and
+   `systemctl enable hashiru-firstboot.service`.
