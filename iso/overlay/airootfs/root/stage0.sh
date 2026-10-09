@@ -93,40 +93,141 @@ has_wifi_dev() { first_wifi_dev >/dev/null 2>&1; }
 WIFI_SSID=""
 WIFI_PSK=""
 
-# Bring up WiFi in the live environment via iwd (iwctl). On success, exports
-# WIFI_SSID/WIFI_PSK and returns 0. The live env runs systemd-networkd +
-# systemd-resolved + iwd, so once iwd associates, DHCP and DNS follow.
-connect_wifi() {
-  local dev ssid psk
-  dev="$(first_wifi_dev)" || { err "No WiFi device found."; return 1; }
+# iwd's own store. A passphrase goes to iwd as a network file here rather than
+# `iwctl --passphrase`, which would put it in /proc/*/cmdline for anything on
+# the live system to read.
+IWD_DIR="/var/lib/iwd"
 
-  rfkill unblock wifi 2>/dev/null || true
-  iwctl device "${dev}" set-property Powered on 2>/dev/null || true
+# The networks a scan found, one "ssid<TAB>security<TAB>signal" line each,
+# strongest first (iwctl's order). get-networks is a table drawn for people:
+# colour codes, a title, rules and a header, then rows of
+#   [>] <name, may hold spaces>  <psk|open|8021x|wep>  <*…>
+# so a row is recognised by its last two fields and the name is what's left.
+wifi_networks() {
+  local line ssid sec sig
+  iwctl station "$1" get-networks 2>/dev/null </dev/null \
+    | sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' \
+    | while IFS= read -r line; do
+        [[ "${line}" =~ ^[[:space:]]*(\>[[:space:]]+)?(.*[^[:space:]])[[:space:]]+(psk|open|8021x|wep)[[:space:]]+(\*+)[[:space:]]*$ ]] || continue
+        ssid="${BASH_REMATCH[2]}" sec="${BASH_REMATCH[3]}" sig="${BASH_REMATCH[4]}"
+        printf '%s\t%s\t%s\n' "${ssid}" "${sec}" "${sig}"
+      done
+}
 
-  say "Scanning for networks on ${dev}…"
-  iwctl station "${dev}" scan 2>/dev/null || true
-  sleep 3
-  iwctl station "${dev}" get-networks || true
-  echo
+# iwd's file for an SSID: the name as-is when it is only letters, digits,
+# space, _ and -, otherwise "=" and the SSID's bytes in hex (iwd.network(5)).
+iwd_file() {
+  # C, because in a UTF-8 locale [A-Za-z] takes in é, and iwd wouldn't.
+  local LC_ALL=C
+  local ssid="$1" ext="$2" hex
+  if [[ "${ssid}" =~ ^[A-Za-z0-9\ _-]+$ ]]; then
+    printf '%s/%s.%s' "${IWD_DIR}" "${ssid}" "${ext}"
+  else
+    hex="$(printf '%s' "${ssid}" | od -An -tx1 | tr -d ' \n')"
+    printf '%s/=%s.%s' "${IWD_DIR}" "${hex}" "${ext}"
+  fi
+}
 
-  read -rp "WiFi SSID: " ssid
-  [[ -n "${ssid}" ]] || { err "Empty SSID."; return 1; }
-  read -rsp "WiFi passphrase: " psk; echo
-
+# wifi_connect <dev> <ssid> <security> [psk] — join one network and wait for
+# the internet behind it. The passphrase reaches iwd through its network file
+# (written by printf, a builtin, so never an argv), and the file goes again if
+# the join fails: it would otherwise sit in iwd's list as a known network.
+wifi_connect() {
+  local dev="$1" ssid="$2" sec="$3" psk="${4:-}" file='' _
+  if [[ "${sec}" == psk ]]; then
+    file="$(iwd_file "${ssid}" psk)"
+    mkdir -p "${IWD_DIR}"
+    ( umask 077; printf '[Security]\nPassphrase=%s\n' "${psk}" > "${file}" )
+  fi
   say "Connecting to ${ssid}…"
-  if ! iwctl --passphrase "${psk}" station "${dev}" connect "${ssid}"; then
-    err "WiFi connection failed (wrong passphrase or out of range?)."
+  if ! iwctl --dont-ask station "${dev}" connect "${ssid}" </dev/null >/dev/null 2>&1; then
+    [[ -n "${file}" ]] && command rm -f "${file}"
     return 1
   fi
-
   # Association is near-instant but the DHCP lease can lag a couple of seconds.
-  local _
   for _ in $(seq 1 10); do
-    if have_net; then WIFI_SSID="${ssid}"; WIFI_PSK="${psk}"; return 0; fi
+    have_net && return 0
     sleep 2
   done
-  err "Associated with ${ssid} but no internet (DHCP/DNS not up?)."
-  return 1
+  err "Joined ${ssid}, but there's no internet behind it (DHCP or DNS not up?)."
+  return 2
+}
+
+# Pick a network and join it. 0 once online, 1 to go back to the network menu.
+# A wrong passphrase asks again, three times, then goes back to the list.
+#
+# The caller tests the result, so set -e and the ERR trap are off in here:
+# every prompt's status is checked by hand, or Ctrl-C in gum would read as an
+# empty answer.
+set_up_wifi() {
+  local dev
+  dev="$(first_wifi_dev)" || { err "No WiFi device found."; return 1; }
+  rfkill unblock wifi 2>/dev/null || true
+  iwctl device "${dev}" set-property Powered on </dev/null >/dev/null 2>&1 || true
+
+  local -a nets=() items=()
+  local net ssid sec sig pick i rc psk tries
+  while true; do
+    say "Scanning for networks on ${dev}…"
+    iwctl station "${dev}" scan </dev/null >/dev/null 2>&1 || true
+    sleep 3
+    mapfile -t nets < <(wifi_networks "${dev}")
+    items=()
+    for net in "${nets[@]}"; do
+      IFS=$'\t' read -r ssid sec sig <<< "${net}"
+      items+=("$(printf '%-32s %-6s %s' "${ssid}" "${sec}" "${sig}")")
+    done
+    (( ${#nets[@]} )) || warn "No networks found."
+    rc=0
+    pick="$(ui_choose "WiFi network" "${items[@]}" "Scan again" "Hidden network…" Back)" || rc=$?
+    if (( rc != 0 )); then
+      (( rc == 1 )) && ui_gum && continue
+      exit "${rc}"
+    fi
+
+    case "${pick}" in
+      "Scan again") continue ;;
+      Back)         return 1 ;;
+      "Hidden network…")
+        ssid="$(ui_input "Network name (SSID)")" || { stop_on_ctrl_c $?; continue; }
+        [[ -n "${ssid}" ]] || continue
+        sec=psk ;;
+      *)
+        for i in "${!items[@]}"; do
+          [[ "${items[${i}]}" == "${pick}" ]] || continue
+          IFS=$'\t' read -r ssid sec sig <<< "${nets[${i}]}"
+          break
+        done ;;
+    esac
+    slog "wifi: ${ssid} (${sec})"
+
+    case "${sec}" in
+      open)
+        rc=0
+        wifi_connect "${dev}" "${ssid}" open || rc=$?
+        if (( rc == 0 )); then WIFI_SSID="${ssid}" WIFI_PSK=""; return 0; fi
+        (( rc == 2 )) || err "Couldn't join ${ssid} (out of range?)."
+        continue ;;
+      psk) ;;
+      *)
+        err "${ssid} uses ${sec}, which this installer can't set up."
+        err "Pick Shell from the network menu and connect with 'iwctl'."
+        continue ;;
+    esac
+
+    for (( tries = 1; tries <= 3; tries++ )); do
+      psk="$(ui_password "Passphrase for ${ssid}")" || { stop_on_ctrl_c $?; break; }
+      rc=0
+      wifi_connect "${dev}" "${ssid}" psk "${psk}" || rc=$?
+      if (( rc == 0 )); then WIFI_SSID="${ssid}" WIFI_PSK="${psk}"; return 0; fi
+      (( rc == 2 )) && break
+      err "Couldn't join ${ssid}: wrong passphrase, or out of range? (${tries} of 3)"
+    done
+    if (( tries > 3 )); then
+      slog "wifi: three misses on ${ssid}"
+      return 1
+    fi
+  done
 }
 
 # The step's rail: which of STEPS this is, by name.
@@ -141,31 +242,44 @@ rail() {
 }
 
 # --- step: network ------------------------------------------------------------
-# Wired first; WiFi only if that fails and there is a radio. The WiFi prompts
-# are still plain reads — install-recovery rewrites this step's failure path.
+# Wired first: it needs nothing from anyone. Without it, a menu until the
+# network is up — Retry for a cable plugged in late, WiFi when there's a radio,
+# and a shell for anything else. Nothing here exits on its own.
+wait_for_net() {
+  local _
+  for _ in $(seq 1 "$1"); do
+    have_net && return 0
+    sleep 2
+  done
+  return 1
+}
+
 ask_network() {
   rail Network
   say "Waiting for network (wired auto-connects)…"
-  local net_ok='' _
-  for _ in $(seq 1 5); do
-    if have_net; then net_ok=1; break; fi
-    sleep 2
-  done
-
-  # No wired link. If there's a WiFi radio, offer to set it up interactively.
-  if [[ -z "${net_ok}" ]] && has_wifi_dev; then
-    say "No wired network detected."
-    if ui_confirm "Set up WiFi now?" yes && connect_wifi; then
-      net_ok=1
+  local -a options
+  local choice rc wait=5
+  # 10 s for the first look, 4 s after each pick: the menu shouldn't drag.
+  until wait_for_net "${wait}"; do
+    wait=2
+    err "No network connection. archinstall downloads the system, so it needs one."
+    options=(Retry)
+    has_wifi_dev && options+=("Set up WiFi")
+    options+=(Shell "Power off")
+    rc=0
+    choice="$(ui_choose "What now?" "${options[@]}")" || rc=$?
+    if (( rc != 0 )); then
+      (( rc == 1 )) && ui_gum && continue
+      exit "${rc}"
     fi
-  fi
-
-  if [[ -z "${net_ok}" ]]; then
-    err "No network connection."
-    err "Connect wired, or set up wifi manually with 'iwctl', then re-run:"
-    err "    /root/stage0.sh"
-    exit 1
-  fi
+    slog "network menu: ${choice}"
+    case "${choice}" in
+      Retry)         say "Waiting for network…" ;;
+      "Set up WiFi") set_up_wifi && break ;;
+      Shell)         drop_to_shell ;;
+      "Power off")   power_off; exit 1 ;;
+    esac
+  done
   ok "Network is up."
   slog "network: ${WIFI_SSID:+wifi ${WIFI_SSID}}${WIFI_SSID:-wired}"
   detect_timezone
@@ -499,8 +613,7 @@ confirm_wipe() {
   # review calls this inside `&&`, where a failed $(…) doesn't stop anything:
   # without the check, Ctrl-C in gum would read as a mistyped name.
   typed="$(ui_input "Type ${name} to erase it and install")" || {
-    local rc=$?
-    (( rc == 130 )) && exit 130
+    stop_on_ctrl_c $?
     typed=""
   }
   if [[ "${typed}" == "${name}" ]]; then
@@ -623,6 +736,13 @@ EOF
   # not group/world readable (they hold the plaintext PSK).
   chown 0:0 "${NMFILE}"
   chmod 600 "${NMFILE}"
+}
+
+# For a prompt whose status is tested (so the ERR trap can't see it): Ctrl-C
+# still stops stage0, anything else is left to the caller.
+stop_on_ctrl_c() {
+  (( $1 == 130 )) && exit 130
+  return 0
 }
 
 drop_to_shell() {
