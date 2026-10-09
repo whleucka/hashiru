@@ -397,6 +397,19 @@ if [[ "${FULL_RUN}" -eq 1 || "${HASHIRU_STAMP_UPDATED}" == "1" ]]; then
     log_info "Stamped /etc/hashiru-release (${STAMPED_VERSION})"
 fi
 
+# A run through the final stage finishes the bootstrap, so a first boot that
+# failed and was completed by hand stops being reported at every login.
+# hashiru-firstboot.sh clears the marker on its own success; this is the other
+# way out.
+FIRSTBOOT_MARKER="/var/lib/hashiru/firstboot-failed"
+if [[ -e "${FIRSTBOOT_MARKER}" && " ${STAGE_NAMES[*]} " == *" ${FINAL_STAGE} "* ]]; then
+    if sudo rm -f "${FIRSTBOOT_MARKER}"; then
+        log_info "Cleared the failed first-boot notice"
+    else
+        log_warn "Couldn't remove ${FIRSTBOOT_MARKER}; delete it to stop the login notice"
+    fi
+fi
+
 # Reboot last, after the stamp above — stage 99 used to do this itself, which
 # meant a full interactive install rebooted before it could record its own
 # commit. Unattended runs never prompt: hashiru-firstboot reboots after it

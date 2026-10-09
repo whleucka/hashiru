@@ -29,6 +29,11 @@ install -Dm755 "${REPO}/iso/firstboot/hashiru-firstboot.sh" \
 # stage to resume from.
 printf 'HASHIRU_USER=%s\nHASHIRU_FIRSTBOOT_ATTEMPTS=0\n' "${HUSER}" > /etc/hashiru-firstboot.env
 
+# The login notice for a failed first boot. Here rather than in a stage, so it
+# is in place however early the bootstrap fails.
+install -Dm644 "${REPO}/config/profile.d/hashiru-firstboot-failed.sh" \
+  /etc/profile.d/hashiru-firstboot-failed.sh
+
 # Keep the tty1 login prompt off the screen for the whole first boot. Without
 # this, getty@tty1 comes up with multi-user.target, paints a login prompt, and
 # is then scribbled over by the bootstrap's console logging a moment later —
