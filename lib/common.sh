@@ -27,6 +27,11 @@ readonly HASHIRU_REPORT="${HASHIRU_DATA_DIR}/report.txt"
 # the label, and the ticker that animates the clock is a third process. Exports
 # only travel parent-to-child, so they cannot carry a label back out of a stage.
 readonly HASHIRU_PROGRESS="${HASHIRU_DATA_DIR}/progress"
+# The number of the stage the last run failed in ("45"), there only while that
+# failure stands: install.sh writes it when a stage fails and removes it once
+# that stage succeeds. First boot reads it to resume where it stopped.
+# shellcheck disable=SC2034  # read by install.sh and first boot
+readonly HASHIRU_FAILED_STAGE="${HASHIRU_DATA_DIR}/failed-stage"
 HASHIRU_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly HASHIRU_ROOT
 
@@ -184,6 +189,16 @@ _log() {
     else
         printf '%s\n' "${color}[${level}]${reset} ${message}" >&3
     fi
+
+    log_record "${level}" "${message}" "${timestamp}"
+}
+
+# log_record <level> <message> [timestamp] — the file half of _log: the log
+# line and, for warnings and errors, the digest. On its own for a message the
+# console gets in another form (install.sh's failure block).
+log_record() {
+    local level="$1" message="$2"
+    local timestamp="${3:-$(date '+%Y-%m-%d %H:%M:%S')}"
 
     # File output (no colors)
     echo "[${timestamp}] [${level}] ${message}" >> "${HASHIRU_LOG}"

@@ -573,21 +573,26 @@ _ui_safe_line() {
 #     ...
 # The log is drawn muted and made safe line by line (see _ui_safe_line); a line
 # too long for the terminal is cut short with "...", since the full text is in
-# the file the block names. A missing or empty log says "(no log yet)". Menus
-# stay with the caller: this only draws.
+# the file the block names. A missing or empty log says "(no log yet)", and
+# lines=0 leaves the tail out (for a caller whose output is already on screen).
+# Menus stay with the caller: this only draws.
 ui_failure() {
     _ui_init
     local LC_ALL=C.UTF-8
     local title="$1" log="$2" lines="${3:-30}"
     shift 2
     (( $# )) && shift
-    [[ "${lines}" =~ ^[0-9]+$ ]] && (( lines > 0 )) || lines=30
+    [[ "${lines}" =~ ^[0-9]+$ ]] || lines=30
 
     local nl=$'\n' out note cols max line
     out="${nl}${UI_ERROR}${UI_BOLD}!!${UI_RESET} ${UI_TEXT}${UI_BOLD}${title}${UI_RESET}${nl}"
     for note in "$@"; do
         out+="   ${note}${nl}"
     done
+    if (( lines == 0 )); then
+        _ui_out "${out}"
+        return 0
+    fi
     out+="${nl}"
 
     local -a tail=()

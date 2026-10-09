@@ -292,22 +292,33 @@ for script in "${SCRIPTS[@]}"; do
     else
         bash "${script}" || STAGE_OK=0
     fi
+    stage_id="${script_name%%[-_.]*}"
     if [[ "${STAGE_OK}" -eq 0 ]]; then
         progress_clear
-        # Quiet mode swallowed the output that explains this, so hand back the
-        # tail of it. Without this a failed unattended install shows a progress
-        # bar and nothing else, which is strictly worse than the flood.
-        if [[ "${HASHIRU_QUIET}" == "1" && -s "${HASHIRU_LOG}" ]]; then
-            echo "--- last 40 lines of ${HASHIRU_LOG} ---" >&3
-            tail -n 40 "${HASHIRU_LOG}" >&3
-            echo "--- end of log tail ---" >&3
-        fi
         rm -f "${HASHIRU_PROGRESS}"
-        log_error "Script failed: ${script_name}"
-        log_error "Fix the issue, then resume from here: ./install.sh ${script_name%%[-_.]*}+"
-        log_error "(or re-run just this stage: ./install.sh ${script_name%%[-_.]*})"
-        log_error "Full log: ${HASHIRU_LOG}"
+        # For first boot, which resumes from here, and its login notice.
+        printf '%s\n' "${stage_id}" > "${HASHIRU_FAILED_STAGE}"
+        # Quiet mode swallowed the output that explains this, so the block hands
+        # back the tail of it. Without that a failed unattended install shows a
+        # progress bar and nothing else, which is strictly worse than the flood.
+        # Otherwise the output is already on screen, and the tail is left out.
+        tail_lines=0
+        [[ "${HASHIRU_QUIET}" == "1" ]] && tail_lines=40
+        ui_failure "Stage failed: ${script_name}" "${HASHIRU_LOG}" "${tail_lines}" \
+            "Fix the issue, then resume from here: ./install.sh ${stage_id}+" \
+            "(or re-run just this stage: ./install.sh ${stage_id})" \
+            "Full log: ${HASHIRU_LOG}"
+        # The same lines, plain, for the log and the digest. After the block,
+        # so its tail is the stage's own output.
+        log_record ERROR "Script failed: ${script_name}"
+        log_record ERROR "Fix the issue, then resume from here: ./install.sh ${stage_id}+"
+        log_record ERROR "(or re-run just this stage: ./install.sh ${stage_id})"
+        log_record ERROR "Full log: ${HASHIRU_LOG}"
         exit 1
+    fi
+    # That failure is fixed. A run that skipped the failed stage leaves it be.
+    if [[ "$(cat "${HASHIRU_FAILED_STAGE}" 2>/dev/null)" == "${stage_id}" ]]; then
+        rm -f "${HASHIRU_FAILED_STAGE}"
     fi
     STAGE_ELAPSED=$(( $(date +%s) - STAGE_START ))
     STAGE_NAMES+=("${script_name}")
