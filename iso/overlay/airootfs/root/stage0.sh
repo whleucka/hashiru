@@ -719,29 +719,113 @@ release_target() {
   slog "released ${disk:-nothing}"
 }
 
-# The F2 screen and its menu. Sets NEXT to retry or edit; Power off doesn't
-# come back. The creds file only exists while a run or Shell needs it.
+# --- F3: archinstall died in one of the custom commands -----------------------
+# archinstall runs custom_commands[N] as /var/tmp/user-command.N.sh inside the
+# target, and a failure raises with that path and "exit code" on one log line.
+# By then the base system is installed; only Hashiru's wiring (clone, pin,
+# first-boot unit) is missing, so it can be re-run without a re-install.
+
+# Sets UCMD to the index of the custom command that failed, or "" when the
+# failure was somewhere else (plain F2).
+UCMD=""
+failed_user_command() {
+  UCMD="$(sed -nE 's/.*user-command\.([0-9]+)\.sh.*exit code.*/\1/p' \
+            "${ARCHINSTALL_LOG}" 2>/dev/null | tail -1)" || UCMD=""
+}
+
+# The installed system is still there to chroot into: archinstall leaves /mnt
+# mounted when it fails.
+target_ready() {
+  mountpoint -q /mnt && [[ -r /mnt/etc/passwd ]]
+}
+
+# custom_command <index> — that entry of the spliced config, or "".
+custom_command() {
+  jq -r --argjson i "$1" '.custom_commands[$i] // empty' "${CONFIG_RUN}" 2>/dev/null || true
+}
+
+# The likely cause, for the failure screen.
+user_command_hint() {
+  case "$1" in
+    "git clone"*)
+      echo "The clone failed: no network, or github.com unreachable?" ;;
+    "git -C"*reset*)
+      echo "The pin failed: is this ISO's commit on GitHub (built from an unpushed commit)?" ;;
+    *)
+      echo "The first-boot wiring failed; the log below has why." ;;
+  esac
+}
+
+# Re-run custom_commands from UCMD on, in the target, as archinstall would.
+# The output goes to the screen and the stage0 log (the commands hold no
+# secrets). Sets WIRED=1 when every one succeeded; otherwise UCMD is left on
+# the one that failed, so the next try starts there.
+WIRED=0
+retry_wiring() {
+  local cmd rc
+  WIRED=0
+  while cmd="$(custom_command "${UCMD}")"; [[ -n "${cmd}" ]]; do
+    say "Running in the installed system: ${cmd}"
+    rc=0
+    arch-chroot /mnt bash -c "${cmd}" 2>&1 | tee -a "${STAGE0_LOG}" || rc=$?
+    if (( rc != 0 )); then
+      err "That failed (exit ${rc}). $(user_command_hint "${cmd}")"
+      return 0
+    fi
+    UCMD=$(( UCMD + 1 ))
+  done
+  slog "wiring complete"
+  WIRED=1
+}
+
+# The F2/F3 screen and its menu. Sets NEXT to retry, edit or wired; Power off
+# doesn't come back. The creds file only exists while a run or Shell needs it.
 #
 # Results go through variables, not the return status, here and in
 # run_archinstall: a function whose status is tested runs with set -e and the
 # ERR trap off, and that would blind F0 to everything below it.
 NEXT=""
 archinstall_failed() {
-  local rc="$1" choice crc
-  ui_failure "archinstall failed (exit ${rc})" "${ARCHINSTALL_LOG}" 30 \
-    "Hashiru isn't installed, and ${LAST_TARGET} may be partly written." \
-    "Retry runs archinstall again with the same answers." \
-    "Edit answers goes back to the review."
+  local rc="$1" choice crc cmd
+  local -a options
+  failed_user_command
+  if [[ -n "${UCMD}" ]]; then
+    cmd="$(custom_command "${UCMD}")"
+    slog "failed in custom command ${UCMD}: ${cmd}"
+    ui_failure "archinstall failed in a custom command (exit ${rc})" "${ARCHINSTALL_LOG}" 30 \
+      "The base system is installed, but Hashiru isn't wired in yet." \
+      "Failed: ${cmd:-custom command ${UCMD}}" \
+      "$(user_command_hint "${cmd}")" \
+      "Retry wiring re-runs just the missing steps, after you fix that." \
+      "Retry install runs archinstall again from scratch."
+  else
+    ui_failure "archinstall failed (exit ${rc})" "${ARCHINSTALL_LOG}" 30 \
+      "Hashiru isn't installed, and ${LAST_TARGET} may be partly written." \
+      "Retry runs archinstall again with the same answers." \
+      "Edit answers goes back to the review."
+  fi
   while true; do
+    options=(Retry)
+    if [[ -n "${UCMD}" ]]; then
+      options=("Retry install")
+      if target_ready; then
+        options=("Retry wiring" "${options[@]}")
+      else
+        slog "/mnt isn't mounted with an installed system; no Retry wiring"
+      fi
+    fi
     crc=0
-    choice="$(ui_choose "What now?" Retry "Edit answers" Shell "Power off")" || crc=$?
+    choice="$(ui_choose "What now?" "${options[@]}" "Edit answers" Shell "Power off")" || crc=$?
     if (( crc != 0 )); then
       (( crc == 1 )) && ui_gum && continue
       exit "${crc}"
     fi
     slog "archinstall failed menu: ${choice}"
     case "${choice}" in
-      Retry)
+      "Retry wiring")
+        retry_wiring
+        (( WIRED )) && { NEXT=wired; return 0; } ;;
+      Retry|"Retry install")
         release_target "${LAST_TARGET}" && { NEXT=retry; return 0; } ;;
       "Edit answers")
         release_target "${LAST_TARGET}" && { NEXT=edit; return 0; } ;;
@@ -780,6 +864,10 @@ run_archinstall() {
       return 0
     fi
     archinstall_failed "${rc}"
+    if [[ "${NEXT}" == wired ]]; then
+      INSTALLED=1
+      return 0
+    fi
     [[ "${NEXT}" == retry ]] || return 0
     write_creds
   done
@@ -795,15 +883,38 @@ run_archinstall() {
 #
 # Write a NetworkManager keyfile into the target so NM auto-connects on first
 # boot. No uuid: NM generates and persists one when it first reads the file.
-# /mnt is still mounted here (archinstall unmounts only on reboot, below).
+#
+# /mnt should still be mounted here (archinstall leaves it; offer_reboot
+# unmounts), but a write through /mnt has failed silently before, so it is
+# checked: an unmounted /mnt would put the keyfile in the live system, where it
+# is lost on reboot. Any failure leaves WIFI_SEEDED=0 and the reboot screen
+# says so; it never stops stage0, since the install itself is done.
+WIFI_SEEDED=1
 seed_wifi() {
   [[ -n "${WIFI_SSID}" ]] || return 0
   say "Seeding WiFi connection '${WIFI_SSID}' into the installed system…"
-  NMDIR="/mnt/etc/NetworkManager/system-connections"
+  WIFI_SEEDED=0
+  if ! mountpoint -q /mnt || [[ ! -d /mnt/etc || ! -r /mnt/etc ]]; then
+    slog "wifi seed skipped: /mnt isn't the installed system"
+    return 0
+  fi
+  local nmdir="/mnt/etc/NetworkManager/system-connections" nmfile
   # Sanitise only the filename; id/ssid keep the exact SSID.
-  NMFILE="${NMDIR}/$(printf '%s' "${WIFI_SSID}" | tr -c 'A-Za-z0-9._-' '_').nmconnection"
-  mkdir -p "${NMDIR}"
-  ( umask 077; cat > "${NMFILE}" ) <<EOF
+  nmfile="${nmdir}/$(printf '%s' "${WIFI_SSID}" | tr -c 'A-Za-z0-9._-' '_').nmconnection"
+  # Tested, so set -e is off in write_keyfile and each step checks itself.
+  if write_keyfile "${nmdir}" "${nmfile}" && [[ -s "${nmfile}" ]]; then
+    WIFI_SEEDED=1
+    slog "wifi seeded: ${nmfile}"
+  else
+    command rm -f "${nmfile}" 2>/dev/null || true
+    slog "wifi seed failed: ${nmfile}"
+  fi
+}
+
+write_keyfile() {
+  local nmdir="$1" nmfile="$2"
+  mkdir -p "${nmdir}" || return 1
+  ( umask 077; cat > "${nmfile}" ) <<EOF || return 1
 [connection]
 id=${WIFI_SSID}
 type=wifi
@@ -825,8 +936,7 @@ method=auto
 EOF
   # NM refuses to load system-connection keyfiles unless they are root-owned and
   # not group/world readable (they hold the plaintext PSK).
-  chown 0:0 "${NMFILE}"
-  chmod 600 "${NMFILE}"
+  chown 0:0 "${nmfile}" && chmod 600 "${nmfile}"
 }
 
 # For a prompt whose status is tested (so the ERR trap can't see it): Ctrl-C
@@ -899,6 +1009,10 @@ on_exit() {
 
 offer_reboot() {
   ok "Base install complete. Hashiru will bootstrap automatically on first boot."
+  if (( ! WIFI_SEEDED )); then
+    warn "Couldn't save WiFi '${WIFI_SSID}' into the installed system, so it boots without WiFi."
+    warn "First boot needs the network: log in, connect with 'nmtui', then reboot to resume."
+  fi
   if ui_confirm "Reboot now?" yes; then
     umount -R /mnt 2>/dev/null || true
     systemctl reboot
