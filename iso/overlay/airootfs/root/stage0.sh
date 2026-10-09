@@ -166,7 +166,11 @@ set_up_wifi() {
   iwctl device "${dev}" set-property Powered on </dev/null >/dev/null 2>&1 || true
 
   local -a nets=() items=()
+<<<<<<< HEAD
   local net ssid sec sig pick i rc psk tries
+=======
+  local net ssid sec sig pick i rc psk tries pad
+>>>>>>> 1bd7496 (feat: stage0 network menu and WiFi picker)
   while true; do
     say "Scanning for networks on ${dev}…"
     iwctl station "${dev}" scan </dev/null >/dev/null 2>&1 || true
@@ -175,7 +179,15 @@ set_up_wifi() {
     items=()
     for net in "${nets[@]}"; do
       IFS=$'\t' read -r ssid sec sig <<< "${net}"
+<<<<<<< HEAD
       items+=("$(printf '%-32s %-6s %s' "${ssid}" "${sec}" "${sig}")")
+=======
+      # Padded by character count: printf's %-32s pads bytes, and an SSID
+      # like "Café" would knock its row out of line.
+      pad=""
+      (( ${#ssid} < 32 )) && printf -v pad '%*s' "$(( 32 - ${#ssid} ))" ''
+      items+=("${ssid}${pad} $(printf '%-6s' "${sec}") ${sig}")
+>>>>>>> 1bd7496 (feat: stage0 network menu and WiFi picker)
     done
     (( ${#nets[@]} )) || warn "No networks found."
     rc=0
