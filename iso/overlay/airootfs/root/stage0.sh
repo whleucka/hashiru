@@ -774,8 +774,31 @@ retry_wiring() {
     fi
     UCMD=$(( UCMD + 1 ))
   done
+  write_fstab || return 0
   slog "wiring complete"
   WIRED=1
+}
+
+# archinstall writes the target's fstab only after custom_commands, so when one
+# of them failed there is none: the system boots with just @ (from the kernel
+# command line) and no /home, /boot or /var/log. Do that last step here, the
+# way archinstall would (genfstab -pU), unless the fstab already has entries.
+TARGET_FSTAB="/mnt/etc/fstab"
+write_fstab() {
+  local fstab="${TARGET_FSTAB}" entries
+  if grep -qvE '^[[:space:]]*(#|$)' "${fstab}" 2>/dev/null; then
+    slog "fstab already has entries; left alone"
+    return 0
+  fi
+  say "Writing the installed system's fstab…"
+  if ! entries="$(genfstab -pU -f /mnt /mnt)" || [[ -z "${entries}" ]] \
+     || ! printf '%s\n' "${entries}" >> "${fstab}"; then
+    err "Couldn't write ${fstab}; without it the installed system won't mount /home."
+    err "Pick Shell and run: genfstab -pU -f /mnt /mnt >> ${fstab}"
+    return 1
+  fi
+  slog "fstab written:"
+  printf '%s\n' "${entries}" >> "${STAGE0_LOG}" 2>/dev/null || true
 }
 
 # The F2/F3 screen and its menu. Sets NEXT to retry, edit or wired; Power off
