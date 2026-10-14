@@ -55,7 +55,7 @@ rename_workspace = "prefix+shift+w"  # herdr default
 previous_workspace = "ctrl+shift+k"  # ws nav prev (direct chord; p = previous)
 next_workspace = "ctrl+shift+j"      # ws nav next (direct chord; n = next; was kitty new-os-window)
 switch_workspace = "alt+1..9"   # jump to workspace N (no shift: ctrl+shift+digit = ctrl+symbol, doesn't match)
-goto = "ctrl+backtick"         # quick jump (direct chord, ctrl+`)
+goto = "ctrl+p"         # quick jump (direct chord, ctrl+`)
 
 # Worktrees — each git worktree opens as its own workspace, so two agents can
 # work separate branches of one repo side by side. new_worktree keeps its
