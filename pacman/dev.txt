@@ -27,6 +27,8 @@ rustup
 
 # Go (`go install` drops binaries in ~/go/bin, which .zshrc puts on PATH)
 go
+delve
+golangci-lint
 
 # C libraries (graphics)
 glfw
