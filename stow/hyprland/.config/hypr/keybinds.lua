@@ -119,8 +119,8 @@ hl.bind(key(mod, 0), hl.dsp.focus({ workspace = 10 }), { description = "Workspac
 hl.bind(key(mod, "SHIFT", 0), hl.dsp.window.move({ workspace = 10, follow = false }), { description = "Move window to workspace 10" })
 
 -- Special workspace (scratchpad)
+hl.bind(key("CTRL", "Grave"), hl.dsp.workspace.toggle_special("magic"), { description = "Toggle scratchpad" })
 hl.bind(key(mod, "Home"), hl.dsp.workspace.toggle_special("magic"), { description = "Toggle scratchpad" })
-hl.bind(key(mod, "Grave"), hl.dsp.workspace.toggle_special("magic"), { description = "Toggle scratchpad" })
 hl.bind(key(mod, "Insert"), hl.dsp.window.move({ workspace = "special:magic" }), { description = "Move to scratchpad" })
 hl.bind(key(mod, "Delete"), hl.dsp.window.move({ workspace = "e+0" }), { description = "Remove from scratchpad" })
 
