@@ -72,8 +72,8 @@ move_tab_previous = "ctrl+shift+alt+h"  # reorder tabs; pairs with ctrl+shift+h/
 move_tab_next = "ctrl+shift+alt+l"
 
 # Agents
-previous_agent = "ctrl+shift+p"   # prev agent (up in the vertical agent list)
-next_agent = "ctrl+shift+n"       # next agent (down in the list; pairs with h/l tab nav)
+previous_agent = "ctrl+shift+<"   # prev agent (up in the vertical agent list)
+next_agent = "ctrl+shift+>"       # next agent (down in the list; pairs with h/l tab nav)
 focus_agent = "ctrl+alt+1..9"          # jump straight to agent N (alt chords are terminal-dependent)
 
 # Unified super+hjkl navigation (nvim splits -> herdr panes -> Hyprland windows).
