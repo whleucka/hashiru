@@ -37,7 +37,8 @@ Commands:
                        'hashiru update 45+' runs stage 45 onward.
   install [stage ...]  Run install.sh WITHOUT pulling. For iterating on local
                        changes — 'update' refuses on a dirty checkout.
-  doctor               Read-only health check (never modifies the system).
+  doctor [--json]      Read-only health check (never modifies the system).
+                       --json prints one JSON document for scripts.
   config               Edit this machine's hashiru.conf in \$EDITOR, seeding it
                        from hashiru.conf.example the first time. Aliased as
                        'edit'. Machine-local *config* — monitors, kitty, waybar
@@ -48,8 +49,9 @@ Commands:
                        on; 'off' turns it off and keeps the prints for
                        hyprlock, unless --forget. Bare, shows where it stands.
                        A failed scan always falls back to the password.
-  status             Show install provenance, checkout state, and whether a
-                       pull is available.
+  status [--porcelain] Show install provenance, checkout state, and whether a
+                       pull is available. --porcelain prints stable key=value
+                       lines for scripts.
   version              One line: the version this machine is running.
   log [-f|--last]      Page the install log; -f follows it live, --last shows
                        only the most recent run.
@@ -514,7 +516,32 @@ cmd_fingerprint() {
     esac
 }
 
+# --porcelain: key=value lines (the /etc/hashiru-release format) for programs
+# such as hashiru-tui. Stable keys; an unknown value is left empty, never
+# reworded. behind is empty when there is no upstream or no network.
+_status_porcelain() {
+    read_release_stamp || true
+    local dirty=0 behind
+    _tracked_dirty && dirty=1
+    behind="$(_behind_count)"
+    printf 'version=%s\n' "${HASHIRU_VERSION:-}"
+    printf 'commit=%s\n' "${HASHIRU_COMMIT:-}"
+    printf 'installed=%s\n' "${HASHIRU_INSTALL_DATE:-}"
+    printf 'updated=%s\n' "${HASHIRU_UPDATED:-}"
+    printf 'repo=%s\n' "${HASHIRU_ROOT}"
+    printf 'head=%s\n' "$(git -C "${HASHIRU_ROOT}" rev-parse HEAD 2>/dev/null)"
+    printf 'dirty=%s\n' "${dirty}"
+    printf 'untracked=%s\n' "$(_untracked_count | tr -d ' ')"
+    printf 'behind=%s\n' "${behind}"
+}
+
 cmd_status() {
+    case "${1:-}" in
+        "") ;;
+        --porcelain) _status_porcelain; return ;;
+        *) log_error "Unknown option: $1 (status takes --porcelain or nothing)"; exit 1 ;;
+    esac
+
     if [[ -f /etc/hashiru-release ]]; then
         read_release_stamp
         local commit="${HASHIRU_COMMIT:-unknown}"
@@ -555,7 +582,7 @@ case "${1:-help}" in
     update) shift; cmd_update "$@" ;;
     install) shift; exec "${HASHIRU_ROOT}/install.sh" "$@" ;;
     doctor) shift; exec "${HASHIRU_ROOT}/doctor.sh" "$@" ;;
-    status) cmd_status ;;
+    status) shift; cmd_status "$@" ;;
     config|edit) cmd_config ;;
     fingerprint) shift; cmd_fingerprint "$@" ;;
     version|--version|-V) cmd_version ;;

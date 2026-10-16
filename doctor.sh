@@ -3,6 +3,11 @@
 #
 # Read-only, safe to run anytime: ./doctor.sh
 # Exit code: 0 if no failures (warnings allowed), 1 otherwise.
+#
+# --json prints one JSON document instead, for programs (hashiru-tui):
+#   {"checks":[{"section":"Install","status":"ok","message":"…"},…],
+#    "summary":{"ok":N,"warn":N,"fail":N}}
+# status is one of ok, warn, fail, skip. The exit code is the same either way.
 
 set -euo pipefail
 
@@ -11,17 +16,51 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 
+JSON=0
+case "${1:-}" in
+    "") ;;
+    --json) JSON=1 ;;
+    -h|--help) echo "Usage: doctor.sh [--json]"; exit 0 ;;
+    *) echo "doctor.sh: unknown option: $1" >&2; echo "Usage: doctor.sh [--json]" >&2; exit 2 ;;
+esac
+
 PASS=0
 WARN=0
 FAIL=0
 
-ok()      { echo -e "  ${GREEN}✔${NC} $*"; PASS=$(( PASS + 1 )); }
-meh()     { echo -e "  ${YELLOW}●${NC} $*"; WARN=$(( WARN + 1 )); }
-bad()     { echo -e "  ${RED}✘${NC} $*"; FAIL=$(( FAIL + 1 )); }
-# Not checked, and not a problem — this machine opted out. Uncounted on purpose:
-# a skip is neither a pass to be proud of nor a warning to act on.
-skip()    { echo -e "  ${BLUE}·${NC} $*"; }
-section() { echo; echo -e "${BLUE}:: $*${NC}"; }
+# JSON mode: every check goes through the helpers below, so collecting them here
+# is the whole of it. Escaped by hand rather than through jq — doctor has to run
+# on a machine whose packages are exactly what is in question.
+SECTION=""
+CHECKS=()
+json_str() {
+    local s=$1
+    s=${s//\\/\\\\}
+    s=${s//\"/\\\"}
+    s=${s//$'\n'/\\n}
+    s=${s//$'\t'/\\t}
+    s=${s//$'\r'/\\r}
+    printf '%s' "${s}"
+}
+record() {
+    CHECKS+=("{\"section\":\"$(json_str "${SECTION}")\",\"status\":\"$1\",\"message\":\"$(json_str "$2")\"}")
+}
+
+if (( JSON )); then
+    ok()      { record ok "$*"; PASS=$(( PASS + 1 )); }
+    meh()     { record warn "$*"; WARN=$(( WARN + 1 )); }
+    bad()     { record fail "$*"; FAIL=$(( FAIL + 1 )); }
+    skip()    { record skip "$*"; }
+    section() { SECTION="$*"; }
+else
+    ok()      { echo -e "  ${GREEN}✔${NC} $*"; PASS=$(( PASS + 1 )); }
+    meh()     { echo -e "  ${YELLOW}●${NC} $*"; WARN=$(( WARN + 1 )); }
+    bad()     { echo -e "  ${RED}✘${NC} $*"; FAIL=$(( FAIL + 1 )); }
+    # Not checked, and not a problem — this machine opted out. Uncounted on
+    # purpose: a skip is neither a pass to be proud of nor a warning to act on.
+    skip()    { echo -e "  ${BLUE}·${NC} $*"; }
+    section() { echo; echo -e "${BLUE}:: $*${NC}"; }
+fi
 
 # --- Install provenance -------------------------------------------------------
 
@@ -467,6 +506,17 @@ fi
 # hazard this used to be guarding against is gone — log_* only writes report.txt
 # when HASHIRU_DIGEST is set, which only install.sh does — but the formatting
 # reason stands on its own.)
+if (( JSON )); then
+    joined=""
+    if [[ ${#CHECKS[@]} -gt 0 ]]; then
+        joined="$(IFS=,; printf '%s' "${CHECKS[*]}")"
+    fi
+    printf '{"checks":[%s],"summary":{"ok":%d,"warn":%d,"fail":%d}}\n' \
+        "${joined}" "${PASS}" "${WARN}" "${FAIL}"
+    [[ ${FAIL} -eq 0 ]] || exit 1
+    exit 0
+fi
+
 echo
 if [[ ${FAIL} -eq 0 ]]; then
     echo -e "${GREEN}doctor: ${PASS} ok, ${WARN} warnings, 0 failures${NC}"
