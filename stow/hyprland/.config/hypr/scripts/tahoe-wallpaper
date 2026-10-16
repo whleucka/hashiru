@@ -4,10 +4,25 @@
 # Usage:
 #   tahoe-wallpaper          set wallpaper for the current time and exit
 #   tahoe-wallpaper daemon   loop forever, switching on period change
+#
+# A wallpaper picked by hand wins: when ~/.config/hashiru/wallpaper names a
+# readable image (hashiru-tui writes it), that is shown instead of the cycle,
+# until the file is removed. The cycle then resumes within CHECK_INTERVAL.
 
 WALLPAPER_DIR="$HOME/.config/hypr/wallpapers"
 STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/tahoe-wallpaper-period"
 CHECK_INTERVAL=300 # seconds; short so suspend/resume catches up quickly
+CHOICE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/hashiru/wallpaper"
+
+# The fixed wallpaper, if one is set and still exists. A choice whose image
+# has gone is ignored rather than leaving the desktop blank.
+fixed_choice() {
+    local f
+    [[ -r $CHOICE_FILE ]] || return 1
+    read -r f <"$CHOICE_FILE" || [[ -n $f ]] || return 1
+    [[ -n $f && -r $f ]] || return 1
+    printf '%s\n' "$f"
+}
 
 period_for_hour() {
     local hour=$1
@@ -23,7 +38,17 @@ period_for_hour() {
 }
 
 apply() {
-    local period force=$2
+    local period force=$2 fixed
+    if fixed=$(fixed_choice); then
+        # The state file records what is showing, so the daemon applies a
+        # choice once rather than every tick, and notices when it's cleared.
+        if [[ $force != force && -f $STATE_FILE && $(<"$STATE_FILE") == "fixed:$fixed" ]]; then
+            return
+        fi
+        awww img "$fixed" --transition-type fade --transition-duration 2 &&
+            echo "fixed:$fixed" >"$STATE_FILE"
+        return
+    fi
     period=$(period_for_hour "$((10#$(date +%H)))")
     if [[ $force != force && -f $STATE_FILE && $(<"$STATE_FILE") == "$period" ]]; then
         return
