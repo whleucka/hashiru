@@ -43,6 +43,10 @@ hl.bind(key(mod, "SHIFT", "V"), hl.dsp.exec_cmd("cliphist list | fuzzel --dmenu 
 hl.bind(key(mod, "SHIFT", "W"), hl.dsp.exec_cmd(browser), { description = "Browser" })
 hl.bind(key(mod, "SHIFT", "Y"), hl.dsp.exec_cmd(terminal .. " yazi"), { description = "Yazi File Manager" })
 
+-- The system menu: hashiru-tui in a floating window. SUPER+Space launches apps;
+-- SUPER+ALT+Space is for the machine itself (updates, wifi, wallpaper, logs).
+hl.bind(key(mod, "ALT", "Space"), hl.dsp.exec_cmd(terminal .. " --class hashiru-tui -o font_size=11 hashiru-tui", { float = true, size = { 1100, 700 }, center = true }), { description = "System menu (hashiru-tui)" })
+
 -- Websites
 --
 -- Personal shortcuts (bank, own hosts) are deliberately absent: they fail the

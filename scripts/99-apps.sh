@@ -63,6 +63,27 @@ if command -v rustup &>/dev/null; then
     fi
 fi
 
+# hashiru-tui, the system menu (SUPER+ALT+Space, `hashiru tui`). Built from a
+# pinned tag with go install, which needs Go from dev.txt above, so it lives in
+# this stage rather than its own: any earlier stage would run before Go exists
+# on a fresh install. go install checks the module against the Go checksum
+# database, so a tag can't be swapped under the pin. Lands in ~/.local/bin
+# beside herdr, and is rebuilt only when the pin changes.
+readonly HASHIRU_TUI_VERSION="v0.1.0"
+readonly HASHIRU_TUI_BIN="${HOME}/.local/bin/hashiru-tui"
+if ! command -v go &>/dev/null; then
+    log_warn "go not found; skipping hashiru-tui"
+elif [[ "$("${HASHIRU_TUI_BIN}" --version 2>/dev/null)" == "${HASHIRU_TUI_VERSION}" ]]; then
+    log_info "hashiru-tui ${HASHIRU_TUI_VERSION} already installed"
+else
+    log_info "Installing hashiru-tui ${HASHIRU_TUI_VERSION}"
+    if GOBIN="${HOME}/.local/bin" go install "github.com/whleucka/hashiru-tui/cmd/hashiru-tui@${HASHIRU_TUI_VERSION}"; then
+        log_success "hashiru-tui installed"
+    else
+        log_warn "hashiru-tui install failed (retry: hashiru install 99)"
+    fi
+fi
+
 # Add user to necessary groups
 GROUPS_TO_ADD=(docker video input)
 for grp in "${GROUPS_TO_ADD[@]}"; do

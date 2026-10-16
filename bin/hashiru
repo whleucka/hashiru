@@ -52,6 +52,7 @@ Commands:
   status [--porcelain] Show install provenance, checkout state, and whether a
                        pull is available. --porcelain prints stable key=value
                        lines for scripts.
+  tui                  The system menu, hashiru-tui (also SUPER+ALT+Space).
   version              One line: the version this machine is running.
   log [-f|--last]      Page the install log; -f follows it live, --last shows
                        only the most recent run.
@@ -585,6 +586,9 @@ case "${1:-help}" in
     status) shift; cmd_status "$@" ;;
     config|edit) cmd_config ;;
     fingerprint) shift; cmd_fingerprint "$@" ;;
+    tui) shift
+        command -v hashiru-tui &>/dev/null || { log_error "hashiru-tui not installed (stage 99 installs it: hashiru install 99)"; exit 1; }
+        exec hashiru-tui "$@" ;;
     version|--version|-V) cmd_version ;;
     log) shift; cmd_log "$@" ;;
     report) cmd_report ;;
