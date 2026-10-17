@@ -9,6 +9,8 @@ grub
 # Kernel and firmware
 linux
 linux-headers
+# The initramfs builder archinstall picks; listed so it's Hashiru's, not yours
+mkinitcpio
 linux-firmware
 fwupd
 

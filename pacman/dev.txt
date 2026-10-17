@@ -60,6 +60,9 @@ qemu-base
 qemu-ui-gtk
 edk2-ovmf
 
+# HTTP from the shell
+httpie
+
 # Containers
 docker
 docker-compose
@@ -81,6 +84,7 @@ vscode-html-languageserver
 
 # Linters
 ruff
+shellcheck
 
 # Formatters
 stylua

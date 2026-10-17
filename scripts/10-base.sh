@@ -118,6 +118,16 @@ if [[ -f "${SCRIPT_DIR}/config/pacman.d/hooks/95-hashiru-replay.hook" ]]; then
         /etc/pacman.d/hooks/95-hashiru-replay.hook
 fi
 
+# makepkg builds a -debug package beside each AUR one by default (Arch's
+# makepkg.conf has `debug`), and yay installs it: yay-bin-debug, and one per
+# package after. A drop-in turns it off; the last OPTIONS entry wins. Stage 20
+# builds yay after this, so a fresh install never gets one.
+if [[ -f "${SCRIPT_DIR}/config/makepkg.conf.d/99-hashiru.conf" ]]; then
+    log_info "Installing makepkg configuration"
+    sudo install -Dm644 "${SCRIPT_DIR}/config/makepkg.conf.d/99-hashiru.conf" \
+        /etc/makepkg.conf.d/99-hashiru.conf
+fi
+
 if [[ -f "${SCRIPT_DIR}/config/systemd/zram-generator.conf" ]]; then
     log_info "Installing zram-generator configuration"
     sudo cp "${SCRIPT_DIR}/config/systemd/zram-generator.conf" /etc/systemd/zram-generator.conf
