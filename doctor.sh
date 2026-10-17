@@ -495,6 +495,22 @@ if [[ -d "${HASHIRU_CONFIG_DIR}" ]]; then
             meh "override files luac rejects (Hyprland will skip them): ${broken[*]}"
         fi
     fi
+
+    # An idle override does nothing until hypridle runs on it, which happens on
+    # the next power change or `hypridle-battery reload`. Only the current power
+    # source's file can be checked; with hypridle not running at all (a TTY,
+    # an ssh session) there's nothing to say.
+    idle_mode=ac
+    [[ "$(cat /sys/class/power_supply/AC/online 2>/dev/null)" == "0" ]] && idle_mode=battery
+    idle_override="${HASHIRU_CONFIG_DIR}/hypr/hypridle-${idle_mode}.conf"
+    idle_args="$(ps -o args= -C hypridle 2>/dev/null)"
+    if [[ -f "${idle_override}" && -n "${idle_args}" ]]; then
+        if [[ "${idle_args}" == *"${idle_override}"* ]]; then
+            ok "hypridle runs on hypr/hypridle-${idle_mode}.conf"
+        else
+            meh "hypridle isn't running on hypr/hypridle-${idle_mode}.conf yet (~/.config/hypr/scripts/hypridle-battery reload)"
+        fi
+    fi
 else
     skip "no override directory yet (created by stage 45)"
 fi
