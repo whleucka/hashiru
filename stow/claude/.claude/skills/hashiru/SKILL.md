@@ -111,9 +111,11 @@ Everything else a *user* reads lives on the website, not here:
 | Deploy | push to GitHub (`whleucka/hashiru-wiki`), then `git pull` on `williamhleucka.com:/opt/hashiru` |
 | Live | <https://hashiru.williamhleucka.com> |
 
-It is the source of truth for install, CLI, keybinds, configuration, internals
-and roadmap. The repo has no markdown copies of any of it — a doc change is a
-change to `public/`, not to a file here.
+It is the source of truth for install, CLI, keybinds, the system menu,
+configuration, internals and the changelog. The repo has no markdown copies of
+any of it — a doc change is a change to `public/`, not to a file here. There is
+no roadmap page (removed 2026-10-17): the roadmap is kept locally, so a release
+doesn't add a roadmap row.
 
 ### Cutting a release means updating the site
 
