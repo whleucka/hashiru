@@ -1,0 +1,8 @@
+#!/bin/bash
+# Toggle mako's do-not-disturb mode. Says which way it went through
+# Hyprland's own notification, since mako's are hidden while it's on.
+if makoctl mode -t do-not-disturb | grep -qx do-not-disturb; then
+    hyprctl notify 1 2000 0 "Do not disturb: on"
+else
+    hyprctl notify 1 2000 0 "Do not disturb: off"
+fi

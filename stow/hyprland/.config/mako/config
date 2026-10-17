@@ -21,3 +21,10 @@ border-color=#F7768EFF
 [grouped]
 format=<b>%s</b>\n%b
 
+# Do not disturb (SUPER+SHIFT+.): hide everything but critical ones, like a
+# low battery. They're kept, and show again when it's turned off.
+[mode=do-not-disturb]
+invisible=1
+
+[mode=do-not-disturb urgency=critical]
+invisible=0

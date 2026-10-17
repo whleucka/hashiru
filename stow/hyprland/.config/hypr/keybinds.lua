@@ -197,3 +197,4 @@ hl.bind(key("CTRL", "ALT", "Delete"), hl.dsp.exit(), { description = "Exit Hyprl
 hl.bind(key(mod, "period"), hl.dsp.exec_cmd("makoctl restore"), { description = "Restore notification" })
 hl.bind(key(mod, "comma"), hl.dsp.exec_cmd("makoctl dismiss"), { description = "Dismiss notification" })
 hl.bind(key(mod, "SHIFT", "comma"), hl.dsp.exec_cmd("makoctl dismiss --all"), { description = "Dismiss all notifications" })
+hl.bind(key(mod, "SHIFT", "period"), hl.dsp.exec_cmd(hypr_scripts .. "/dnd"), { description = "Do not disturb" })
