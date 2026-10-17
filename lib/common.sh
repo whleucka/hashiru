@@ -130,6 +130,17 @@ export HASHIRU_NO_REFLECTOR="${HASHIRU_NO_REFLECTOR:-0}"
 # like the knobs above would strip hand-made lines on the next update.
 HASHIRU_FINGERPRINT="${HASHIRU_FINGERPRINT:-}"
 
+# Battery charge thresholds, as set by `hashiru charge`: start charging below
+# START percent, stop at STOP. Empty (the default) means Hashiru never touches
+# them, for the same reason as HASHIRU_FINGERPRINT.
+HASHIRU_CHARGE_START="${HASHIRU_CHARGE_START:-}"
+HASHIRU_CHARGE_STOP="${HASHIRU_CHARGE_STOP:-}"
+
+# Where the charge functions find sys/class/power_supply and etc/tlp.d.
+# Internal wiring for testing against a scratch tree, like HASHIRU_PAM_ROOT;
+# set, it also skips sudo and tlp, which a scratch tree has no use for.
+HASHIRU_CHARGE_ROOT="${HASHIRU_CHARGE_ROOT:-}"
+
 # Where apply_fingerprint_pam finds etc/pam.d and usr/lib/pam.d. Internal
 # wiring for testing against a scratch copy, not a hashiru.conf knob; set, it
 # also drops sudo, since a scratch tree is the caller's own.
@@ -590,6 +601,113 @@ apply_fingerprint_pam() {
     _pam_apply_sudo || rc=1
     _pam_apply_polkit || rc=1
     return "${rc}"
+}
+
+# -----------------------------------------------------------------------------
+# Charge thresholds
+# -----------------------------------------------------------------------------
+#
+# HASHIRU_CHARGE_START/STOP become /etc/tlp.d/50-hashiru-charge.conf, so TLP
+# sets them at every boot, and are applied at once with `tlp setcharge`. Removing
+# the file isn't enough to undo them: a ThinkPad's EC keeps the last thresholds
+# it was given, so `hashiru charge off` also sets 0/100, the factory default.
+#
+# /etc/tlp.conf is read after /etc/tlp.d, so thresholds set there by hand win
+# over these; doctor's sysfs check is what catches that.
+
+readonly _CHARGE_HEADER="# Managed by Hashiru (hashiru charge) — rewritten on every update."
+
+_charge_conf() { echo "${HASHIRU_CHARGE_ROOT}/etc/tlp.d/50-hashiru-charge.conf"; }
+
+# The batteries that take thresholds, one name a line (BAT0, BAT1).
+charge_batteries() {
+    local d
+    for d in "${HASHIRU_CHARGE_ROOT}"/sys/class/power_supply/BAT*; do
+        [[ -r "${d}/charge_control_end_threshold" ]] && echo "${d##*/}"
+    done
+    return 0
+}
+
+# What sysfs says, "BAT0 75 80" a line. Read-only, for `hashiru charge` and
+# doctor.
+charge_thresholds_state() {
+    local bat d
+    while read -r bat; do
+        d="${HASHIRU_CHARGE_ROOT}/sys/class/power_supply/${bat}"
+        echo "${bat} $(cat "${d}/charge_control_start_threshold" 2>/dev/null || echo -) $(cat "${d}/charge_control_end_threshold")"
+    done < <(charge_batteries)
+}
+
+# charge_valid START STOP: whole numbers, 0 <= START < STOP <= 100.
+charge_valid() {
+    [[ "$1" =~ ^[0-9]+$ && "$2" =~ ^[0-9]+$ ]] && (( $1 < $2 && $2 <= 100 ))
+}
+
+_charge_sudo() {
+    if [[ -n "${HASHIRU_CHARGE_ROOT}" ]]; then "$@"; else sudo "$@"; fi
+}
+
+# Make /etc/tlp.d and the batteries match the knobs. Idempotent: the file is
+# only written when it differs, and tlp only run for a battery that isn't
+# there already, so an update doesn't ask for sudo to change nothing. Both
+# knobs empty is a no-op. Called by `hashiru charge` and by stage 10.
+apply_charge_thresholds() {
+    local start="${HASHIRU_CHARGE_START}" stop="${HASHIRU_CHARGE_STOP}"
+    [[ -z "${start}${stop}" ]] && return 0
+    if ! charge_valid "${start}" "${stop}"; then
+        log_warn "HASHIRU_CHARGE_START=${start} HASHIRU_CHARGE_STOP=${stop} isn't 0 <= start < stop <= 100; thresholds left alone"
+        return 0
+    fi
+    local bats=()
+    mapfile -t bats < <(charge_batteries)
+    if (( ${#bats[@]} == 0 )); then
+        log_warn "No battery here takes charge thresholds; HASHIRU_CHARGE_* ignored"
+        return 0
+    fi
+
+    local want bat conf
+    conf="$(_charge_conf)"
+    want="${_CHARGE_HEADER}"
+    for bat in "${bats[@]}"; do
+        want+=$'\n'"START_CHARGE_THRESH_${bat}=${start}"$'\n'"STOP_CHARGE_THRESH_${bat}=${stop}"
+    done
+    if [[ "$(cat "${conf}" 2>/dev/null)" != "${want}" ]]; then
+        _charge_sudo mkdir -p "$(dirname "${conf}")" || return 1
+        printf '%s\n' "${want}" | _charge_sudo tee "${conf}" > /dev/null || return 1
+    fi
+
+    local line cur_start cur_stop rc=0
+    while read -r line; do
+        read -r bat cur_start cur_stop <<< "${line}"
+        [[ "${cur_start}" == "${start}" && "${cur_stop}" == "${stop}" ]] && continue
+        _charge_set "${bat}" "${start}" "${stop}" || rc=1
+    done < <(charge_thresholds_state)
+    return "${rc}"
+}
+
+# Back to the factory default and nothing in /etc/tlp.d, for `hashiru charge off`.
+clear_charge_thresholds() {
+    local conf bat rc=0
+    conf="$(_charge_conf)"
+    if [[ -e "${conf}" ]]; then
+        _charge_sudo rm -f "${conf}" || return 1
+    fi
+    while read -r bat; do
+        _charge_set "${bat}" 0 100 || rc=1
+    done < <(charge_batteries)
+    return "${rc}"
+}
+
+# _charge_set BAT START STOP: through TLP, which knows each vendor's quirks
+# (and the order to write the two in). A scratch tree gets sysfs written.
+_charge_set() {
+    if [[ -n "${HASHIRU_CHARGE_ROOT}" ]]; then
+        local d="${HASHIRU_CHARGE_ROOT}/sys/class/power_supply/$1"
+        echo "$2" > "${d}/charge_control_start_threshold"
+        echo "$3" > "${d}/charge_control_end_threshold"
+        return
+    fi
+    sudo tlp setcharge "$2" "$3" "$1" > /dev/null
 }
 
 # -----------------------------------------------------------------------------

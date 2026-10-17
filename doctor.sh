@@ -212,6 +212,27 @@ fi
 
 # --- Desktop -------------------------------------------------------------------
 
+# Charge thresholds, judged against HASHIRU_CHARGE_START/STOP — only once
+# `hashiru charge` has set them. sysfs is the truth: it also catches thresholds
+# that /etc/tlp.conf (read after /etc/tlp.d) sets to something else.
+if [[ -z "${HASHIRU_CHARGE_START}${HASHIRU_CHARGE_STOP}" ]]; then
+    skip "charge thresholds: not managed by Hashiru ('hashiru charge 75 80' to set them)"
+else
+    charge_drift=()
+    while read -r bat cur_start cur_stop; do
+        [[ -z "${bat}" ]] && continue
+        [[ "${cur_start} ${cur_stop}" == "${HASHIRU_CHARGE_START} ${HASHIRU_CHARGE_STOP}" ]] \
+            || charge_drift+=("${bat} is ${cur_start}/${cur_stop}")
+    done <<< "$(charge_thresholds_state)"
+    if [[ -z "$(charge_batteries)" ]]; then
+        meh "charge thresholds: set to ${HASHIRU_CHARGE_START}/${HASHIRU_CHARGE_STOP}, but no battery here takes them"
+    elif (( ${#charge_drift[@]} )); then
+        bad "charge thresholds: HASHIRU_CHARGE_* says ${HASHIRU_CHARGE_START}/${HASHIRU_CHARGE_STOP} but ${charge_drift[*]} (hashiru charge ${HASHIRU_CHARGE_START} ${HASHIRU_CHARGE_STOP}; check /etc/tlp.conf)"
+    else
+        ok "charge thresholds: ${HASHIRU_CHARGE_START}/${HASHIRU_CHARGE_STOP}, as configured"
+    fi
+fi
+
 section "Desktop"
 
 if command -v Hyprland &>/dev/null; then

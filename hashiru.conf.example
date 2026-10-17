@@ -38,3 +38,12 @@
 # gets root without knowing anything. hyprlock reads fprintd itself and
 # doesn't depend on this.
 #: "${HASHIRU_FINGERPRINT=1}"
+
+# Battery charge thresholds: start charging below START percent, stop at STOP.
+# Set by `hashiru charge 75 80` (and cleared by `hashiru charge off`), which
+# also applies them at once — use that rather than editing these. Kept in
+# /etc/tlp.d/50-hashiru-charge.conf and re-applied on every update. Unset,
+# Hashiru never touches thresholds. 75/80 is the usual pick for a laptop that
+# lives on its charger.
+#: "${HASHIRU_CHARGE_START=75}"
+#: "${HASHIRU_CHARGE_STOP=80}"

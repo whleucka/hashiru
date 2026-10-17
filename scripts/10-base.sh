@@ -136,4 +136,9 @@ fi
 # expect, and the run has nothing better to do about that than say so.
 apply_fingerprint_pam || log_warn "Fingerprint PAM not applied; see the error above"
 
+# Battery charge thresholds, if `hashiru charge` set them. Same shape as the
+# fingerprint step: the command applies a change itself, this keeps it applied
+# (a firmware update or a battery swap resets the EC's). Unset does nothing.
+apply_charge_thresholds || log_warn "Charge thresholds not applied; see the error above"
+
 script_end "10-base.sh"

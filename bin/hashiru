@@ -6,6 +6,7 @@
 #   hashiru doctor               read-only health check
 #   hashiru config               edit this machine's overrides
 #   hashiru fingerprint [on|off] fingerprint for sudo and polkit
+#   hashiru charge [START STOP|off] battery charge thresholds
 #   hashiru version             what this machine is running
 #   hashiru status               where this install came from, and how stale
 #   hashiru log                  the install log
@@ -49,6 +50,11 @@ Commands:
                        on; 'off' turns it off and keeps the prints for
                        hyprlock, unless --forget. Bare, shows where it stands.
                        A failed scan always falls back to the password.
+  charge [START STOP|off]
+                       Battery charge thresholds: start charging below START
+                       percent, stop at STOP (e.g. 'hashiru charge 75 80'), kept
+                       across updates. 'off' goes back to the factory 0/100.
+                       Bare, shows what's set and what the battery reports.
   status [--porcelain] Show install provenance, checkout state, and whether a
                        pull is available. --porcelain prints stable key=value
                        lines for scripts.
@@ -517,6 +523,62 @@ cmd_fingerprint() {
     esac
 }
 
+# Battery charge thresholds. The state lives in hashiru.conf as
+# HASHIRU_CHARGE_START/STOP, so stage 10 keeps /etc/tlp.d matching it on every
+# update; this command is how it changes, and applies the change at once. As
+# with fingerprint: the system first, the knobs second, so a sudo prompt
+# cancelled halfway leaves hashiru.conf saying what it said before.
+cmd_charge() {
+    local state bat start stop
+    case "${1:-status}" in
+        status)
+            if [[ -n "${HASHIRU_CHARGE_START}${HASHIRU_CHARGE_STOP}" ]]; then
+                echo "setting:   ${HASHIRU_CHARGE_START} ${HASHIRU_CHARGE_STOP} (HASHIRU_CHARGE_START/STOP)"
+            else
+                echo "setting:   unset — Hashiru leaves charge thresholds alone"
+            fi
+            state="$(charge_thresholds_state)"
+            if [[ -z "${state}" ]]; then
+                echo "battery:   none that takes thresholds"
+            else
+                while read -r bat start stop; do
+                    echo "${bat}:      ${start} ${stop}"
+                done <<< "${state}"
+            fi
+            ;;
+        off)
+            (( $# == 1 )) || { log_error "'off' takes nothing after it"; exit 1; }
+            log_info "Charge thresholds back to 0/100 (sudo may ask)"
+            if ! clear_charge_thresholds; then
+                log_error "Thresholds not reset; hashiru.conf left as it was"
+                exit 1
+            fi
+            set_conf_knob HASHIRU_CHARGE_START ""
+            set_conf_knob HASHIRU_CHARGE_STOP ""
+            log_success "Charge thresholds off: the battery charges to full"
+            ;;
+        *)
+            if (( $# != 2 )) || ! charge_valid "$1" "$2"; then
+                log_error "Usage: hashiru charge START STOP, with 0 <= START < STOP <= 100 (e.g. 75 80). Nothing changed."
+                exit 1
+            fi
+            if [[ -z "$(charge_batteries)" ]]; then
+                log_error "No battery here takes charge thresholds (no charge_control_end_threshold in sysfs). Nothing changed."
+                exit 1
+            fi
+            log_info "Charging from below $1% to $2% (sudo may ask)"
+            HASHIRU_CHARGE_START="$1" HASHIRU_CHARGE_STOP="$2"
+            if ! apply_charge_thresholds; then
+                log_error "Thresholds not applied; hashiru.conf left as it was"
+                exit 1
+            fi
+            set_conf_knob HASHIRU_CHARGE_START "$1"
+            set_conf_knob HASHIRU_CHARGE_STOP "$2"
+            log_success "Charge thresholds $1/$2, kept across updates"
+            ;;
+    esac
+}
+
 # --porcelain: key=value lines (the /etc/hashiru-release format) for programs
 # such as hashiru-tui. Stable keys; an unknown value is left empty, never
 # reworded. behind is empty when there is no upstream or no network.
@@ -586,6 +648,7 @@ case "${1:-help}" in
     status) shift; cmd_status "$@" ;;
     config|edit) cmd_config ;;
     fingerprint) shift; cmd_fingerprint "$@" ;;
+    charge) shift; cmd_charge "$@" ;;
     tui) shift
         command -v hashiru-tui &>/dev/null || { log_error "hashiru-tui not installed (stage 99 installs it: hashiru install 99)"; exit 1; }
         exec hashiru-tui "$@" ;;
