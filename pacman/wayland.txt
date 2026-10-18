@@ -11,8 +11,7 @@ xdg-desktop-portal-gtk
 # Vulkan drivers (install all, only the matching hardware's ICD loads — same
 # reasoning as intel-ucode + amd-ucode in base.txt). mesa arrives as a Hyprland
 # dependency but ships GL only, so without an ICD here there is no Vulkan at
-# all: wgpu apps fall back to GL and abort on the first surface configure, which
-# takes out the `confetti` fanfare in update-system.
+# all: wgpu apps fall back to GL and abort on the first surface configure.
 #
 # The lib32 set is not about 32-bit games. steam depends on the virtual
 # `vulkan-driver` / `lib32-vulkan-driver`, and install_packages runs pacman

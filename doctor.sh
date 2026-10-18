@@ -400,10 +400,9 @@ fi
 # Only Hashiru's own links are Hashiru's business. A broken link into a personal
 # editor-config repo is that repo's problem to report, not this one's.
 #
-# Both ~/.config and ~/.local are scanned: the bin package owns ~/.local/bin and
-# ~/.local/share/hashiru/assets, so a moved checkout breaks `update-system`,
-# `msync`, `usb` and friends without leaving a single bad link under ~/.config.
-# ~/.local needs one more level of depth than ~/.config to reach the assets dir.
+# Both ~/.config and ~/.local are scanned: the bin package owns ~/.local/bin, so
+# a moved checkout breaks `msync`, `usb` and friends without leaving a single
+# bad link under ~/.config.
 dangling=()
 while IFS= read -r -d '' link; do
     [[ -e "${link}" ]] && continue
