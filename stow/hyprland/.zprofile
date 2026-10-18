@@ -9,7 +9,7 @@
 # *login* shell, which never reads ~/.zshrc — that only runs for interactive
 # shells. Without this the session PATH is whatever /etc/profile built, which
 # adds /usr/local/bin but not ~/.local/bin, so every Hyprland keybind naming a
-# command from stow/bin (`update-system`) or the herdr binary dies with
+# command there (`hashiru-tui`, the stow/bin scripts) or herdr dies with
 # "command not found" while the same name works fine once you're in a terminal.
 # environment.d can't cover this either: it applies to systemd user services,
 # and Hyprland is exec'd straight from this file.
