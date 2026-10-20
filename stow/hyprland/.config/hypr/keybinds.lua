@@ -124,7 +124,6 @@ hl.bind(key(mod, "SHIFT", 0), hl.dsp.window.move({ workspace = 10, follow = fals
 
 -- Special workspace (scratchpad)
 hl.bind(key("CTRL", "Grave"), hl.dsp.workspace.toggle_special("magic"), { description = "Toggle scratchpad" })
-hl.bind(key(mod, "Home"), hl.dsp.workspace.toggle_special("magic"), { description = "Toggle scratchpad" })
 hl.bind(key(mod, "Insert"), hl.dsp.window.move({ workspace = "special:magic" }), { description = "Move to scratchpad" })
 hl.bind(key(mod, "Delete"), hl.dsp.window.move({ workspace = "e+0" }), { description = "Remove from scratchpad" })
 
