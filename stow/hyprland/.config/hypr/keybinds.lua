@@ -97,8 +97,8 @@ hl.bind(key(mod, "SHIFT", "L"), hl.dsp.window.move({ direction = "r" }), { descr
 
 -- Resize hold SUPER+CTRL+{H,J,K,L}
 hl.bind(key(mod, "CTRL", "H"), hl.dsp.window.resize({ x = -25, y = 0, relative = true }), { repeating = true })
-hl.bind(key(mod, "CTRL", "J"), hl.dsp.window.resize({ x = 0, y = -25, relative = true }), { repeating = true })
-hl.bind(key(mod, "CTRL", "K"), hl.dsp.window.resize({ x = 0, y = 25, relative = true }), { repeating = true })
+hl.bind(key(mod, "CTRL", "J"), hl.dsp.window.resize({ x = 0, y = 25, relative = true }), { repeating = true })
+hl.bind(key(mod, "CTRL", "K"), hl.dsp.window.resize({ x = 0, y = -25, relative = true }), { repeating = true })
 hl.bind(key(mod, "CTRL", "L"), hl.dsp.window.resize({ x = 25, y = 0, relative = true }), { repeating = true })
 
 -- Resize submap
