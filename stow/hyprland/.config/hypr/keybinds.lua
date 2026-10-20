@@ -89,27 +89,27 @@ hl.bind(key(mod, "J"), hl.dsp.exec_cmd(hypr_scripts .. "/nav d j"), { descriptio
 -- Focus last window
 hl.bind(key(mod, "Backspace"), hl.dsp.focus({ last = true }), { description = "Focus last window" })
 
--- Move windows (vim keys)
+-- Move windows SUPER+SHIFT+{H,J,K,L}
 hl.bind(key(mod, "SHIFT", "H"), hl.dsp.window.move({ direction = "l" }), { description = "Move window left" })
-hl.bind(key(mod, "SHIFT", "L"), hl.dsp.window.move({ direction = "r" }), { description = "Move window right" })
-hl.bind(key(mod, "SHIFT", "K"), hl.dsp.window.move({ direction = "u" }), { description = "Move window up" })
 hl.bind(key(mod, "SHIFT", "J"), hl.dsp.window.move({ direction = "d" }), { description = "Move window down" })
+hl.bind(key(mod, "SHIFT", "K"), hl.dsp.window.move({ direction = "u" }), { description = "Move window up" })
+hl.bind(key(mod, "SHIFT", "L"), hl.dsp.window.move({ direction = "r" }), { description = "Move window right" })
 
--- Resize hold -/+ (code:20 = `-`, code:21 = `=`/`+`)
-hl.bind(key(mod, "code:20"), hl.dsp.window.resize({ x = -25, y = 0, relative = true }), { repeating = true })
-hl.bind(key(mod, "code:21"), hl.dsp.window.resize({ x = 25, y = 0, relative = true }), { repeating = true })
-hl.bind(key(mod, "SHIFT", "code:20"), hl.dsp.window.resize({ x = 0, y = -25, relative = true }), { repeating = true })
-hl.bind(key(mod, "SHIFT", "code:21"), hl.dsp.window.resize({ x = 0, y = 25, relative = true }), { repeating = true })
+-- Resize hold SUPER+CTRL+{H,J,K,L}
+hl.bind(key(mod, "CTRL", "H"), hl.dsp.window.resize({ x = -25, y = 0, relative = true }), { repeating = true })
+hl.bind(key(mod, "CTRL", "J"), hl.dsp.window.resize({ x = 0, y = -25, relative = true }), { repeating = true })
+hl.bind(key(mod, "CTRL", "K"), hl.dsp.window.resize({ x = 0, y = 25, relative = true }), { repeating = true })
+hl.bind(key(mod, "CTRL", "L"), hl.dsp.window.resize({ x = 25, y = 0, relative = true }), { repeating = true })
 
 -- Resize submap
-hl.bind(key(mod, "R"), hl.dsp.submap("resize"), { description = "Resize mode" })
-hl.define_submap("resize", function()
-  hl.bind("H", hl.dsp.window.resize({ x = -25, y = 0, relative = true }), { repeating = true })
-  hl.bind("L", hl.dsp.window.resize({ x = 25, y = 0, relative = true }), { repeating = true })
-  hl.bind("K", hl.dsp.window.resize({ x = 0, y = -25, relative = true }), { repeating = true })
-  hl.bind("J", hl.dsp.window.resize({ x = 0, y = 25, relative = true }), { repeating = true })
-  hl.bind("Escape", hl.dsp.submap("reset"))
-end)
+-- hl.bind(key(mod, "R"), hl.dsp.submap("resize"), { description = "Resize mode" })
+-- hl.define_submap("resize", function()
+--   hl.bind("H", hl.dsp.window.resize({ x = -25, y = 0, relative = true }), { repeating = true })
+--   hl.bind("L", hl.dsp.window.resize({ x = 25, y = 0, relative = true }), { repeating = true })
+--   hl.bind("K", hl.dsp.window.resize({ x = 0, y = -25, relative = true }), { repeating = true })
+--   hl.bind("J", hl.dsp.window.resize({ x = 0, y = 25, relative = true }), { repeating = true })
+--   hl.bind("Escape", hl.dsp.submap("reset"))
+-- end)
 
 -- -----------------------------------------------------------------------------
 -- Workspaces
@@ -124,8 +124,9 @@ hl.bind(key(mod, "SHIFT", 0), hl.dsp.window.move({ workspace = 10, follow = fals
 
 -- Special workspace (scratchpad)
 hl.bind(key("CTRL", "Grave"), hl.dsp.workspace.toggle_special("magic"), { description = "Toggle scratchpad" })
-hl.bind(key(mod, "Insert"), hl.dsp.window.move({ workspace = "special:magic" }), { description = "Move to scratchpad" })
-hl.bind(key(mod, "Delete"), hl.dsp.window.move({ workspace = "e+0" }), { description = "Remove from scratchpad" })
+-- -/+ (code:20 = `-`, code:21 = `=`/`+`)
+hl.bind(key(mod, "code:20"), hl.dsp.window.move({ workspace = "e+0" }), { description = "Remove from scratchpad" })
+hl.bind(key(mod, "code:21"), hl.dsp.window.move({ workspace = "special:magic" }), { description = "Move to scratchpad" })
 
 -- -----------------------------------------------------------------------------
 -- Grouped Windows (Tabs)
@@ -135,10 +136,10 @@ hl.bind(key(mod, "G"), hl.dsp.group.toggle(), { description = "Toggle group" })
 hl.bind(key(mod, "D"), hl.dsp.window.move({ out_of_group = true }), { description = "Move out of group" })
 hl.bind(key(mod, "P"), hl.dsp.group.prev(), { description = "Previous group tab" })
 hl.bind(key(mod, "N"), hl.dsp.group.next(), { description = "Next group tab" })
-hl.bind(key(mod, "CTRL", "H"), hl.dsp.window.move({ into_group = "l" }), { description = "Group left" })
-hl.bind(key(mod, "CTRL", "L"), hl.dsp.window.move({ into_group = "r" }), { description = "Group right" })
-hl.bind(key(mod, "CTRL", "K"), hl.dsp.window.move({ into_group = "u" }), { description = "Group up" })
-hl.bind(key(mod, "CTRL", "J"), hl.dsp.window.move({ into_group = "d" }), { description = "Group down" })
+hl.bind(key(mod, "ALT", "H"), hl.dsp.window.move({ into_group = "l" }), { description = "Group left" })
+hl.bind(key(mod, "ALT", "L"), hl.dsp.window.move({ into_group = "r" }), { description = "Group right" })
+hl.bind(key(mod, "ALT", "K"), hl.dsp.window.move({ into_group = "u" }), { description = "Group up" })
+hl.bind(key(mod, "ALT", "J"), hl.dsp.window.move({ into_group = "d" }), { description = "Group down" })
 hl.bind(key(mod, "CTRL", "G"), hl.dsp.group.lock_active({ action = "toggle" }), { description = "Lock group" })
 
 -- -----------------------------------------------------------------------------
