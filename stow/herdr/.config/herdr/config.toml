@@ -68,8 +68,8 @@ remove_worktree = "prefix+ctrl+g"   # opens a confirmation first
 last_pane = "prefix+semicolon"       # back-and-forth between two panes (tmux prefix+;)
 rename_pane = "prefix+shift+p"       # herdr default; named panes show in the sidebar
 clear_pane = "prefix+ctrl+l"
-move_tab_previous = "ctrl+shift+alt+h"  # reorder tabs; pairs with ctrl+shift+h/l tab nav
-move_tab_next = "ctrl+shift+alt+l"
+move_tab_previous = "alt+{"  # reorder tabs; pairs with alt+[/] tab nav (ctrl+shift+alt+h/l is Hyprland group tab reorder)
+move_tab_next = "alt+}"
 
 # Agents
 previous_agent = "ctrl+shift+<"   # prev agent (up in the vertical agent list)
