@@ -22,6 +22,9 @@ hl.on("hyprland.start", function()
     -- Idle and lock
     hl.exec_cmd("~/.config/hypr/scripts/hypridle-battery")
 
+    -- Warn when a dock comes back from suspend with data but no power
+    hl.exec_cmd("~/.config/hypr/scripts/dock-power-watch")
+
     -- Clamshell owns the lid: logind must not suspend on lid close. It reacts to
     -- an undock (lid shut, dock pulled) within the same second, freezing us mid
     -- modeset while the panel is coming back -- so the panel never lights up and
