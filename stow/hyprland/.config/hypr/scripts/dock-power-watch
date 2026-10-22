@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Warn when a Thunderbolt dock is connected but the machine is on battery.
+#
+# Waking from suspend with the dock already plugged in can bring the data link
+# back without the USB-C power contract: displays and USB work, the battery
+# drains, and nothing says so. Replugging the dock fixes it. The dock
+# reconnects on every resume, so watching Thunderbolt add events covers both
+# a fresh plug and a wake.
+
+AC_PATH="/sys/class/power_supply/AC/online"
+# Give USB-PD a moment to negotiate before judging it.
+SETTLE=15
+
+dock_name() {
+    local dev name
+    for dev in /sys/bus/thunderbolt/devices/*; do
+        name="$(cat "${dev}/device_name" 2>/dev/null)"
+        if [[ "${name,,}" == *dock* ]]; then
+            echo "${name}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+check() {
+    sleep "${SETTLE}"
+    [[ -r "${AC_PATH}" && "$(cat "${AC_PATH}")" == "0" ]] || return
+    local name
+    name="$(dock_name)" || return
+    notify-send -u critical -a "Power" -i battery-caution \
+        "Dock not charging" "${name} is connected but the laptop is on battery. Unplug and replug the dock."
+}
+
+[[ -r "${AC_PATH}" ]] || exit 0
+
+check &
+
+# One check per burst: a dock arrives as several devices and retimers at once.
+pending=""
+udevadm monitor --udev --subsystem-match=thunderbolt | while read -r line; do
+    [[ "${line}" == *" add "* ]] || continue
+    if [[ -z "${pending}" ]] || ! kill -0 "${pending}" 2>/dev/null; then
+        check &
+        pending=$!
+    fi
+done
