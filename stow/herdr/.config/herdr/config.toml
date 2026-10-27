@@ -28,8 +28,8 @@ prefix = "ctrl+a"
 new_tab = "ctrl+shift+t"        # new tab
 rename_tab = "ctrl+shift+alt+t" # rename tab
 close_tab = "ctrl+shift+q"      # close tab
-previous_tab = "alt+["          # tab nav prev
-next_tab = "alt+]"              # tab nav next
+previous_tab = "alt+tab"          # tab nav prev
+next_tab = "alt+shift+tab"              # tab nav next
 switch_tab = "alt+1..9"        # jump straight to tab N
 
 # Panes
