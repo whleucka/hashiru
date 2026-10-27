@@ -126,6 +126,13 @@ bindkey '^p' reverse-menu-complete
 # Kitty keyboard protocol sends ctrl+e as CSI 1;9u — bind it to end-of-line
 bindkey '\e[1;9u' end-of-line
 
+# A TUI that dies without cleaning up can leave xterm modifyOtherKeys enabled
+# on the pane, after which ctrl+letter arrives as CSI 27;5;<code>~ (ctrl+l
+# types ";5;108~" instead of clearing). Turn it back off at every prompt.
+_reset_modify_other_keys() { print -n '\e[>4m' }
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd _reset_modify_other_keys
+
 # ----------------------------------------------------------------------------
 # Kitty/Ghostty Integration (after oh-my-zsh so autosuggestions widget is intact)
 # ----------------------------------------------------------------------------
