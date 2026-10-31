@@ -35,6 +35,8 @@ blueman
 # Power management (TLP for ThinkPads, conflicts with power-profiles-daemon)
 tlp
 tlp-rdw
+# Stage 10 restarts it to apply the critical action; waybar only pulls it in at stage 30
+upower
 
 # XDG directories
 xdg-user-dirs
