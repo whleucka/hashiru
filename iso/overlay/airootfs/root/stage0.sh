@@ -285,7 +285,7 @@ ask_network() {
     esac
   done
   ok "Network is up."
-  slog "network: ${WIFI_SSID:+wifi ${WIFI_SSID}}${WIFI_SSID:-wired}"
+  slog "network: $(network_summary)"
   detect_timezone
 }
 
@@ -554,12 +554,20 @@ keyboard_summary() {
   fi
 }
 
+network_summary() {
+  if [[ -n "${WIFI_SSID}" ]]; then
+    printf 'WiFi %s' "${WIFI_SSID}"
+  else
+    printf 'wired'
+  fi
+}
+
 review_card() {
   local luks="same as login"
   (( HLUKS_SAME )) || luks="separate"
   ui_card "Review" \
     Keyboard  "$(keyboard_summary)" \
-    Network   "${WIFI_SSID:+WiFi ${WIFI_SSID}}${WIFI_SSID:-wired}" \
+    Network   "$(network_summary)" \
     Username  "${HUSER}" \
     Password  "••••••••" \
     "Disk key" "${luks}" \
