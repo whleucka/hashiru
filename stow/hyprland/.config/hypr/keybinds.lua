@@ -142,7 +142,7 @@ hl.bind(key(mod, "ALT", "H"), hl.dsp.window.move({ into_group = "l" }), { descri
 hl.bind(key(mod, "ALT", "L"), hl.dsp.window.move({ into_group = "r" }), { description = "Group right" })
 hl.bind(key(mod, "ALT", "K"), hl.dsp.window.move({ into_group = "u" }), { description = "Group up" })
 hl.bind(key(mod, "ALT", "J"), hl.dsp.window.move({ into_group = "d" }), { description = "Group down" })
-hl.bind(key(mod, "CTRL", "G"), hl.dsp.group.lock_active({ action = "toggle" }), { description = "Lock group" })
+hl.bind(key(mod, "CTRL", "G"), hl.dsp.group.lock({ action = "toggle" }), { description = "Lock group" })
 
 -- -----------------------------------------------------------------------------
 -- Mouse bindings

@@ -63,8 +63,7 @@
 ---@field prev fun(opts?: { window?: any }): hl.Dispatcher
 ---@field active fun(opts: { index: integer, window?: any }): hl.Dispatcher
 ---@field move_window fun(opts: { forward?: boolean, window?: any }): hl.Dispatcher
----@field lock fun(opts?: { action?: string, window?: any }): hl.Dispatcher
----@field lock_active fun(opts?: { action?: string }): hl.Dispatcher
+---@field lock fun(opts?: { action?: string, window?: any, all?: boolean }): hl.Dispatcher
 
 ---@class hl.dsp.cursor
 ---@field move_to_corner fun(opts: { corner: integer, window?: any }): hl.Dispatcher
