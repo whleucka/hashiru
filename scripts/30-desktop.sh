@@ -13,6 +13,9 @@ xdg-user-dirs-update
 # Install Wayland/desktop packages
 install_packages "wayland.txt"
 
+# Nvidia's driver, on a machine with a card it supports
+apply_nvidia_driver
+
 # Install terminal utilities
 install_packages "terminal.txt"
 

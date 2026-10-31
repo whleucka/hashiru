@@ -1,0 +1,6 @@
+# Nvidia's driver. Not installed like the other manifests: apply_nvidia_driver
+# in lib/common.sh installs this only on a machine with a Turing-or-newer card,
+# and doctor.sh checks it on the same condition.
+nvidia-open
+nvidia-utils
+lib32-nvidia-utils

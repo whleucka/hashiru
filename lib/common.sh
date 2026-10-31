@@ -747,6 +747,75 @@ install_packages() {
     log_success "Installed packages from ${manifest}"
 }
 
+# Print the Nvidia situation of this machine: none, supported or legacy. Reads
+# sysfs rather than lspci, because pciutils isn't in any manifest. The argument
+# points it at another tree, for testing.
+#
+# nvidia-open needs a GSP, which starts at Turing, and Turing's device IDs start
+# at 0x1e00. Below that (GTX 10xx and older) current Arch has no driver for the
+# card in its repos, so it stays on nouveau. Class 0x03 is display controllers,
+# which skips the HDMI audio function the same card also exposes.
+nvidia_gpu_status() {
+    local root="${1:-/sys/bus/pci/devices}" dev status=none
+    for dev in "${root}"/*; do
+        [[ -r "${dev}/vendor" ]] || continue
+        [[ "$(<"${dev}/vendor")" == "0x10de" ]] || continue
+        [[ "$(<"${dev}/class")" == 0x03* ]] || continue
+        if (( $(<"${dev}/device") >= 0x1e00 )); then
+            echo supported
+            return 0
+        fi
+        status=legacy
+    done
+    echo "${status}"
+}
+
+# Whether any initramfs still carries nouveau. /boot is 0700 on an installed
+# machine, hence the sudo. Captured rather than piped to grep -q, which under
+# pipefail fails whenever grep's early exit kills lsinitcpio.
+initramfs_has_nouveau() {
+    local img listing
+    while IFS= read -r img; do
+        listing="$(sudo lsinitcpio "${img}")"
+        [[ "${listing}" == *nouveau* ]] && return 0
+    done < <(sudo find /boot -maxdepth 2 -name 'initramfs-*.img')
+    return 1
+}
+
+# Move a machine with a supported Nvidia card onto Nvidia's driver. Idempotent,
+# and does nothing on any other machine. The state check is the initramfs itself
+# rather than whether HOOKS changed, so a mkinitcpio that failed is retried by
+# the next replay.
+apply_nvidia_driver() {
+    local status
+    status="$(nvidia_gpu_status)"
+    if [[ "${status}" == "legacy" ]]; then
+        log_warn "Nvidia card older than Turing: nvidia-open doesn't support it, staying on nouveau"
+    fi
+    [[ "${status}" == "supported" ]] || return 0
+
+    log_info "Supported Nvidia card found"
+    install_packages "nvidia.txt"
+    sudo install -Dm644 "${HASHIRU_ROOT}/config/modprobe.d/99-hashiru-nvidia.conf" \
+        /etc/modprobe.d/99-hashiru-nvidia.conf
+
+    # The kms hook puts nouveau in the initramfs, where it loads before the
+    # blacklist in nvidia-utils can stop it.
+    if grep -qE '^HOOKS=.*\bkms\b' /etc/mkinitcpio.conf; then
+        log_info "Removing the kms hook from mkinitcpio.conf"
+        sudo sed -i -E '/^HOOKS=/ s/ kms\b//' /etc/mkinitcpio.conf
+    fi
+    if initramfs_has_nouveau; then
+        log_info "Rebuilding the initramfs without nouveau"
+        progress_set "rebuilding initramfs (mkinitcpio)"
+        sudo mkinitcpio -P
+    fi
+    if initramfs_has_nouveau; then
+        log_warn "nouveau is still in the initramfs; check HOOKS in /etc/mkinitcpio.conf and /etc/mkinitcpio.conf.d"
+    fi
+    log_success "Nvidia driver in place (active after a reboot)"
+}
+
 install_aur_packages() {
     local manifest="$1"
     local manifest_path="${HASHIRU_ROOT}/pacman/${manifest}"

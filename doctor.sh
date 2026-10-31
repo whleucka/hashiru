@@ -172,6 +172,37 @@ else
     meh "replay-warning hook differs from the repo (./install.sh 10)"
 fi
 
+# --- Nvidia --------------------------------------------------------------------
+
+# No section on a machine without the card, so an AMD laptop's report doesn't change.
+nvidia_status="$(nvidia_gpu_status)"
+if [[ "${nvidia_status}" == "legacy" ]]; then
+    section "Nvidia"
+    meh "card older than Turing: nvidia-open doesn't support it, running on nouveau"
+elif [[ "${nvidia_status}" == "supported" ]]; then
+    section "Nvidia"
+    missing=()
+    while IFS= read -r pkg || [[ -n "${pkg}" ]]; do
+        [[ -z "${pkg}" || "${pkg}" =~ ^[[:space:]]*# ]] && continue
+        is_pkg_installed "${pkg}" || missing+=("${pkg}")
+    done < "${HASHIRU_ROOT}/pacman/nvidia.txt"
+    if (( ${#missing[@]} == 0 )); then
+        ok "nvidia.txt: all installed"
+    else
+        bad "nvidia.txt: missing ${missing[*]} (./install.sh 30)"
+    fi
+    if [[ -d /sys/module/nouveau ]]; then
+        bad "nouveau is loaded (./install.sh 30, then reboot)"
+    fi
+    if [[ ! -d /sys/module/nvidia_drm ]]; then
+        meh "nvidia_drm isn't loaded yet (reboot)"
+    elif [[ "$(</sys/module/nvidia_drm/parameters/modeset)" == "Y" ]]; then
+        ok "nvidia_drm: loaded, modesetting on"
+    else
+        bad "nvidia_drm: modesetting is off (./install.sh 30, then reboot)"
+    fi
+fi
+
 # --- System services -----------------------------------------------------------
 
 section "System services"
