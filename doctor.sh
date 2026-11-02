@@ -426,7 +426,9 @@ fi
 # ~/.config as runtime state — Chromium and Electron write SingletonLock and
 # SingletonCookie as links whose "target" is a hostname-pid string, never a
 # real path — and flagging those would make this check permanently red. Stow
-# always writes a relative path into the stow directory, so match on that.
+# always writes a relative path into the stow directory, so match on that. Match
+# hashiru as a path component, not a substring: on a machine named hashiru the
+# lock target is hashiru-<pid>.
 #
 # Only Hashiru's own links are Hashiru's business. A broken link into a personal
 # editor-config repo is that repo's problem to report, not this one's.
@@ -439,7 +441,7 @@ while IFS= read -r -d '' link; do
     [[ -e "${link}" ]] && continue
     target="$(readlink "${link}")"
     case "${target}" in
-        ../*|*hashiru*) dangling+=("${link#"${HOME}"/} -> ${target}") ;;
+        ../*|*/hashiru/*) dangling+=("${link#"${HOME}"/} -> ${target}") ;;
     esac
 done < <( { find "${HOME}/.config" -maxdepth 2 -type l -print0 2>/dev/null
             find "${HOME}/.local"  -maxdepth 3 -type l -print0 2>/dev/null; } )
