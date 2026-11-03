@@ -28,8 +28,8 @@ prefix = "ctrl+a"
 new_tab = "ctrl+shift+t"        # new tab
 rename_tab = "ctrl+shift+alt+t" # rename tab
 close_tab = "ctrl+shift+q"      # close tab
-previous_tab = "alt+tab"          # tab nav prev
-next_tab = "alt+shift+tab"              # tab nav next
+previous_tab = "ctrl+shift+h"          # tab nav prev
+next_tab = "ctrl+shift+l"              # tab nav next
 switch_tab = "alt+1..9"        # jump straight to tab N
 
 # Panes
@@ -50,7 +50,7 @@ workspace_picker = "prefix+w"     # session/workspace navigator (herdr default;
                                   # ctrl+shift+w is free again since the browser
                                   # split was removed, but kitty still unbinds it)
 close_workspace = "prefix+q"       # close workspace (default was prefix+shift+d)
-new_workspace = "prefix+shift+n"   # herdr default (shift+n pairs with next_workspace on prefix+n)
+new_workspace = "ctrl+shift+n"   # herdr default (shift+n pairs with next_workspace on prefix+n)
 rename_workspace = "prefix+shift+w"  # herdr default
 previous_workspace = "ctrl+shift+k"  # ws nav prev (direct chord; p = previous)
 next_workspace = "ctrl+shift+j"      # ws nav next (direct chord; n = next; was kitty new-os-window)
@@ -72,8 +72,8 @@ move_tab_previous = "alt+{"  # reorder tabs; pairs with alt+[/] tab nav (ctrl+sh
 move_tab_next = "alt+}"
 
 # Agents
-previous_agent = "ctrl+shift+p"   # prev agent (up in the vertical agent list)
-next_agent = "ctrl+shift+n"       # next agent (down in the list; pairs with h/l tab nav)
+previous_agent = "ctrl+["   # prev agent (up in the vertical agent list)
+next_agent = "ctrl+]"       # next agent (down in the list; pairs with h/l tab nav)
 focus_agent = "ctrl+alt+1..9"          # jump straight to agent N (alt chords are terminal-dependent)
 
 # Unified super+hjkl navigation (nvim splits -> herdr panes -> Hyprland windows).
