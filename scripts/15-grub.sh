@@ -32,8 +32,28 @@ fi
 # Two seconds on a fresh machine, but grub-btrfs and a few dozen snapper
 # snapshots turn this into the second-longest step in a run, and it is the only
 # other unlabelled one.
+#
+# grub-btrfsd races this. Stage 10's pacman -Syu makes snap-pac take a pre/post
+# snapshot, the daemon sees it and runs 41_snapshots-btrfs on its own, and a
+# grub-mkconfig started in that window runs the same script against the same
+# temp mount and fails. So wait for the daemon's run to finish first, and if a
+# snapshot still lands mid-run, wait again and retry once.
+wait_for_grub_btrfsd() {
+    local i
+    for (( i = 0; i < 30; i++ )); do
+        pgrep -f /etc/grub.d/41_snapshots-btrfs >/dev/null || return 0
+        sleep 1
+    done
+}
+
 log_info "Regenerating grub.cfg"
 progress_set "regenerating grub.cfg"
-sudo grub-mkconfig -o /boot/grub/grub.cfg
+wait_for_grub_btrfsd
+if ! sudo grub-mkconfig -o /boot/grub/grub.cfg; then
+    log_warn "grub-mkconfig failed (grub-btrfsd may have been running) — retrying"
+    sleep 2
+    wait_for_grub_btrfsd
+    sudo grub-mkconfig -o /boot/grub/grub.cfg
+fi
 
 script_end "15-grub.sh"
