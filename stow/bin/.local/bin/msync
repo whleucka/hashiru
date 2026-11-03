@@ -192,6 +192,7 @@ def cmd_start(name):
         f"--name=msync-{name}",
         f"--label=msync={name}",
         "--ignore-vcs",
+        "--ignore=.claude",  # Claude Code files stay local, never sync to servers
         "--default-file-mode=0644",
         "--default-directory-mode=0755",
     ]
@@ -430,7 +431,7 @@ Config: ~/.config/msync/config.toml
   ignore = ["node_modules", "*.log"]   # mutagen ignore patterns
   gitignore = true                     # also ignore the project's .gitignore
 
-.git is always ignored. Ignore patterns are baked in at 'msync start' -
+.git and .claude are always ignored. Ignore patterns are baked in at 'msync start' -
 restart a session to pick up .gitignore edits."""
 
 

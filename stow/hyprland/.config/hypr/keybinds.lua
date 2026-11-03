@@ -40,7 +40,7 @@ hl.bind(key(mod, "SHIFT", "P"), hl.dsp.exec_cmd("sh -c 'pgrep -x hyprpicker >/de
 hl.bind(key(mod, "SHIFT", "T"), hl.dsp.exec_cmd(terminal .. " --class btop -o font_size=11 btop"), { description = "System monitor (btop)" })
 hl.bind(key(mod, "SHIFT", "U"), hl.dsp.exec_cmd(terminal .. " --class hashiru-tui -o font_size=11 hashiru-tui --run updates.update", { float = true, size = { 1100, 700 }, center = true }), { description = "Update system" })
 hl.bind(key(mod, "SHIFT", "V"), hl.dsp.exec_cmd("cliphist list | fuzzel --dmenu | cliphist decode | wl-copy"), { description = "Clipboard history" })
-hl.bind(key(mod, "SHIFT", "W"), hl.dsp.exec_cmd(browser), { description = "Browser" })
+hl.bind(key(mod, "SHIFT", "W"), hl.dsp.exec_cmd(browser .. " --app=https://google.ca"), { description = "Browser (google)" })
 hl.bind(key(mod, "SHIFT", "Y"), hl.dsp.exec_cmd(terminal .. " yazi"), { description = "Yazi File Manager" })
 
 -- The system menu: hashiru-tui in a floating window, focused if it's already
@@ -159,6 +159,7 @@ hl.bind(key(mod, "mouse:273"), hl.dsp.window.resize(), { mouse = true })
 hl.bind("Print", hl.dsp.exec_cmd(hypr_scripts .. "/screenshot-region"), { description = "Screenshot region" })
 hl.bind(key(mod, "Print"), hl.dsp.exec_cmd(hypr_scripts .. "/screenshot"), { description = "Screenshot full" })
 hl.bind(key("SHIFT", "Print"), hl.dsp.exec_cmd(hypr_scripts .. "/screenshot-region-file"), { description = "Screenshot region to file" })
+hl.bind(key("CTRL", "Print"), hl.dsp.exec_cmd(hypr_scripts .. "/screenshot-window"), { description = "Screenshot window" })
 
 -- -----------------------------------------------------------------------------
 -- Media / Hardware keys

@@ -1,0 +1,13 @@
+#!/bin/bash
+# Click a window to capture it to the clipboard (Esc cancels).
+pgrep -x slurp >/dev/null && exit 0
+
+# Workspaces currently on screen (normal + any open special workspace, per monitor)
+WS=$(hyprctl monitors -j | jq -c '[.[] | .activeWorkspace.id, .specialWorkspace.id] | map(select(. != 0))')
+
+GEOM=$(hyprctl clients -j \
+  | jq -r --argjson ws "$WS" '.[] | select(.mapped and (.hidden | not) and (.workspace.id as $id | $ws | index($id)))
+      | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' \
+  | slurp -r) || exit 0
+
+grim -g "$GEOM" - | wl-copy && notify-send -t 2000 "Window copied to clipboard"
