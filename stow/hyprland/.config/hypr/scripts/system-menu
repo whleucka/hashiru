@@ -1,0 +1,14 @@
+#!/bin/bash
+# Open the system menu (hashiru-tui), or focus it if it's already open, so a
+# second press of SUPER+ALT+Space or a click on waybar's Arch logo doesn't
+# stack another copy. Floating, size and centering come from the window rule
+# for its class (windowrules.lua), so every way of opening it looks the same.
+# Usage: system-menu [hashiru-tui args...]
+
+class=hashiru-tui
+
+if hyprctl clients -j | jq -e --arg c "$class" 'any(.[]; .class == $c)' >/dev/null 2>&1; then
+    exec hyprctl dispatch "hl.dsp.focus({ window = \"class:^$class\$\" })" >/dev/null 2>&1
+fi
+
+exec env EDITOR=nvim VISUAL=nvim kitty --class "$class" -o font_size=11 hashiru-tui "$@"

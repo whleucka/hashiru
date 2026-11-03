@@ -37,6 +37,10 @@ hl.window_rule({ match = { title = pip }, keep_aspect_ratio = true, border_size 
 
 hl.window_rule({ match = { class = "btop" }, float = true, center = true, size = { 1400, 900 } })
 
+-- The system menu (hashiru-tui): SUPER+ALT+Space, SUPER+SHIFT+U and waybar's
+-- Arch logo all open it under this class.
+hl.window_rule({ match = { class = "^hashiru-tui$" }, float = true, center = true, size = { 1100, 700 } })
+
 -- Google Calendar as a chromium app window; waybar's clock launches it. Matched
 -- by its exact class, not the ^chrome-.*-Default$ PWA pattern below, so it
 -- floats without dragging every other chromium app window along with it.

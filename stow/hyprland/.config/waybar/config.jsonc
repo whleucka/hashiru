@@ -10,9 +10,11 @@
 
     // Arch logo — nf-linux-archlinux (U+F303) from the font-logos range, which
     // CaskaydiaMono Nerd Font already carries, so it needs no fallback face.
+    // A click opens the system menu, as SUPER+ALT+Space does.
     "custom/hashiru": {
         "format": "\uf303",
-        "tooltip": false
+        "tooltip": false,
+        "on-click": "~/.config/hypr/scripts/system-menu"
     },
 
     "custom/ws1": {
