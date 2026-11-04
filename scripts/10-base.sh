@@ -135,6 +135,18 @@ if [[ -f "${SCRIPT_DIR}/config/upower/99-hashiru.conf" ]]; then
     sudo systemctl try-restart upower.service
 fi
 
+# NetworkManager hands DNS to openresolv (in base.txt) so a VPN coming down
+# leaves the connection's own servers behind. Reload, don't restart: a restart
+# would drop the network under the stages still to come. Only when it changed.
+nm_dns_src="${SCRIPT_DIR}/config/NetworkManager/conf.d/99-hashiru-dns.conf"
+nm_dns_dst="/etc/NetworkManager/conf.d/99-hashiru-dns.conf"
+if [[ -f "$nm_dns_src" ]] && ! cmp -s "$nm_dns_src" "$nm_dns_dst"; then
+    log_info "Installing NetworkManager DNS configuration"
+    sudo install -Dm644 "$nm_dns_src" "$nm_dns_dst"
+    sudo systemctl try-reload-or-restart NetworkManager.service \
+        || log_warn "NetworkManager DNS change applies on next restart"
+fi
+
 if [[ -f "${SCRIPT_DIR}/config/systemd/zram-generator.conf" ]]; then
     log_info "Installing zram-generator configuration"
     sudo cp "${SCRIPT_DIR}/config/systemd/zram-generator.conf" /etc/systemd/zram-generator.conf
