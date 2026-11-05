@@ -5,6 +5,12 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
     hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
 
+    -- Dark mode. GTK3 reads gtk-3.0/settings.ini, but libadwaita (GTK4 apps like
+    -- gnome-calculator) ignores it and only honours this gsetting, which
+    -- xdg-desktop-portal-gtk also exposes to Flatpak/portal-aware apps.
+    hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme prefer-dark; "
+        .. "gsettings set org.gnome.desktop.interface gtk-theme Adwaita-dark")
+
     -- Polkit agent (for GUI sudo prompts)
     hl.exec_cmd("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
 
