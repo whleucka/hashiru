@@ -128,6 +128,8 @@ back and ask what the site would now tell someone wrongly:
 - a stage added, renumbered or retired → `docs/internals.html`, and the stage
   rail on the landing page (`public/index.html`)
 - anything shipped → a row in `docs/changelog.html`
+- every release → the version on the landing page (`public/index.html`), in
+  the hero's meta row and the `hashiru status` sample (bump its commit too)
 - the install one-liner changed → the `data-copy` on the landing page hero
 
 Then push the wiki; the server pulls it. A release that changes behaviour without touching the site
