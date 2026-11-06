@@ -1,0 +1,32 @@
+#!/bin/bash
+# Waybar's layout indicator: the focused workspace's tiling layout, as a dwm-style
+# symbol ([]= master, [M] monocle, ...). Clicking cycles the layout.
+# Usage: layout          print waybar JSON
+#        layout next     switch to the next layout in SUPER+A's list
+#        layout prev     switch to the previous one
+#
+# All of it lives in hypr/layouts.lua: the symbols, which workspace counts as
+# focused, and how a layout is set. `hyprctl repl` runs in the config's own Lua
+# state, so this just calls what that module exports. Looking it up in
+# package.loaded (not require) means a config without it shows nothing rather
+# than loading the module a second time.
+#
+# Refreshes on signal 8, the same one ws-listener sends the workspace buttons on
+# a workspace switch; layouts.lua sends it after a layout change.
+
+lookup='local l = package.loaded.layouts; if type(l) ~= "table" then return "" end'
+
+case "$1" in
+    next) hyprctl repl "$lookup l.cycle(1)" >/dev/null ;;
+    prev) hyprctl repl "$lookup l.cycle(-1)" >/dev/null ;;
+    *)
+        out=$(hyprctl repl "$lookup return l.bar()" 2>/dev/null)
+        # Anything but JSON (Hyprland down, module missing, a Lua error) would
+        # make waybar log a parse error on every refresh. Collapse instead.
+        if [[ "$out" == "{"* ]]; then
+            printf '%s\n' "$out"
+        else
+            printf '{"text": ""}\n'
+        fi
+        ;;
+esac

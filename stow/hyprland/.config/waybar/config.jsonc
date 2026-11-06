@@ -4,7 +4,7 @@
     "height": 28,
     "spacing": 0,
 
-    "modules-left": ["custom/hashiru", "custom/ws1", "custom/ws2", "custom/ws3", "custom/ws4", "custom/ws5", "custom/ws6", "custom/ws7", "custom/ws8", "custom/ws9", "custom/ws10"],
+    "modules-left": ["custom/hashiru", "custom/ws1", "custom/ws2", "custom/ws3", "custom/ws4", "custom/ws5", "custom/ws6", "custom/ws7", "custom/ws8", "custom/ws9", "custom/ws10", "custom/layout"],
     "modules-center": ["clock"],
     "modules-right": ["group/tray-drawer", "custom/weather", "cpu", "memory", "pulseaudio", "custom/battery"],
 
@@ -85,6 +85,17 @@
         "return-type": "json",
         "signal": 8,
         "on-click": "~/.config/waybar/scripts/ws-click 10"
+    },
+
+    // The focused workspace's tiling layout, as dwm draws it ([]= master,
+    // [M] monocle). SUPER+A picks one; clicking here steps through them.
+    // Signal 8 is the workspace buttons' signal, so a switch updates it too.
+    "custom/layout": {
+        "exec": "~/.config/waybar/scripts/layout",
+        "return-type": "json",
+        "signal": 8,
+        "on-click": "~/.config/waybar/scripts/layout next",
+        "on-click-right": "~/.config/waybar/scripts/layout prev"
     },
 
     "clock": {

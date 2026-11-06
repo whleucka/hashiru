@@ -1,18 +1,20 @@
 -- layouts.lua — tiling layouts, and switching between them per workspace.
 --
 -- Hyprland 0.56 ships four layouts (dwindle, scrolling, master, monocle) and
--- lets Lua register more through hl.layout.register. The four extra ones here
--- are adapted from upstream's example/layouts (v0.56.2). The changes are in
--- spiral and manual: upstream keeps one state table for every workspace, so
--- using manual on two workspaces made each one's recalculate throw away the
--- other's window order and splits. Here that state is kept per workspace.
+-- lets Lua register more through hl.layout.register. The three extra ones here
+-- are adapted from upstream's example/layouts (v0.56.2), with spiral's ratio
+-- and rotation kept per workspace rather than in one table they all share.
+--
+-- Upstream's fourth example, manual, is left out on purpose: a linear chain of
+-- fixed 50/50 halvings, with nothing to resize and windows shrinking fast. It
+-- does nothing dwindle (preserve_split + SUPER+O) does not do better.
 --
 -- Switching is per workspace, i3/xmonad style. SUPER+A ("arrange") opens a
 -- one-shot picker. Each layout's key is its first letter, or its second when
 -- the first is taken:
 --
 --   d dwindle   s scrolling   m master   o monocle
---   c columns   g grid        p spiral   a manual
+--   c columns   g grid        p spiral
 --
 -- Picking a layout adds a workspace rule for the focused workspace, so it
 -- outlives the workspace emptying and being recreated, but not a config reload.
@@ -131,154 +133,32 @@ do
     })
 end
 
--- manual: a chain of halvings; each window chooses whether the next split
--- after it is side by side (h) or stacked (v).
-do
-    local state = state_table(function() return { order = {}, split = {}, default_split = "h" } end)
-
-    local function target_id(target)
-        local window = target.window
-        return window and tostring(window.stable_id) or tostring(target.index)
-    end
-
-    local function index_of(tbl, value)
-        for i, v in ipairs(tbl) do
-            if v == value then
-                return i
-            end
-        end
-    end
-
-    local function active_id(ctx, s)
-        for _, target in ipairs(ctx.targets) do
-            if target.window and target.window.active then
-                return target_id(target)
-            end
-        end
-        return s.order[#s.order]
-    end
-
-    -- Drop windows that left, insert new ones after the focused window.
-    local function sync_order(ctx, s)
-        local present, targets = {}, {}
-        for _, target in ipairs(ctx.targets) do
-            local id = target_id(target)
-            present[id] = true
-            targets[id] = target
-        end
-
-        local old_order = s.order
-        s.order = {}
-        for _, id in ipairs(old_order) do
-            if present[id] then
-                table.insert(s.order, id)
-            else
-                s.split[id] = nil
-            end
-        end
-
-        local focused = active_id(ctx, s)
-        for _, target in ipairs(ctx.targets) do
-            local id = target_id(target)
-            if not index_of(s.order, id) then
-                local after = focused and index_of(s.order, focused)
-                table.insert(s.order, after and (after + 1) or (#s.order + 1), id)
-            end
-        end
-
-        return targets
-    end
-
-    local function place_chain(ctx, s, targets, area, i)
-        local target = targets[s.order[i]]
-        if not target then
-            return
-        end
-        if i == #s.order then
-            target:place(area)
-            return
-        end
-        if (s.split[s.order[i]] or s.default_split) == "v" then
-            target:place(ctx:split(area, "top", 0.5))
-            place_chain(ctx, s, targets, ctx:split(area, "bottom", 0.5), i + 1)
-        else
-            target:place(ctx:split(area, "left", 0.5))
-            place_chain(ctx, s, targets, ctx:split(area, "right", 0.5), i + 1)
-        end
-    end
-
-    local function move_active(ctx, s, delta)
-        local id = active_id(ctx, s)
-        local i  = id and index_of(s.order, id)
-        local j  = i and (i + delta)
-        if not i or j < 1 or j > #s.order then
-            return
-        end
-        s.order[i], s.order[j] = s.order[j], s.order[i]
-    end
-
-    local function flipped(split)
-        return split == "v" and "h" or "v"
-    end
-
-    hl.layout.register("manual", {
-        recalculate = function(ctx)
-            local s = state(ctx)
-            place_chain(ctx, s, sync_order(ctx, s), ctx.area, 1)
-        end,
-
-        layout_msg = function(ctx, msg)
-            local s       = state(ctx)
-            local id      = active_id(ctx, s)
-            local command = msg:match("^(%S+)")
-            if command == "splith" or command == "h" then
-                if id then s.split[id] = "h" end
-            elseif command == "splitv" or command == "v" then
-                if id then s.split[id] = "v" end
-            elseif command == "splittoggle" or command == "toggle" then
-                if id then s.split[id] = flipped(s.split[id]) end
-            elseif command == "promote" then
-                local i = id and index_of(s.order, id)
-                if i then
-                    table.remove(s.order, i)
-                    table.insert(s.order, 1, id)
-                end
-            elseif command == "swapnext" then
-                move_active(ctx, s, 1)
-            elseif command == "swapprev" then
-                move_active(ctx, s, -1)
-            elseif command == "rotate" then
-                for k, v in pairs(s.split) do
-                    s.split[k] = flipped(v)
-                end
-                s.default_split = flipped(s.default_split)
-            else
-                return "manual: expected splith, splitv, splittoggle, promote, swapnext, swapprev, or rotate"
-            end
-            return true
-        end,
-    })
-end
-
 -- -----------------------------------------------------------------------------
 -- Switching
 -- -----------------------------------------------------------------------------
 
--- Picker order, and each layout's key in the SUPER+A submap. `id` is what
+-- Picker order, and each layout's key in the SUPER+A submap. `symbol` is what
+-- waybar shows, after dwm's: []= tile, [M] monocle, [@] spiral, [\] dwindle.
+-- `id` is what
 -- Hyprland calls it: hl.layout.register files Lua layouts under "lua:<name>",
 -- and that prefixed form is what a workspace rule and tiled_layout use. A rule
 -- naming an unknown layout falls back to dwindle without a word, so the prefix
 -- matters.
 local LAYOUTS = {
-    { key = "D", name = "dwindle",   id = "dwindle",     label = "[d]windle" },
-    { key = "S", name = "scrolling", id = "scrolling",   label = "[s]crolling" },
-    { key = "M", name = "master",    id = "master",      label = "[m]aster" },
-    { key = "O", name = "monocle",   id = "monocle",     label = "m[o]nocle" },
-    { key = "C", name = "columns",   id = "lua:columns", label = "[c]olumns" },
-    { key = "G", name = "grid",      id = "lua:grid",    label = "[g]rid" },
-    { key = "P", name = "spiral",    id = "lua:spiral",  label = "s[p]iral" },
-    { key = "A", name = "manual",    id = "lua:manual",  label = "m[a]nual" },
+    { key = "D", name = "dwindle",   id = "dwindle",     label = "[d]windle",   symbol = "[\\]" },
+    { key = "S", name = "scrolling", id = "scrolling",   label = "[s]crolling", symbol = "<=>" },
+    { key = "M", name = "master",    id = "master",      label = "[m]aster",    symbol = "[]=" },
+    { key = "O", name = "monocle",   id = "monocle",     label = "m[o]nocle",   symbol = "[M]" },
+    { key = "C", name = "columns",   id = "lua:columns", label = "[c]olumns",   symbol = "|||" },
+    { key = "G", name = "grid",      id = "lua:grid",    label = "[g]rid",      symbol = "###" },
+    { key = "P", name = "spiral",    id = "lua:spiral",  label = "s[p]iral",    symbol = "[@]" },
 }
+
+local BY_ID = {}
+for i, l in ipairs(LAYOUTS) do
+    l.index = i
+    BY_ID[l.id] = l
+end
 
 -- What SUPER+O does in each layout. Layouts missing from here (monocle,
 -- columns, grid) have nothing to flip, and the key does nothing.
@@ -287,7 +167,6 @@ local FLIP = {
     ["master"]     = "orientationnext", -- master area: left -> top -> right -> bottom
     ["scrolling"]  = "colresize +conf", -- column width: next of scrolling:explicit_column_widths
     ["lua:spiral"] = "rotate",          -- start the spiral a quarter turn later
-    ["lua:manual"] = "splittoggle",     -- the split after this window
 }
 
 -- One notice on screen at a time, so cycling through layouts replaces it
@@ -326,6 +205,13 @@ end
 -- rather than piling up behind it.
 local rules = {}
 
+-- waybar's custom/layout shares signal 8 with the workspace buttons, which
+-- ws-listener already sends on every workspace switch. A layout change is not
+-- a Hyprland event, so it has to be sent from here.
+local function refresh_bar()
+    hl.exec_cmd("pkill -RTMIN+8 waybar")
+end
+
 local function set_layout(layout)
     local ws = focused_workspace()
     if not ws then
@@ -342,6 +228,7 @@ local function set_layout(layout)
     end
 
     notify("Layout: " .. layout.name)
+    refresh_bar()
 end
 
 local function flip()
@@ -387,3 +274,48 @@ hl.define_submap("arrange", "reset", function()
 end)
 
 hl.bind(key(mod, "O"), flip, { description = "Flip layout (split / orientation / width)" })
+
+-- A reload drops every rule set_layout made, so the bar is stale until told.
+hl.on("config.reloaded", refresh_bar)
+
+-- -----------------------------------------------------------------------------
+-- Waybar
+-- -----------------------------------------------------------------------------
+
+-- waybar/scripts/layout reaches these through `hyprctl repl`, which runs in this
+-- config's Lua state. It looks them up in package.loaded rather than calling
+-- require, so a missing or replaced module just hides the indicator instead of
+-- loading this file a second time.
+local M = {}
+
+local function json_string(str)
+    return '"' .. str:gsub('[\\"]', '\\%0'):gsub("\n", "\\n") .. '"'
+end
+
+--- Waybar's return-type json for the focused workspace's layout.
+function M.bar()
+    local ws = focused_workspace()
+    if not ws then
+        return '{"text": ""}'
+    end
+    local l = BY_ID[ws.tiled_layout]
+    local name = l and l.name or ws.tiled_layout
+    return string.format('{"text": %s, "class": %s, "tooltip": %s}',
+        json_string(l and l.symbol or name),
+        json_string((name:gsub("^lua:", ""))),
+        json_string("Layout: " .. name .. "\nClick: next  ·  Right-click: previous  ·  SUPER+A: pick"))
+end
+
+--- Step through LAYOUTS from the focused workspace's current layout.
+---@param step integer 1 for next, -1 for previous
+function M.cycle(step)
+    local ws = focused_workspace()
+    if not ws then
+        return
+    end
+    local current = BY_ID[ws.tiled_layout]
+    local i = current and current.index or 0
+    set_layout(LAYOUTS[(i - 1 + step) % #LAYOUTS + 1])
+end
+
+return M

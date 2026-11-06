@@ -81,6 +81,21 @@ window#waybar {
     color: #1a1b26;
 }
 
+/* The layout symbol sits after the workspace buttons, as dwm's does after its
+   tags: same muted grey as an empty button, so it reads as a status, not as
+   another workspace. */
+#custom-layout {
+    padding: 0 8px;
+    margin: 2px 0 2px 4px;
+    border-radius: 4px;
+    color: #565f89;
+}
+
+#custom-layout:hover {
+    background: #24283b;
+    color: #c0caf5;
+}
+
 #clock,
 #cpu,
 #memory,
