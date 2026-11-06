@@ -149,9 +149,52 @@ function hl.animation(opts) end
 ---@return hl.RuleHandle?
 function hl.window_rule(rule) end
 
---- Define a workspace rule.
+--- Define a workspace rule. Also works at runtime: layouts.lua adds one to
+--- switch a workspace's layout, and disables it again to switch back.
 ---@param rule table
+---@return hl.RuleHandle
 function hl.workspace_rule(rule) end
+
+--- A workspace as returned by hl.get_active_workspace and friends. Only the
+--- fields this config reads are spelled out.
+---@class hl.Workspace
+---@field id integer
+---@field name string
+---@field special boolean
+---@field tiled_layout string
+---@field [string] any
+
+---@return hl.Workspace|nil
+function hl.get_active_workspace() end
+
+--- The special workspace open on the active monitor, if any.
+---@return hl.Workspace|nil
+function hl.get_active_special_workspace() end
+
+--- Read a config value, by its dotted name ("general.layout").
+---@param key string
+---@return any
+function hl.get_config(key) end
+
+---@class hl.Notification
+---@field dismiss fun(self: hl.Notification)
+
+---@class hl.notification
+---@field create fun(opts: { text: string, timeout: number, color?: string, icon?: integer|string, font_size?: number }): hl.Notification
+hl.notification = {}
+
+--- What a Lua layout's recalculate / layout_msg is handed.
+---@class hl.LayoutContext
+---@field area table
+---@field targets table[]
+---@field grid_cell fun(self: hl.LayoutContext, i: integer, cols: integer, rows?: integer): table
+---@field column fun(self: hl.LayoutContext, i: integer, n: integer): table
+---@field row fun(self: hl.LayoutContext, i: integer, n: integer): table
+---@field split fun(self: hl.LayoutContext, box: table, side: string, ratio: number): table
+
+---@class hl.layout
+---@field register fun(name: string, provider: { recalculate: fun(ctx: hl.LayoutContext), layout_msg?: fun(ctx: hl.LayoutContext, msg: string): boolean|string|nil })
+hl.layout = {}
 
 --- Define a layer rule.
 ---@param rule table

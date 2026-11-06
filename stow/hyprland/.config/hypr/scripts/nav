@@ -67,6 +67,11 @@ fi
 
 if [ "$inject" = 1 ]; then
   kitty @ --to "unix:$sock" send-key "ctrl+alt+$key"
+elif [[ "$dir" = [ud] ]] && hyprctl activeworkspace | grep -q 'tiledLayout: monocle'; then
+  # Monocle shows one window at a time, so there is no window above or below to
+  # focus. j/k step through the stack instead; h/l still cross monitors.
+  if [ "$dir" = d ]; then msg=cyclenext; else msg=cycleprev; fi
+  hyprctl dispatch "hl.dsp.layout(\"$msg\")"
 else
   hyprctl dispatch "hl.dsp.focus({ direction = \"$dir\" })"
 fi

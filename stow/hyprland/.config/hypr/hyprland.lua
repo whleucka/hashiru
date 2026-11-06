@@ -9,6 +9,7 @@ for _, module in ipairs({
     "monitors",
     "autostart",
     "keybinds",
+    "layouts",
     "windowrules",
     "layerrules",
     "clamshell",

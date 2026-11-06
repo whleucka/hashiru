@@ -76,9 +76,11 @@ hl.bind(key(mod, "B"), hl.dsp.exec_cmd("killall -SIGUSR1 waybar"), { description
 -- -----------------------------------------------------------------------------
 hl.bind(key(mod, "F"), hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }), { description = "Fullscreen" })
 hl.bind(key(mod, "M"), hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }), { description = "Maximize" })
-hl.bind(key(mod, "O"), hl.dsp.layout("togglesplit"), { description = "Toggle split" })
 hl.bind(key(mod, "Q"), hl.dsp.window.close(), { description = "Close window" })
 hl.bind(key(mod, "T"), hl.dsp.window.float({ action = "toggle" }), { description = "Toggle floating" })
+
+-- Layout binds (SUPER+A to pick one, SUPER+O to flip it) live in layouts.lua,
+-- next to the state they drive.
 
 -- Focus (vim keys) — unified nav: terminals get ctrl+hjkl injected (driving the
 -- neovim/tmux chain, escalating back out at the edge); other windows move focus.
