@@ -755,6 +755,8 @@ install_packages() {
 # at 0x1e00. Below that (GTX 10xx and older) current Arch has no driver for the
 # card in its repos, so it stays on nouveau. Class 0x03 is display controllers,
 # which skips the HDMI audio function the same card also exposes.
+# The root is a seam for tests (point it at a fake sysfs); callers pass nothing.
+# shellcheck disable=SC2120
 nvidia_gpu_status() {
     local root="${1:-/sys/bus/pci/devices}" dev status=none
     for dev in "${root}"/*; do
