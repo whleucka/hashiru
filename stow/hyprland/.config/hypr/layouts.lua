@@ -172,11 +172,32 @@ local FLIP = {
 -- One notice on screen at a time, so cycling through layouts replaces it
 -- instead of stacking them up.
 local notice
+
+-- Hyprland scales notification text by the focused monitor's width after
+-- rotation: font_size * width * scale / 1920, clamped to 8..40 px. On a monitor
+-- turned on its side that width is the panel's short edge, so the default 13
+-- that reads as 17px on a 2560-wide landscape screen shrinks to the 8px floor
+-- on the same panel rotated. Undo the scaling so the text is TEXT_PX
+-- everywhere: 17, what the landscape monitor already shows.
+local TEXT_PX = 17
+
+local function font_size()
+    local mon = hl.get_active_monitor()
+    if not mon then
+        return nil
+    end
+    -- Odd transforms (90/270, flipped or not) swap width and height.
+    local width = (mon.transform % 2 == 1) and mon.height or mon.width
+    -- +0.5 because Hyprland truncates, and 17 * 1920 / 1080 * 1080 / 1920 can
+    -- land a hair under 17.
+    return (TEXT_PX + 0.5) * 1920 / (width * mon.scale)
+end
+
 local function notify(text, timeout)
     if notice then
         pcall(notice.dismiss, notice)
     end
-    notice = hl.notification.create({ text = text, timeout = timeout or 1500 })
+    notice = hl.notification.create({ text = text, timeout = timeout or 1500, font_size = font_size() })
 end
 
 local function dismiss_notice()

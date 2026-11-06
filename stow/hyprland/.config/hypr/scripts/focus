@@ -19,4 +19,13 @@ if [ -z "$HYPRLAND_INSTANCE_SIGNATURE" ] || \
   export HYPRLAND_INSTANCE_SIGNATURE
 fi
 
+# Monocle shows one window at a time, so there is no window above or below to
+# focus. u/d step through the stack instead; l/r still cross monitors. This lives
+# here rather than in scripts/nav because every route ends here: nav's own
+# fall-through, and the edge hand-off from herdr, tmux and neovim.
+if [[ "$1" = [ud] ]] && hyprctl activeworkspace | grep -q 'tiledLayout: monocle'; then
+  if [ "$1" = d ]; then msg=cyclenext; else msg=cycleprev; fi
+  exec hyprctl dispatch "hl.dsp.layout(\"$msg\")" >/dev/null 2>&1
+fi
+
 exec hyprctl dispatch "hl.dsp.focus({ direction = \"$1\" })" >/dev/null 2>&1

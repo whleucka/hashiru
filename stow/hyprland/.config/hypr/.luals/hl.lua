@@ -127,6 +127,11 @@ function hl.get_monitors() end
 ---@return hl.Monitor|nil
 function hl.get_monitor(name) end
 
+--- The focused monitor. Besides `name` it carries width/height (pixels, before
+--- rotation), transform and scale, which layouts.lua reads.
+---@return hl.Monitor|nil
+function hl.get_active_monitor() end
+
 --- Define a gesture.
 ---@param opts { fingers: integer, direction: string, action: string }
 function hl.gesture(opts) end
