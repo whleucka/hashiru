@@ -17,6 +17,12 @@ wrk
 # Media
 spotify
 
+# ALT+Tab / SUPER+Tab window switcher (config: hyprland/.config/snappy-switcher).
+# Unlike the rest of this file it compiles, but it is one small C program whose
+# libraries (cairo, pango, librsvg, json-c) the desktop already pulls in, and
+# yay fetches anything else it needs to build: seconds, not minutes.
+snappy-switcher
+
 # Default terminal launcher (GLib/Thunar "open in terminal" apps -> kitty,
 # configured via thunar/.config/xdg-terminals.list in dotfiles)
 xdg-terminal-exec

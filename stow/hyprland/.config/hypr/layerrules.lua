@@ -10,12 +10,14 @@
 --
 -- Namespaces verified against `hyprctl layers` on 0.56.2: waybar -> "waybar",
 -- swayosd -> "swayosd", mako -> "notifications", and fuzzel -> "launcher"
--- (fuzzel's default, NOT "fuzzel" -- see fuzzel(1) --namespace).
+-- (fuzzel's default, NOT "fuzzel" -- see fuzzel(1) --namespace). snappy-switcher
+-- -> "snappy-switcher", hardcoded in its src/main.c (v4.5.0).
 
 hl.layer_rule({ match = { namespace = "waybar" }, blur = true, ignore_alpha = 0.4 })
 hl.layer_rule({ match = { namespace = "launcher" }, blur = true, ignore_alpha = 0.3 })
 hl.layer_rule({ match = { namespace = "notifications" }, blur = true, ignore_alpha = 0.3 })
 hl.layer_rule({ match = { namespace = "swayosd" }, blur = true, ignore_alpha = 0.3 })
+hl.layer_rule({ match = { namespace = "snappy-switcher" }, blur = true, ignore_alpha = 0.3 })
 
 -- Notifications leak into recordings and shares. Mako is where 2FA codes,
 -- message previews and mail subjects land, so keep it out of screencasts.

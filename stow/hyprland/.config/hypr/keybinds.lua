@@ -92,6 +92,17 @@ hl.bind(key(mod, "J"), hl.dsp.exec_cmd(hypr_scripts .. "/nav d j"), { descriptio
 -- Focus last window
 hl.bind(key(mod, "Backspace"), hl.dsp.focus({ last = true }), { description = "Focus last window" })
 
+-- Window switcher (snappy-switcher; daemon in autostart.lua). ALT+Tab is every
+-- window in most-recently-used order, as everywhere else; SUPER+Tab, on the
+-- desktop's own modifier, keeps to this workspace. Hold the modifier and tap
+-- Tab to step, release to switch. --mod must name the held modifier: it is
+-- the key whose release the daemon waits for.
+local switcher = "snappy-switcher"
+hl.bind(key("ALT", "Tab"), hl.dsp.exec_cmd(switcher .. " next --mod alt"), { description = "Switch window (all)" })
+hl.bind(key("ALT", "SHIFT", "Tab"), hl.dsp.exec_cmd(switcher .. " prev --mod alt"), { description = "Switch window (all, backwards)" })
+hl.bind(key(mod, "Tab"), hl.dsp.exec_cmd(switcher .. " next --workspace --mod super"), { description = "Switch window (this workspace)" })
+hl.bind(key(mod, "SHIFT", "Tab"), hl.dsp.exec_cmd(switcher .. " prev --workspace --mod super"), { description = "Switch window (this workspace, backwards)" })
+
 -- Move windows SUPER+SHIFT+{H,J,K,L}
 hl.bind(key(mod, "SHIFT", "H"), hl.dsp.window.move({ direction = "l" }), { description = "Move window left" })
 hl.bind(key(mod, "SHIFT", "J"), hl.dsp.window.move({ direction = "d" }), { description = "Move window down" })

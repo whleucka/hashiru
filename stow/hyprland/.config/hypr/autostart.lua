@@ -25,6 +25,10 @@ hl.on("hyprland.start", function()
     -- Notifications
     hl.exec_cmd("mako")
 
+    -- Window switcher daemon (ALT+Tab / SUPER+Tab in keybinds.lua). The binds
+    -- only talk to this over its socket, so it has to be up first.
+    hl.exec_cmd("snappy-switcher --daemon")
+
     -- Idle and lock
     hl.exec_cmd("~/.config/hypr/scripts/hypridle-battery")
 

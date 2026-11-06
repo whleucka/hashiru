@@ -91,6 +91,11 @@ mkdir -p "${HOME}/.local/bin"
 # a machine that has never run Claude Code.
 mkdir -p "${HOME}/.claude/skills"
 
+# And ~/.config/snappy-switcher: a theme of your own goes in its themes/, and
+# snappy-install-config copies the stock ones there. Folded, both would land in
+# this checkout.
+mkdir -p "${HOME}/.config/snappy-switcher"
+
 # Same reasoning for ~/.config/herdr, for a different reason: nothing else
 # installs into it, but herdr itself writes its logs, session state, plugin
 # cache and API sockets *into its own config directory*. Folded, every one of
