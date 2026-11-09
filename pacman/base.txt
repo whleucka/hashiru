@@ -24,6 +24,10 @@ snapper
 snap-pac
 grub-btrfs
 inotify-tools
+# NTFS: the kernel's ntfs3 does the mounting; these add the FUSE driver and
+# ntfsfix (split into ntfsprogs as of 2026.9.28) for clearing a dirty volume
+ntfs-3g
+ntfsprogs
 
 # Networking
 networkmanager
