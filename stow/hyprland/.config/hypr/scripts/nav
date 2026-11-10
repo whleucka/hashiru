@@ -3,6 +3,8 @@
 #
 #   nav <h|j|k|l>          bound to super+hjkl in Hyprland
 #   nav --edge <h|j|k|l>   called by (n)vim when it is already at its own edge
+#   nav --resize [--edge] <h|j|k|l>
+#                          the same chain for resizing, bound to super+ctrl+hjkl
 #
 # The chain, innermost first:
 #   (n)vim split -> kitty window (split) -> Hyprland window
@@ -27,20 +29,44 @@
 # and clears it on suspend and exit. Both must hold — the variable set AND
 # (n)vim in the foreground — so a variable left behind by an editor that was
 # killed can't strand the keys in the shell.
+#
+# --resize walks the same chain, but a layer hands off when it has no divider
+# on that axis rather than at its edge. The editor gets alt+hjkl (its own
+# resize key) and calls back with --resize --edge when it has no split that
+# way. The editor and kitty move the divider in the key's direction, whichever
+# side of it the focus is on (smart-splits semantics); Hyprland keeps its plain
+# relative resize.
 NAV_VAR=hashiru_nav
 NAV_APPS='(^|/)(nvim|vim)( |$)'
+RESIZE_KITTY=3    # cells
+RESIZE_HYPR=25    # pixels
 
-edge=0
-if [ "$1" = --edge ]; then edge=1; shift; fi
+edge=0 resize=0
+while :; do
+  case "$1" in
+    --edge)   edge=1;   shift ;;
+    --resize) resize=1; shift ;;
+    *) break ;;
+  esac
+done
 key="$1"
 
 case "$key" in
-  h) dir=l; side=left   ;;
-  j) dir=d; side=bottom ;;
-  k) dir=u; side=top    ;;
-  l) dir=r; side=right  ;;
-  *) echo "usage: nav [--edge] <h|j|k|l>" >&2; exit 2 ;;
+  h) dir=l; side=left;   axis=horizontal; after=right  ;;
+  j) dir=d; side=bottom; axis=vertical;   after=bottom ;;
+  k) dir=u; side=top;    axis=vertical;   after=bottom ;;
+  l) dir=r; side=right;  axis=horizontal; after=right  ;;
+  *) echo "usage: nav [--resize] [--edge] <h|j|k|l>" >&2; exit 2 ;;
 esac
+
+# The editor calls back as a child of kitty, so it can inherit a stale
+# HYPRLAND_INSTANCE_SIGNATURE from before a watchdog restart of Hyprland (see
+# scripts/focus). Resolve the live one up front: every route needs hyprctl.
+if [ -z "$HYPRLAND_INSTANCE_SIGNATURE" ] || \
+   [ ! -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket.sock" ]; then
+  HYPRLAND_INSTANCE_SIGNATURE=$(hyprctl instances -j | grep -m1 '"instance"' | cut -d'"' -f4)
+  export HYPRLAND_INSTANCE_SIGNATURE
+fi
 
 info=$(hyprctl activewindow)
 class=$(awk '/^[[:space:]]*class:/{print $2; exit}' <<<"$info")
@@ -58,14 +84,36 @@ if [ "$class" = "kitty" ] && [ -S "$sock" ]; then
              | [(.user_vars[$v] // ""),
                 ([.foreground_processes[]?.cmdline|join(" ")]|join(" "))] | @tsv' 2>/dev/null)
     if [ "$optin" = 1 ] && [[ "$fg" =~ $NAV_APPS ]]; then
-      k send-key "ctrl+alt+$key"
+      if [ "$resize" = 1 ]; then k send-key "alt+$key"; else k send-key "ctrl+alt+$key"; fi
       exit 0
     fi
   fi
 
-  # Neighbouring kitty window that way? Fails (no match) at kitty's own edge,
-  # and always in the stack layout, where only one window is visible.
-  k focus-window --match "neighbor:$side" && exit 0
+  if [ "$resize" = 1 ]; then
+    # resize-window always grows the window, whichever side its divider is on.
+    # Growing moves the divider toward `after` (right/bottom) only when there
+    # is a neighbour there, so: grow iff the key points the same way as that
+    # answer. It fails when the layout has no split on this axis (or is the
+    # stack layout), which hands off to Hyprland.
+    toward_after=0; [ "$side" = "$after" ] && toward_after=1
+    has_after=0; k ls --match "neighbor:$after" >/dev/null && has_after=1
+    if [ "$toward_after" = "$has_after" ]; then inc=$RESIZE_KITTY; else inc=-$RESIZE_KITTY; fi
+    k resize-window --axis "$axis" --increment "$inc" && exit 0
+  else
+    # Neighbouring kitty window that way? Fails (no match) at kitty's own edge,
+    # and always in the stack layout, where only one window is visible.
+    k focus-window --match "neighbor:$side" && exit 0
+  fi
+fi
+
+if [ "$resize" = 1 ]; then
+  case "$key" in
+    h) x=-$RESIZE_HYPR y=0 ;;
+    l) x=$RESIZE_HYPR  y=0 ;;
+    k) x=0 y=-$RESIZE_HYPR ;;
+    j) x=0 y=$RESIZE_HYPR  ;;
+  esac
+  exec hyprctl dispatch "hl.dsp.window.resize({ x = $x, y = $y, relative = true })" >/dev/null 2>&1
 fi
 
 # scripts/focus also handles monocle, where j/k cycle the stack.

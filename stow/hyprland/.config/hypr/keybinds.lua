@@ -108,11 +108,13 @@ hl.bind(key(mod, "SHIFT", "J"), hl.dsp.window.move({ direction = "d" }), { descr
 hl.bind(key(mod, "SHIFT", "K"), hl.dsp.window.move({ direction = "u" }), { description = "Move window up" })
 hl.bind(key(mod, "SHIFT", "L"), hl.dsp.window.move({ direction = "r" }), { description = "Move window right" })
 
--- Resize hold SUPER+CTRL+{H,J,K,L}
-hl.bind(key(mod, "CTRL", "H"), hl.dsp.window.resize({ x = -25, y = 0, relative = true }), { repeating = true })
-hl.bind(key(mod, "CTRL", "J"), hl.dsp.window.resize({ x = 0, y = 25, relative = true }), { repeating = true })
-hl.bind(key(mod, "CTRL", "K"), hl.dsp.window.resize({ x = 0, y = -25, relative = true }), { repeating = true })
-hl.bind(key(mod, "CTRL", "L"), hl.dsp.window.resize({ x = 25, y = 0, relative = true }), { repeating = true })
+-- Resize hold SUPER+CTRL+{H,J,K,L} — the same chain as focus: (n)vim split ->
+-- kitty split -> Hyprland window, each layer handing off when it has no divider
+-- on that axis. See scripts/nav.
+hl.bind(key(mod, "CTRL", "H"), hl.dsp.exec_cmd(hypr_scripts .. "/nav --resize h"), { repeating = true })
+hl.bind(key(mod, "CTRL", "J"), hl.dsp.exec_cmd(hypr_scripts .. "/nav --resize j"), { repeating = true })
+hl.bind(key(mod, "CTRL", "K"), hl.dsp.exec_cmd(hypr_scripts .. "/nav --resize k"), { repeating = true })
+hl.bind(key(mod, "CTRL", "L"), hl.dsp.exec_cmd(hypr_scripts .. "/nav --resize l"), { repeating = true })
 
 -- Resize submap
 -- hl.bind(key(mod, "R"), hl.dsp.submap("resize"), { description = "Resize mode" })
