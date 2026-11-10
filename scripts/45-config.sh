@@ -228,6 +228,26 @@ if [[ ! -e "${HASHIRU_CONFIG_DIR}/waybar/style.css" ]]; then
     log_info "Created empty waybar override: ${HASHIRU_CONFIG_DIR}/waybar/style.css"
 fi
 
+# kitty.conf starts every kitty in this session (startup_session). Without it
+# the first tab sits outside any session, tab_bar_filter hides nothing, and
+# CTRL+SHIFT+\ has nowhere to switch back to — so ship a minimal one: a single
+# tab, a shell in ~. Same rule as above: created once, never overwritten, since
+# saving the session (CTRL+SHIFT+W) writes the user's own layout into it.
+ensure_dir "${HASHIRU_CONFIG_DIR}/kitty/sessions"
+if [[ ! -e "${HASHIRU_CONFIG_DIR}/kitty/sessions/home.kitty-session" ]]; then
+    printf '%s\n' \
+        "# kitty's startup session (startup_session in kitty.conf): one tab, a" \
+        "# shell in ~. Created once by Hashiru; nothing overwrites it. Save a" \
+        "# layout over it with CTRL+SHIFT+W from inside the session." \
+        "" \
+        "new_tab" \
+        "layout splits" \
+        "cd ~" \
+        "launch" \
+        > "${HASHIRU_CONFIG_DIR}/kitty/sessions/home.kitty-session"
+    log_info "Created default kitty session: ${HASHIRU_CONFIG_DIR}/kitty/sessions/home.kitty-session"
+fi
+
 # Put the management CLI on PATH. The ISO does this too, but a manual install
 # never runs install-firstboot.sh — and `hashiru update` is how a machine stays
 # current, so it should exist on every install regardless of how it got here.
