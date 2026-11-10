@@ -7,11 +7,12 @@
 # The chain, innermost first:
 #   (n)vim split -> kitty window (split) -> Hyprland window
 #
-# If the focused window is kitty and the kitty window in focus is running
-# (n)vim, inject ctrl+alt+<key> into it via kitty remote control and let the
-# editor decide: it moves between its own splits, and at its edge calls back
-# here with --edge. Otherwise — a shell, or --edge — try the kitty window that
-# way, and if kitty has none (or isn't the focused window) move Hyprland focus.
+# If the focused window is kitty and the kitty window in focus is running an
+# editor that has opted in, inject ctrl+alt+<key> into it via kitty remote
+# control and let the editor decide: it moves between its own splits, and at
+# its edge calls back here with --edge. Otherwise — a shell, an editor without
+# the opt-in, or --edge — try the kitty window that way, and if kitty has none
+# (or isn't the focused window) move Hyprland focus.
 #
 # ctrl+alt+hjkl (not plain ctrl+hjkl) is the plumbing key so that bare ctrl+hjkl
 # stays free for the shell/readline (backspace, kill-line, clear, newline). The
@@ -19,9 +20,14 @@
 # remote control writes it straight to the pty, bypassing Hyprland (so it never
 # collides with the ctrl+alt+l lock keybind).
 #
-# The editor side lives in the personal dotfiles (nvim/vim config), not here.
-# Without it, injecting would be swallowed, so only programs known to bind the
-# chord get it — anything else is handled here directly.
+# The editor side lives in the personal dotfiles (nvim/vim config), not here,
+# so a stock nvim would swallow the chord. The opt-in is a kitty user variable:
+# an editor that binds ctrl+alt+hjkl announces it on start with
+#   OSC 1337 ; SetUserVar=hashiru_nav=<base64 "1"> BEL
+# and clears it on suspend and exit. Both must hold — the variable set AND
+# (n)vim in the foreground — so a variable left behind by an editor that was
+# killed can't strand the keys in the shell.
+NAV_VAR=hashiru_nav
 NAV_APPS='(^|/)(nvim|vim)( |$)'
 
 edge=0
@@ -45,11 +51,13 @@ if [ "$class" = "kitty" ] && [ -S "$sock" ]; then
   k() { timeout 1 kitty @ --to "unix:$sock" "$@" 2>/dev/null; }
 
   if [ "$edge" = 0 ]; then
-    # What is running in the focused kitty window of the focused tab.
-    fg=$(k ls --match state:focused |
-         jq -r '[..|objects|select(has("foreground_processes"))][0]
-                | [.foreground_processes[]?.cmdline|join(" ")]|join(" ")' 2>/dev/null)
-    if [[ "$fg" =~ $NAV_APPS ]]; then
+    # The focused kitty window of the focused tab: its opt-in variable, then
+    # what is running in it.
+    IFS=$'\t' read -r optin fg < <(k ls --match state:focused |
+      jq -r --arg v "$NAV_VAR" '[..|objects|select(has("foreground_processes"))][0]
+             | [(.user_vars[$v] // ""),
+                ([.foreground_processes[]?.cmdline|join(" ")]|join(" "))] | @tsv' 2>/dev/null)
+    if [ "$optin" = 1 ] && [[ "$fg" =~ $NAV_APPS ]]; then
       k send-key "ctrl+alt+$key"
       exit 0
     fi
