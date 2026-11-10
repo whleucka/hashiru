@@ -6,8 +6,10 @@
 # `hashiru update` refuses to run on a dirty checkout.
 /hashiru.conf
 
-# ignore the pycache
-/stow/bin/.local/bin/__pycache__/
+# Python bytecode. kitty compiles its kittens (kitty/new_session.py) into a
+# __pycache__ beside them, and ~/.config/kitty is a stow fold, so that lands
+# in the checkout.
+__pycache__/
 
 # Thunar rewrites this on every run (bookmark hashes, line reordering).
 # All entries are commented defaults, so there is nothing worth tracking.
