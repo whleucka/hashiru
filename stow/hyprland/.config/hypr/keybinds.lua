@@ -31,6 +31,7 @@ hl.bind(key(mod, "return"), hl.dsp.exec_cmd(terminal), { description = "Kitty" }
 hl.bind(key(mod, "Space"), hl.dsp.exec_cmd(menu), { description = "App launcher" })
 
 -- Tools/Apps
+hl.bind(key(mod, "shift", "A"), hl.dsp.exec_cmd(terminal .. " claude"), { description = "Claude code" })
 hl.bind(key(mod, "SHIFT", "C"), hl.dsp.exec_cmd("gnome-calculator"), { description = "Calculator" })
 hl.bind(key(mod, "SHIFT", "D"), hl.dsp.exec_cmd(terminal .. " lazydocker"), { description = "Lazydocker" })
 hl.bind(key(mod, "SHIFT", "F"), hl.dsp.exec_cmd(filemanager), { description = "File manager" })
