@@ -32,8 +32,6 @@ export PNPM_HOME="$HOME/.local/share/pnpm"
 # Terminal
 if [[ -n "$NVIM" ]]; then
     : # inside nvim's terminal — keep the TERM nvim gave us
-elif [[ -n "$HERDR_ENV" ]]; then
-    export TERM="xterm-256color"   # herdr's emulator; keep the TERM it set
 elif [[ "$TERM" == "xterm-kitty" ]]; then
     export TERM="xterm-kitty"
 else

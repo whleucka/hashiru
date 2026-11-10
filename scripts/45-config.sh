@@ -57,8 +57,8 @@ done
 # Directories that third-party installers write into must be real, not stow
 # tree-folds. When a package's directory doesn't exist in $HOME, stow links the
 # directory itself rather than its contents — so ~/.local/bin would become a
-# symlink into this repo, and anything later dropping a binary there (stage 60's
-# herdr installer, cargo, pip --user) would write *inside the git checkout*.
+# symlink into this repo, and anything later dropping a binary there (cargo, pip
+# --user, third-party install scripts) would write *inside the git checkout*.
 # That leaves the tree permanently dirty, which makes `hashiru update` refuse to
 # run. Pre-creating the directory forces stow to link the files individually and
 # leaves the directory itself writable by everyone else.
@@ -96,69 +96,27 @@ mkdir -p "${HOME}/.claude/skills"
 # this checkout.
 mkdir -p "${HOME}/.config/snappy-switcher"
 
-# Same reasoning for ~/.config/herdr, for a different reason: nothing else
-# installs into it, but herdr itself writes its logs, session state, plugin
-# cache and API sockets *into its own config directory*. Folded, every one of
-# those lands in this checkout, and the tree is dirty again the moment herdr
-# runs. .gitignore had been chasing them one path at a time (*.log,
-# session.json, .plugins.lock, plugins/) until a named session invented
-# sessions/<name>/ and got committed. Unfolding fixes the class instead of the
-# instance; the ignore rules stay as a second line of defence.
+# herdr was a Hashiru stow package until it was dropped in favour of kitty's
+# own tabs and splits. Removing a package from stow/ does not unstow it: the
+# links it placed stay behind in $HOME, now pointing at files that no longer
+# exist. Clear the ones that point into this checkout and nothing else —
+# herdr's own runtime state in ~/.config/herdr is the user's, as is herdr
+# itself if they keep using it.
+# Compared canonically on both sides: the checkout may be reached through a
+# symlink (HASHIRU_ROOT keeps whatever path it was run by), while readlink -m
+# always resolves to the real one.
 herdr_cfg="${HOME}/.config/herdr"
-herdr_nofold=1
-if [[ -L "${herdr_cfg}" ]] \
-    && [[ "$(readlink -f "${herdr_cfg}")" == "${STOW_DIR}"/* ]]; then
-    folded="$(readlink -f "${herdr_cfg}")"
-
-    if pgrep -x herdr &>/dev/null; then
-        # Never unfold underneath a running server. It bound its API socket
-        # through this folded path, and the moment ~/.config/herdr becomes a
-        # real directory that path stops resolving to the socket it is
-        # listening on — the server keeps running, unreachable, and its open
-        # log fd points at an inode no longer linked anywhere. This stage runs
-        # unattended during `hashiru update`, quite possibly from a pane inside
-        # that very server, so skipping is the only safe default. Staying
-        # folded for one more run costs nothing: everything herdr writes there
-        # is already in .gitignore.
-        herdr_nofold=0
-        log_warn "Stow tree-fold at ~/.config/herdr, so herdr writes its runtime state into this checkout"
-        log_warn "Unfolding needs herdr stopped: exit every herdr client, then \`herdr server stop\`, then re-run this stage"
-    else
-        rm "${herdr_cfg}"
-        mkdir -p "${herdr_cfg}"
-        log_info "Unfolded stow-linked ~/.config/herdr so herdr's runtime state stays out of the checkout"
-
-        # Rescue what herdr already wrote through the old link. This cannot
-        # reuse the `ls-files --others --exclude-standard` filter ~/.local/bin
-        # uses: herdr's runtime files are precisely the ones .gitignore lists,
-        # so --exclude-standard would skip exactly what needs moving. Invert
-        # the test instead — anything git does not track is herdr's.
-        for leaked in "${folded}"/* "${folded}"/.*; do
-            rel="${leaked##*/}"
-            [[ "${rel}" == "." || "${rel}" == ".." || "${rel}" == "*" ]] && continue
-            [[ -e "${leaked}" ]] || continue
-            [[ -n "$(git -C "${folded}" ls-files -- "${rel}" 2>/dev/null)" ]] && continue
-
-            # Sockets are dropped, not carried across. On the layout the ISO
-            # installs, /opt and $HOME are separate btrfs subvolumes, so they
-            # report different st_dev and rename(2) fails EXDEV; `mv` then
-            # falls back to copying, and a copied unix socket is a fresh inode
-            # with nothing listening on it — every connect() gets
-            # ECONNREFUSED, which reads as "no herdr server is running" even
-            # while one is. No server is running here (the guard above), so
-            # the next one binds its own.
-            if [[ -S "${leaked}" ]]; then
-                rm -f "${leaked}"
-                continue
-            fi
-
-            mv "${leaked}" "${herdr_cfg}/${rel}"
-            log_warn "Moved ${rel} out of the checkout into ~/.config/herdr (herdr had written it through the old stow link)"
-        done
-    fi
-fi
-if [[ "${herdr_nofold}" == 1 ]]; then
-    mkdir -p "${herdr_cfg}"
+herdr_pkg="$(readlink -m "${STOW_DIR}")/herdr/"
+if [[ -L "${herdr_cfg}" && "$(readlink -m "${herdr_cfg}")" == "${herdr_pkg}"* ]]; then
+    rm "${herdr_cfg}"
+    log_info "Removed stale stow link ~/.config/herdr (herdr is no longer part of Hashiru)"
+elif [[ -d "${herdr_cfg}" ]]; then
+    while IFS= read -r -d '' link; do
+        [[ "$(readlink -m "${link}")" == "${herdr_pkg}"* ]] || continue
+        rm "${link}"
+        log_info "Removed stale stow link ${link/#${HOME}/\~} (herdr is no longer part of Hashiru)"
+    done < <(find "${herdr_cfg}" -type l -print0)
+    rmdir "${herdr_cfg}/scripts" 2>/dev/null || true
 fi
 
 # Clear real files sitting where stowed config needs to go. These come from
@@ -194,24 +152,17 @@ for dir in */; do
     dir="${dir%/}"
     [[ "${dir}" == .* ]] && continue
 
-    # --no-folding for `bin`, `claude` and `herdr`, because ~/.local/bin,
-    # ~/.claude/skills and ~/.config/herdr are all written into by something
-    # other than stow: pipx, npm and third-party install scripts drop binaries
-    # in the first, Claude Code writes its own skills into the second, and herdr
-    # keeps its logs, session state and sockets in the third. Stow must own the
+    # --no-folding for `bin` and `claude`, because ~/.local/bin and
+    # ~/.claude/skills are both written into by something other than stow:
+    # pipx, npm and third-party install scripts drop binaries in the first, and
+    # Claude Code writes its own skills into the second. Stow must own the
     # individual links and never the directory, or those writes land in this
     # checkout. The mkdirs above already guarantee that by making the
     # directories exist first; this states the invariant at the call site too,
     # so it holds even if those guards are ever reordered or a directory is
     # missing.
-    #
-    # herdr is the exception that can be deferred: if the guard above found a
-    # running server it left the fold in place, and passing --no-folding here
-    # would make stow do the unfold anyway — orphaning that server, and without
-    # the rescue that moves its files out first. So it follows the same flag.
     stow_args=(--restow --target="${HOME}")
-    if [[ "${dir}" == "bin" || "${dir}" == "claude" ]] \
-        || [[ "${dir}" == "herdr" && "${herdr_nofold}" == 1 ]]; then
+    if [[ "${dir}" == "bin" || "${dir}" == "claude" ]]; then
         stow_args+=(--no-folding)
     fi
 

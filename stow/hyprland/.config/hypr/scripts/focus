@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Hyprland window focus by direction: l | r | u | d
 #
-# This is the OUTER edge of the unified ctrl+hjkl navigation. Neovim splits
-# (smart-splits) and tmux panes both escalate here, calling this script only
-# once they're already at their own edge — so one keychain flows:
-#   neovim split -> tmux pane -> Hyprland window
+# This is the OUTER edge of the unified super+hjkl navigation. scripts/nav
+# calls it once (n)vim and kitty are both already at their own edge — so one
+# keychain flows:
+#   (n)vim split -> kitty window -> Hyprland window
 #
 # Hyprland 0.55+ uses a Lua config; hyprctl dispatch evaluates its arg as Lua,
 # so we pass an hl.dsp.* expression rather than a raw dispatcher name.
 #
-# A stale HYPRLAND_INSTANCE_SIGNATURE (e.g. inherited by kitty/tmux/nvim across a
+# A stale HYPRLAND_INSTANCE_SIGNATURE (e.g. inherited by kitty/nvim across a
 # watchdog restart of Hyprland) points hyprctl at a dead socket and makes this
 # fail with exit 4. `hyprctl instances` lists only live instances regardless of
 # the inherited signature, so resolve the current one before dispatching.
@@ -21,8 +21,7 @@ fi
 
 # Monocle shows one window at a time, so there is no window above or below to
 # focus. u/d step through the stack instead; l/r still cross monitors. This lives
-# here rather than in scripts/nav because every route ends here: nav's own
-# fall-through, and the edge hand-off from herdr, tmux and neovim.
+# here rather than in scripts/nav because it is the one place every route ends.
 if [[ "$1" = [ud] ]] && hyprctl activeworkspace | grep -q 'tiledLayout: monocle'; then
   if [ "$1" = d ]; then msg=cyclenext; else msg=cycleprev; fi
   exec hyprctl dispatch "hl.dsp.layout(\"$msg\")" >/dev/null 2>&1

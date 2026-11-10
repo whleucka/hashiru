@@ -26,7 +26,6 @@ hl.bind(key(mod, "slash"), hl.dsp.exec_cmd(hypr_scripts .. "/keybinds"), { descr
 
 -- Term
 hl.bind(key(mod, "return"), hl.dsp.exec_cmd(terminal), { description = "Kitty" })
-hl.bind(key(mod, "SHIFT", "return"), hl.dsp.exec_cmd(terminal .. " herdr"), { description = "terminal (herdr)" })
 
 -- Launcher
 hl.bind(key(mod, "Space"), hl.dsp.exec_cmd(menu), { description = "App launcher" })
@@ -82,12 +81,12 @@ hl.bind(key(mod, "T"), hl.dsp.window.float({ action = "toggle" }), { description
 -- Layout binds (SUPER+A to pick one, SUPER+O to flip it) live in layouts.lua,
 -- next to the state they drive.
 
--- Focus (vim keys) — unified nav: terminals get ctrl+hjkl injected (driving the
--- neovim/tmux chain, escalating back out at the edge); other windows move focus.
-hl.bind(key(mod, "H"), hl.dsp.exec_cmd(hypr_scripts .. "/nav l h"), { description = "Focus/nav left" })
-hl.bind(key(mod, "L"), hl.dsp.exec_cmd(hypr_scripts .. "/nav r l"), { description = "Focus/nav right" })
-hl.bind(key(mod, "K"), hl.dsp.exec_cmd(hypr_scripts .. "/nav u k"), { description = "Focus/nav up" })
-hl.bind(key(mod, "J"), hl.dsp.exec_cmd(hypr_scripts .. "/nav d j"), { description = "Focus/nav down" })
+-- Focus (vim keys) — unified nav: (n)vim splits -> kitty splits -> Hyprland
+-- windows, each layer handing off at its edge. See scripts/nav.
+hl.bind(key(mod, "H"), hl.dsp.exec_cmd(hypr_scripts .. "/nav h"), { description = "Focus/nav left" })
+hl.bind(key(mod, "L"), hl.dsp.exec_cmd(hypr_scripts .. "/nav l"), { description = "Focus/nav right" })
+hl.bind(key(mod, "K"), hl.dsp.exec_cmd(hypr_scripts .. "/nav k"), { description = "Focus/nav up" })
+hl.bind(key(mod, "J"), hl.dsp.exec_cmd(hypr_scripts .. "/nav j"), { description = "Focus/nav down" })
 
 -- Focus last window
 hl.bind(key(mod, "Backspace"), hl.dsp.focus({ last = true }), { description = "Focus last window" })

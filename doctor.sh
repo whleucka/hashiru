@@ -286,44 +286,6 @@ else
     bad "environment.d config missing: ${HOME}/.config/environment.d/10-hashiru.conf (30-desktop.sh)"
 fi
 
-# Hashiru's multiplexer, installed by 60-herdr.sh —
-# the binary comes from herdr.dev and the config is a Hashiru stow package.
-if command -v herdr &>/dev/null || [[ -x "${HOME}/.local/bin/herdr" ]]; then
-    ok "herdr installed"
-else
-    bad "herdr missing (60-herdr.sh)"
-fi
-
-# 60-herdr.sh installs these when Claude Code is present. Warnings, not
-# failures: herdr still works without them, it just guesses agent state and
-# cannot resume Claude panes after a restart.
-if command -v herdr &>/dev/null && command -v claude &>/dev/null; then
-    claude_status="$(herdr integration status 2>/dev/null | grep '^claude:' || true)"
-    if [[ -z "${claude_status}" || "${claude_status}" == "claude: not installed"* ]]; then
-        meh "herdr Claude integration missing (herdr integration install claude, or 60-herdr.sh)"
-    elif herdr integration status --outdated-only 2>/dev/null | grep -q '^claude:'; then
-        meh "herdr Claude integration outdated (herdr integration install claude, or 60-herdr.sh)"
-    else
-        claude_status="${claude_status#claude: }"
-        ok "herdr Claude integration ${claude_status%% (/*}"
-    fi
-    if [[ -f "${HOME}/.claude/skills/herdr/SKILL.md" ]]; then
-        ok "herdr skill installed"
-    else
-        meh "herdr skill missing (60-herdr.sh)"
-    fi
-fi
-
-# Tab titles from what is running. A warning: herdr works without it. Disabled
-# counts as present, since that was the user's call.
-if command -v herdr &>/dev/null; then
-    if herdr plugin list 2>/dev/null | grep -q '^- herdr.auto-title '; then
-        ok "herdr plugin herdr.auto-title installed"
-    else
-        meh "herdr plugin herdr.auto-title missing (herdr plugin install kryptamine/herdr-auto-title, or 60-herdr.sh)"
-    fi
-fi
-
 # --- Shell ---------------------------------------------------------------------
 
 section "Shell"
