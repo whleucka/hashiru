@@ -54,7 +54,7 @@ hl.bind(key(mod, "ALT", "Space"), hl.dsp.exec_cmd(hypr_scripts .. "/system-menu"
 -- "would you want this on a machine Hashiru did not build?" test on the site,
 -- under internals (https://hashiru.williamhleucka.com/docs/internals.html). They
 -- live in ~/.config/hashiru/hypr/keybinds.extra.lua,
-hl.bind(key(mod, "ALT", "A"), hl.dsp.exec_cmd(browser .. " --app=https://amazon.ca"), { description = "Amazon" })
+hl.bind(key(mod, "ALT", "A"), hl.dsp.exec_cmd(browser .. " --app=https://google.com"), { description = "Chrome App" })
 hl.bind(key(mod, "ALT", "B"), hl.dsp.exec_cmd(browser .. " --app=https://bsky.app"), { description = "Bluesky" })
 hl.bind(key(mod, "ALT", "E"), hl.dsp.exec_cmd(browser .. " --app=https://mail.google.com"), { description = "Email" })
 hl.bind(key(mod, "ALT", "F"), hl.dsp.exec_cmd(browser .. " --app=https://facebook.com"), { description = "Facebook" })
