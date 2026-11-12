@@ -139,6 +139,10 @@ hl.config({
         key_press_enables_dpms     = true,
         on_focus_under_fullscreen  = 1,
         focus_on_activate          = true,
+        -- Let a fresh hyprlock take over a lock whose client died. Without it,
+        -- a crashed hyprlock leaves the "lockscreen app died" screen and the
+        -- only way out is a tty. Ctrl+Alt+L (keybinds.lua) relaunches it.
+        allow_session_lock_restore = true,
     },
 
     xwayland = {

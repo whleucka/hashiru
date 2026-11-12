@@ -201,7 +201,10 @@ hl.bind("XF86AudioStop", hl.dsp.exec_cmd("playerctl stop"))
 -- Lock
 -- -----------------------------------------------------------------------------
 
-hl.bind(key("CTRL", "ALT", "L"), hl.dsp.exec_cmd("hyprlock"), { description = "Lock screen" })
+-- Locked, so it also fires on the "lockscreen app died" screen: there it
+-- relaunches hyprlock into the existing lock (misc.allow_session_lock_restore).
+-- pidof keeps it a no-op while a live hyprlock is already up.
+hl.bind(key("CTRL", "ALT", "L"), hl.dsp.exec_cmd("pidof hyprlock || hyprlock"), { description = "Lock screen", locked = true })
 
 -- -----------------------------------------------------------------------------
 -- Session
