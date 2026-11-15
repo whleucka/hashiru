@@ -26,3 +26,10 @@ snappy-switcher
 # Default terminal launcher (GLib/Thunar "open in terminal" apps -> kitty,
 # configured via thunar/.config/xdg-terminals.list in dotfiles)
 xdg-terminal-exec
+
+# Xbox One/Series Bluetooth controllers: proper mappings, trigger rumble and
+# battery reporting (pairing itself is config/bluetooth/). A DKMS module, so it
+# compiles against linux-headers (base.txt) on install and on every kernel
+# upgrade: seconds each time, but a kernel xpadneo hasn't caught up with yet
+# fails the build and leaves the pad on the in-kernel hid-microsoft driver.
+xpadneo-dkms
