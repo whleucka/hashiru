@@ -386,6 +386,69 @@ set_conf_knob() {
     rm -f "${tmp}"
 }
 
+# Merge the keys of an INI-style overlay into a target file and print the
+# result; writes nothing. For configs with no drop-in directory (BlueZ), where
+# the file is pacman's and only a handful of keys are Hashiru's. Each overlay
+# key replaces the first line in its section assigning it — live or commented
+# out, as upstream ships them — and later live duplicates are dropped. A key
+# its section never mentions goes at the end of that section, and a section the
+# target lacks is appended whole. Merging twice gives the same file.
+ini_merge() {
+    local overlay="$1" target="$2"
+    awk '
+        function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+        function flush(sec,   i, k) {
+            for (i = 1; i <= nkeys[sec]; i++) {
+                k = keys[sec, i]
+                if (!((sec, k) in done)) { print k " = " val[sec, k]; done[sec, k] = 1 }
+            }
+        }
+        # Overlay: collect section -> ordered keys and values.
+        FNR == NR {
+            if ($0 ~ /^[[:space:]]*(#|;|$)/) next
+            if ($0 ~ /^[[:space:]]*\[.*\][[:space:]]*$/) {
+                osec = trim($0)
+                if (!(osec in seen_sec)) { seen_sec[osec] = 1; order[++nsec] = osec }
+                next
+            }
+            eq = index($0, "=")
+            if (!eq || osec == "") next
+            k = trim(substr($0, 1, eq - 1))
+            if (!((osec, k) in val)) keys[osec, ++nkeys[osec]] = k
+            val[osec, k] = trim(substr($0, eq + 1))
+            next
+        }
+        # Target: rewrite in place.
+        /^[[:space:]]*\[.*\][[:space:]]*$/ {
+            if (sec != "") flush(sec)
+            sec = trim($0); present[sec] = 1
+            print; next
+        }
+        {
+            line = $0
+            live = (line !~ /^[[:space:]]*[#;]/)
+            sub(/^[[:space:]]*[#;]?[[:space:]]*/, "", line)
+            eq = index(line, "=")
+            if (sec != "" && eq) {
+                k = trim(substr(line, 1, eq - 1))
+                if (k ~ /^[A-Za-z0-9_.-]+$/ && (sec, k) in val) {
+                    if (!((sec, k) in done)) { print k " = " val[sec, k]; done[sec, k] = 1; next }
+                    if (live) next
+                }
+            }
+            print
+        }
+        END {
+            if (sec != "") flush(sec)
+            for (i = 1; i <= nsec; i++) {
+                s = order[i]
+                if (s in present) continue
+                print ""; print s; flush(s)
+            }
+        }
+    ' "${overlay}" "${target}"
+}
+
 # -----------------------------------------------------------------------------
 # Fingerprint PAM
 # -----------------------------------------------------------------------------

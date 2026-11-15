@@ -147,6 +147,29 @@ if [[ -f "$nm_dns_src" ]] && ! cmp -s "$nm_dns_src" "$nm_dns_dst"; then
         || log_warn "NetworkManager DNS change applies on next restart"
 fi
 
+# BlueZ settings for game controllers (see config/bluetooth/). BlueZ reads no
+# drop-ins, so the keys are merged into pacman's files in place; pacman marks
+# them backup, so an upgrade writes .pacnew and the merge holds. Restart only
+# when something changed: a restart drops every connected device.
+bt_changed=0
+for bt_conf in main.conf input.conf; do
+    bt_src="${SCRIPT_DIR}/config/bluetooth/${bt_conf}"
+    bt_dst="/etc/bluetooth/${bt_conf}"
+    [[ -f "$bt_src" && -f "$bt_dst" ]] || continue
+    bt_tmp="$(mktemp)"
+    ini_merge "$bt_src" "$bt_dst" > "$bt_tmp"
+    if ! cmp -s "$bt_tmp" "$bt_dst"; then
+        log_info "Updating Bluetooth configuration (${bt_conf})"
+        sudo install -m644 "$bt_tmp" "$bt_dst"
+        bt_changed=1
+    fi
+    rm -f "$bt_tmp"
+done
+if (( bt_changed )); then
+    sudo systemctl try-restart bluetooth.service \
+        || log_warn "Bluetooth configuration applies on next restart"
+fi
+
 if [[ -f "${SCRIPT_DIR}/config/systemd/zram-generator.conf" ]]; then
     log_info "Installing zram-generator configuration"
     sudo cp "${SCRIPT_DIR}/config/systemd/zram-generator.conf" /etc/systemd/zram-generator.conf
