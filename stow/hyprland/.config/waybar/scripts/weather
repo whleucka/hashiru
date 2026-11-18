@@ -9,8 +9,11 @@ CACHE_MAX_AGE=900  # 15 minutes in seconds
 
 # wttr.in's reply is untrusted: waybar renders both fields as Pango markup, so
 # escape &, < and > first, then let jq build the JSON rather than printf.
+#
+# wttr.in signs zero as "+-0°" (or "-0°"); show it as a plain "0°". Done here
+# so stale caches written before this fix display correctly too.
 emit() {
-    local markup='s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
+    local markup='s/[+-]\+0°/0°/g; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
     jq -cn --arg text "$(sed "$markup" <<<"$1")" --arg tooltip "$(sed "$markup" <<<"$2")" \
         '{text: $text, tooltip: $tooltip}'
 }
